@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="utf-8"?>
+<AutoVisualizer xmlns="http://schemas.microsoft.com/vstudio/debugger/natvis/2010">
+	<Type Name="json5::value">
+		<DisplayString Condition="_data==json5::value::type_null">null</DisplayString>
+		<DisplayString Condition="_data==json5::value::type_true">true</DisplayString>
+		<DisplayString Condition="_data==json5::value::type_false">false</DisplayString>
+		<DisplayString Condition="(_data&amp;json5::value::mask_type)==json5::value::type_string">
+			{ (const char*)(_data&amp;json5::value::mask_payload), s }
+		</DisplayString>
+		<DisplayString Condition="(_data&amp;json5::value::mask_type)==json5::value::type_object">
+			object {{ size={ (size_t)((*(json5::value*)(_data&amp;json5::value::mask_payload))._double)/2 } }}
+		</DisplayString>
+		<DisplayString Condition="(_data&amp;json5::value::mask_type)==json5::value::type_array">
+			array {{ size={ (size_t)((*(json5::value*)(_data&amp;json5::value::mask_payload))._double) } }}
+		</DisplayString>
+		<DisplayString>{ _double }</DisplayString>
+		<Expand>
+			<Item Name="[size]" Condition="(_data&amp;json5::value::mask_type)==json5::value::type_object">
+				(size_t)((*(json5::value*)(_data&amp;json5::value::mask_payload))._double)/2
+			</Item>
+			<Item Name="[size]" Condition="(_data&amp;json5::value::mask_type)==json5::value::type_array">
+				(size_t)((*(json5::value*)(_data&amp;json5::value::mask_payload))._double)
+			</Item>
+			<ArrayItems Condition="(_data&amp;json5::value::mask_type)==json5::value::type_object">
+				<Size>(size_t)((*(json5::value*)(_data&amp;json5::value::mask_payload))._double)</Size>
+				<ValuePointer>(json5::value*)(_data&amp;json5::value::mask_payload)+1</ValuePointer>
+			</ArrayItems>
+			<ArrayItems Condition="(_data&amp;json5::value::mask_type)==json5::value::type_array">
+				<Size>(size_t)((*(json5::value*)(_data&amp;json5::value::mask_payload))._double)</Size>
+				<ValuePointer>(json5::value*)(_data&amp;json5::value::mask_payload)+1</ValuePointer>
+			</ArrayItems>
+		</Expand>
+	</Type>
+  <Type Name="json5::error">
+    <DisplayString>{ type_string[type],s } at line { line }, column { column }</DisplayString>
+  </Type>
+</AutoVisualizer>

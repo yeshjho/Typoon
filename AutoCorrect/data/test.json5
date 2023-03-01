@@ -1,0 +1,35 @@
+{
+    matches: [
+        {
+            trigger: 'recieve',
+            replace: 'receive',
+            propagate_case: true
+        },
+        {
+            triggers: ['alth', 'alh'],
+            replace: 'although',
+            word: true
+        },
+        {
+            trigger: 'tbh',
+            replace: 'to be honest',
+            word: true,
+            propagate_case: true,
+            uppercase_style: 'capitalize_words'
+        },
+        {
+            trigger: 'aaaa',
+            replace: 'AAAA',
+            case_sensitive: true,
+        },
+        {
+            trigger: 'ㅎㅈㅎ',
+            replace: '황준호',
+            word: true,
+        },
+        {
+            trigger: 'ㄴ디ㅏ',
+            replace: '니다'
+        },
+    ]
+}
