@@ -6,3 +6,5 @@
 bool is_cased_alpha(wchar_t c);
 
 std::wstring to_u16_string(const std::string& str);
+
+std::wstring normalize_hangul(std::wstring_view str);

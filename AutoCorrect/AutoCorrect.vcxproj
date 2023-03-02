@@ -23,6 +23,7 @@
     <ClCompile Include="match\trigger_tree.cpp" />
     <ClCompile Include="parse\match_for_parse.cpp" />
     <ClCompile Include="parse\parse.cpp" />
+    <ClCompile Include="platform\windows\fake_input.cpp" />
     <ClCompile Include="platform\windows\file_change_watcher.cpp" />
     <ClCompile Include="platform\windows\keyboard_watcher.cpp" />
     <ClCompile Include="main.cpp" />
@@ -31,6 +32,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="input_multicast\input_multicast.h" />
+    <ClInclude Include="low_level\fake_input.h" />
     <ClInclude Include="low_level\file_change_watcher.h" />
     <ClInclude Include="low_level\keyboard_watcher.h" />
     <ClInclude Include="match\match.h" />

@@ -1,6 +1,5 @@
 #include "../../low_level/keyboard_watcher.h"
 
-#include <cwctype>
 #include <system_error>
 #include <thread>
 #include <Windows.h>
@@ -41,8 +40,8 @@ static LRESULT CALLBACK low_level_keyboard_proc(int nCode, WPARAM wParam, LPARAM
             continue;
         }
 
-        if ('a' <= character && character <= 'z' ||
-            'A' <= character && character <= 'A')
+        if (const bool isLowerAlphabet = 'a' <= character && character <= 'z', isUpperAlphabet = 'A' <= character && character <= 'Z';
+            isLowerAlphabet || isUpperAlphabet)
         {
             if (const HWND defaultImeWindow = ImmGetDefaultIMEWnd(foregroundWindow);
                 SendMessage(defaultImeWindow, WM_IME_CONTROL, 0x0005/*IMC_GETOPENSTATUS*/, 0))  // is Hangul on
@@ -51,20 +50,20 @@ static LRESULT CALLBACK low_level_keyboard_proc(int nCode, WPARAM wParam, LPARAM
             {
                 if (keyboardState[VK_CAPITAL] & 0x1)
                 {
-                    if (std::iswlower(character))
+                    if (isLowerAlphabet)
                     {
-                        character = std::towupper(character);
+                        character -= 'a' - 'A';
                     }
                     else
                     {
-                        character = std::towlower(character);
+                        character += 'a' - 'A';
                     }
                 }
 
                 // Support only two-set keyboard layout for now.
                 constexpr wchar_t lowerAlphabetToHangul[] = L"ㅁㅠㅊㅇㄷㄹㅎㅗㅑㅓㅏㅣㅡㅜㅐㅔㅂㄱㄴㅅㅕㅍㅈㅌㅛㅋ";
                 constexpr wchar_t upperAlphabetToHangul[] = L"ㅁㅠㅊㅇㄸㄹㅎㅗㅑㅓㅏㅣㅡㅜㅒㅖㅃㄲㄴㅆㅕㅍㅉㅌㅛㅋ";
-                if (std::iswlower(character))
+                if (isLowerAlphabet)
                 {
                     character = lowerAlphabetToHangul[character - L'a'];
                 }
@@ -127,6 +126,9 @@ void end_keyboard_watcher()
     }
 
     keyboard_watcher_thread.request_stop();
-    keyboard_watcher_thread.join();
+    if (keyboard_watcher_thread.joinable())
+    {
+        keyboard_watcher_thread.join();
+    }
 }
 

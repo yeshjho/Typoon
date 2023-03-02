@@ -36,7 +36,10 @@ std::string to_string(const T& t)
     {
         return std::to_string(t);
     }
-    std::unreachable();
+    else
+    {
+        std::unreachable();
+    }
 }
 }
 

@@ -28,8 +28,12 @@
             word: true,
         },
         {
-            trigger: 'ㄴ디ㅏ',
+            triggers: ['ㄴ디ㅏ', 'ㄴ다'],
             replace: '니다'
+        },
+        {
+            triggers: ['스비낟', '스빈다'],
+            replace: '습니다'
         },
     ]
 }

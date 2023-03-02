@@ -53,5 +53,8 @@ void start_file_change_watcher(std::filesystem::path path, std::function<void()>
 void end_file_change_watcher()
 {
     file_change_watcher_thread.request_stop();
-    file_change_watcher_thread.join();
+    if (file_change_watcher_thread.joinable())
+    {
+        file_change_watcher_thread.join();
+    }
 }
