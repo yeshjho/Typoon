@@ -23,7 +23,7 @@ struct MatchForParse
     bool propagate_case = false;
     EUppercaseStyle uppercase_style = EUppercaseStyle::first_letter;
 
-    explicit operator Match() const;
+    operator Match() const;
 
     JSON5_MEMBERS(triggers, trigger, replace, word, case_sensitive, propagate_case, uppercase_style)
 };

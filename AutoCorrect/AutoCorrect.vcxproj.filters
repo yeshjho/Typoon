@@ -39,6 +39,9 @@
     <ClCompile Include="parse\match_for_parse.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="parse\parse.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="utils\logger.h">
@@ -63,6 +66,9 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="parse\match_for_parse.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="parse\parse.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

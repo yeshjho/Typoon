@@ -1,5 +1,8 @@
 #pragma once
+#include <filesystem>
+
 #include "match.h"
 
 
-void construct_trigger_tree(const std::vector<Match>& matches);
+void initiate_trigger_tree(std::filesystem::path matchFile);
+void reconstruct_trigger_tree();
