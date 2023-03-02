@@ -18,7 +18,8 @@ static LRESULT CALLBACK low_level_keyboard_proc(int nCode, WPARAM wParam, LPARAM
 
     const auto param = reinterpret_cast<LPKBDLLHOOKSTRUCT>(lParam);
     unsigned char keyboardState[256] = { 0, };
-    unsigned short character = 0;
+    // ToUnicodeEx produces in UTF-16, so 2 wchar_t's are enough.
+    wchar_t characters[2] = { 0, };
     
     GetKeyState(0);  // GetKeyboardState doesn't fetch control keys such as Shift, CapsLock, etc. without this call.
     if (!GetKeyboardState(keyboardState) || (keyboardState[VK_LWIN] & 0x80))  // Even when the Windows key is pressed, ToAsciiEx will return the character of the key, thus filtering out.
@@ -27,46 +28,55 @@ static LRESULT CALLBACK low_level_keyboard_proc(int nCode, WPARAM wParam, LPARAM
     }
 
     const HWND foregroundWindow = GetForegroundWindow();
-    if (const int result = ToAsciiEx(param->vkCode, param->scanCode, keyboardState, &character, 0, GetKeyboardLayout(GetWindowThreadProcessId(foregroundWindow, nullptr)));
+    if (const int result = ToUnicodeEx(param->vkCode, param->scanCode, keyboardState, characters, static_cast<int>(std::size(characters)), 0, GetKeyboardLayout(GetWindowThreadProcessId(foregroundWindow, nullptr)));
         result <= 0)
     {
         return CallNextHookEx(nullptr, nCode, wParam, lParam);
     }
 
-    if (std::iswalpha(character))
+    for (wchar_t character : characters)
     {
-        if (const HWND defaultImeWindow = ImmGetDefaultIMEWnd(foregroundWindow);
-            SendMessage(defaultImeWindow, WM_IME_CONTROL, 0x0005/*IMC_GETOPENSTATUS*/, 0))  // is Hangul on
-            // keyboardState[VK_HANGUL] doesn't work since it only stores the state of the last key pressed, not the current state(toggled), unlike VK_CAPITAL.
-            // Maybe should check the keyboard layout?
+        if (character == '\0')
         {
-            if (keyboardState[VK_CAPITAL] & 0x1)
+            continue;
+        }
+
+        if ('a' <= character && character <= 'z' ||
+            'A' <= character && character <= 'A')
+        {
+            if (const HWND defaultImeWindow = ImmGetDefaultIMEWnd(foregroundWindow);
+                SendMessage(defaultImeWindow, WM_IME_CONTROL, 0x0005/*IMC_GETOPENSTATUS*/, 0))  // is Hangul on
+                // keyboardState[VK_HANGUL] doesn't work since it only stores the state of the last key pressed, not the current state(toggled), unlike VK_CAPITAL.
+                // Maybe should check the keyboard layout?
             {
+                if (keyboardState[VK_CAPITAL] & 0x1)
+                {
+                    if (std::iswlower(character))
+                    {
+                        character = std::towupper(character);
+                    }
+                    else
+                    {
+                        character = std::towlower(character);
+                    }
+                }
+
+                // Support only two-set keyboard layout for now.
+                constexpr wchar_t lowerAlphabetToHangul[] = L"ㅁㅠㅊㅇㄷㄹㅎㅗㅑㅓㅏㅣㅡㅜㅐㅔㅂㄱㄴㅅㅕㅍㅈㅌㅛㅋ";
+                constexpr wchar_t upperAlphabetToHangul[] = L"ㅁㅠㅊㅇㄸㄹㅎㅗㅑㅓㅏㅣㅡㅜㅒㅖㅃㄲㄴㅆㅕㅍㅉㅌㅛㅋ";
                 if (std::iswlower(character))
                 {
-                    character = std::towupper(character);
+                    character = lowerAlphabetToHangul[character - L'a'];
                 }
                 else
                 {
-                    character = std::towlower(character);
+                    character = upperAlphabetToHangul[character - L'A'];
                 }
             }
-
-            // Support only two-set keyboard layout for now.
-            constexpr wchar_t lowerAlphabetToHangul[] = L"ㅁㅠㅊㅇㄷㄹㅎㅗㅑㅓㅏㅣㅡㅜㅐㅔㅂㄱㄴㅅㅕㅍㅈㅌㅛㅋ";
-            constexpr wchar_t upperAlphabetToHangul[] = L"ㅁㅠㅊㅇㄸㄹㅎㅗㅑㅓㅏㅣㅡㅜㅒㅖㅃㄲㄴㅆㅕㅍㅉㅌㅛㅋ";
-            if (std::iswlower(character))
-            {
-                character = lowerAlphabetToHangul[character - L'a'];
-            }
-            else
-            {
-                character = upperAlphabetToHangul[character - L'A'];
-            }
         }
-    }
 
-    multicast_input(character);
+        multicast_input(character);
+    }
 
     return CallNextHookEx(nullptr, nCode, wParam, lParam);
 }

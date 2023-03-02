@@ -3,10 +3,9 @@
 #include <array>
 
 
-using QueueType = atomic_queue::AtomicQueue<unsigned short, 20, atomic_queue::details::nil<unsigned short>(), true, true, true, true>;
 std::array<std::pair<QueueType, bool>, 5> queues;
 
-void multicast_input(unsigned short value)
+void multicast_input(InputType value)
 {
     for (auto& [queue, isTaken] : queues)
     {
