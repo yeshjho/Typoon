@@ -70,8 +70,8 @@ struct Node
 
 struct Agent
 {
-	std::wstring stroke;
-	const Node* node;
+    std::wstring stroke;
+    const Node* node;
 };
 
 
@@ -97,9 +97,9 @@ void initiate_trigger_tree(std::filesystem::path matchFile)
     
     trigger_tree_thread = std::jthread{ [&listener = register_input_listener()](const std::stop_token& stopToken)
     {
-		std::vector<Agent> agents;  // TODO: Analyze the tree and reserve the max amount. Maybe use a pool?
+        std::vector<Agent> agents;  // TODO: Analyze the tree and reserve the max amount. Maybe use a pool?
         std::vector<Agent> nextIterationAgents;
-		
+        
         while (true)
         {
             if (stopToken.stop_requested()) [[unlikely]]
