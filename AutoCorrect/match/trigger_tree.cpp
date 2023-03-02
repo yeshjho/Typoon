@@ -66,6 +66,13 @@ struct Node
 };
 
 
+struct Agent
+{
+	std::wstring stroke;
+	const Node* node;
+};
+
+
 std::filesystem::path match_file;
 Node trigger_tree_root;
 std::atomic<bool> is_trigger_tree_available = false;
@@ -88,6 +95,8 @@ void initiate_trigger_tree(std::filesystem::path matchFile)
     
     trigger_tree_thread = std::jthread{ [&listener = register_input_listener()](const std::stop_token& stopToken)
     {
+		std::vector<Agent> agents;  // TODO: Analyze the tree and reserve the max amount. Maybe use a pool?
+		
         while (true)
         {
             if (stopToken.stop_requested()) [[unlikely]]
@@ -108,6 +117,29 @@ void initiate_trigger_tree(std::filesystem::path matchFile)
             }
 
             const InputType input = listener.pop();
+			std::erase_if(agents, [](Agent& agent)
+			{
+				const auto& childMap = agent.node->children;
+				if (auto it = childMap.find(input);
+				    it != childMap.end())
+				{
+					agent.stroke += input;
+					agent.node = &it->second;
+					
+					if (agent.node->isTrigger)
+					{
+						// TODO: onTrigger
+						
+						return true;
+					}
+					
+					return false;
+				}
+				else
+				{
+					return true;
+				}
+			});
         }
     } };
 }
