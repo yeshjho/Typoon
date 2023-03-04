@@ -33,7 +33,7 @@ static LRESULT CALLBACK low_level_keyboard_proc(int nCode, WPARAM wParam, LPARAM
         return CallNextHookEx(nullptr, nCode, wParam, lParam);
     }
 
-    for (wchar_t character : characters)
+    for (wchar_t& character : characters)
     {
         if (character == '\0')
         {
@@ -73,11 +73,20 @@ static LRESULT CALLBACK low_level_keyboard_proc(int nCode, WPARAM wParam, LPARAM
                 }
             }
         }
-
-        multicast_input(character);
     }
 
-    return CallNextHookEx(nullptr, nCode, wParam, lParam);
+    // Call next hook first and multicast input and then return the result because text can be replaced before the last letter is actually written.
+    const LRESULT toReturn = CallNextHookEx(nullptr, nCode, wParam, lParam);
+
+    for (const wchar_t character : characters)
+    {
+        if (character != '\0')
+        {
+            multicast_input(character);
+        }
+    }
+
+    return toReturn;
 }
 
 
