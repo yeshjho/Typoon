@@ -16,10 +16,16 @@ static LRESULT CALLBACK low_level_keyboard_proc(int nCode, WPARAM wParam, LPARAM
     }
 
     const auto param = reinterpret_cast<LPKBDLLHOOKSTRUCT>(lParam);
+    if (param->flags & LLKHF_INJECTED)
+    {
+        // Ignore inputs generated with SendInput().
+        return CallNextHookEx(nullptr, nCode, wParam, lParam);
+    }
+
     unsigned char keyboardState[256] = { 0, };
     // ToUnicodeEx produces in UTF-16, so 2 wchar_t's are enough.
     wchar_t characters[2] = { 0, };
-    
+
     GetKeyState(0);  // GetKeyboardState doesn't fetch control keys such as Shift, CapsLock, etc. without this call.
     if (!GetKeyboardState(keyboardState) || (keyboardState[VK_LWIN] & 0x80))  // Even when the Windows key is pressed, ToAsciiEx will return the character of the key, thus filtering out.
     {
