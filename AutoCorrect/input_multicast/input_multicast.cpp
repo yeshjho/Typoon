@@ -5,7 +5,7 @@
 
 std::array<std::pair<QueueType, bool>, 5> queues;
 
-void multicast_input(InputType value)
+void multicast_input(wchar_t value)
 {
     for (auto& [queue, isTaken] : queues)
     {

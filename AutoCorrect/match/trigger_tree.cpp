@@ -112,14 +112,14 @@ void initiate_trigger_tree(std::filesystem::path matchFile)
                 std::unique_lock lock{ trigger_tree_mutex };
                 trigger_tree_cv.wait(lock);
 
-                InputType discard;
+                wchar_t discard;
                 while (listener.try_pop(discard))
                 {}
 
                 continue;
             }
 
-            const InputType input = listener.pop();
+            const wchar_t input = listener.pop();
 
             const auto lambdaAdvanceAgent = [input, &nextIterationAgents](const std::wstring& stroke, const std::map<Letter, Node>& childMap)  // returns true if a trigger was found
             {
