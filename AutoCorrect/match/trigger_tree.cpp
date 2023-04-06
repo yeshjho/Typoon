@@ -112,20 +112,20 @@ void initiate_trigger_tree(std::filesystem::path matchFile)
                 std::unique_lock lock{ trigger_tree_mutex };
                 trigger_tree_cv.wait(lock);
 
-                wchar_t discard;
+                InputMessage discard;
                 while (listener.try_pop(discard))
                 {}
 
                 continue;
             }
 
-            const wchar_t input = listener.pop();
+            const auto [inputLetter, isBeingComposed] = listener.pop();
 
-            const auto lambdaAdvanceAgent = [input, &nextIterationAgents](const std::wstring& stroke, const std::map<Letter, Node>& childMap)  // returns true if a trigger was found
+            const auto lambdaAdvanceAgent = [inputLetter, &nextIterationAgents](const std::wstring& stroke, const std::map<Letter, Node>& childMap)  // returns true if a trigger was found
             {
                 for (const auto& [letter, child] : childMap)
                 {
-                    if (letter != input)
+                    if (letter != inputLetter)
                     {
                         continue;
                     }
@@ -154,7 +154,7 @@ void initiate_trigger_tree(std::filesystem::path matchFile)
             {
                 for (auto& [stroke, node] : agents)
                 {
-                    if (lambdaAdvanceAgent(stroke + input, node->children))
+                    if (lambdaAdvanceAgent(stroke + inputLetter, node->children))
                     {
                         break;
                     }

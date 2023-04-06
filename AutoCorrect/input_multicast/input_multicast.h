@@ -2,9 +2,18 @@
 #include <atomic_queue/atomic_queue.h>
 
 
-using QueueType = atomic_queue::AtomicQueue<wchar_t, 20, atomic_queue::details::nil<wchar_t>(), true, true, true, true>;
+struct InputMessage
+{
+    wchar_t letter = 0;
+    bool isBeingComposed = false;
+
+    constexpr bool operator==(const InputMessage& other) const noexcept = default;
+};
+
+
+using QueueType = atomic_queue::AtomicQueue<InputMessage, 20, atomic_queue::details::nil<InputMessage>(), true, true, true, true>;
 
 // NOTE: Keyboard watcher thread only.
-void multicast_input(wchar_t value);
+void multicast_input(InputMessage value);
 // NOTE: Main thread only. If you need it in another thread, call it from main thread and pass the queue to that thread.
 QueueType& register_input_listener();

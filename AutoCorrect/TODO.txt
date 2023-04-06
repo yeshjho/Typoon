@@ -1,5 +1,12 @@
 한국어 이전 글자에 합쳐지는 거
 ex - trigger: ㄴ다 / 입력: 빈다 <- 감지됨 (옵션으로 따로 빼야 할 듯)
+ㄴ IME simulator
+
+trigger / match 용어 정리
+
+keyboard_ll 훅에서 raw input device로 바꾸기
+
+logger 제대로
 
 트리거 트리 Optimization
 

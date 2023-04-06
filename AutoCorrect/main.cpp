@@ -23,8 +23,8 @@ int main()
             auto& inputListener = register_input_listener();
             while (true)
             {
-                const unsigned short s = inputListener.pop();
-                g_console_logger.Log(s);
+                const auto [letter, _] = inputListener.pop();
+                g_console_logger.Log(letter);
             }
         }
     };
