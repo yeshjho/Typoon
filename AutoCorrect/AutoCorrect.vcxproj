@@ -19,6 +19,7 @@
     </ProjectConfiguration>
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="imm\ImmSimulator.cpp" />
     <ClCompile Include="input_multicast\input_multicast.cpp" />
     <ClCompile Include="match\trigger_tree.cpp" />
     <ClCompile Include="parse\match_for_parse.cpp" />
@@ -31,6 +32,7 @@
     <ClCompile Include="utils\string.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="imm\ImmSimulator.h" />
     <ClInclude Include="input_multicast\input_multicast.h" />
     <ClInclude Include="low_level\fake_input.h" />
     <ClInclude Include="low_level\file_change_watcher.h" />
