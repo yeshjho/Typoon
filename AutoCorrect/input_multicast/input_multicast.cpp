@@ -3,7 +3,7 @@
 #include <array>
 
 
-std::array<std::pair<QueueType, bool>, 5> queues;
+std::array<std::pair<InputQueueType, bool>, 5> queues;
 
 void multicast_input(InputMessage value)
 {
@@ -16,7 +16,7 @@ void multicast_input(InputMessage value)
     }
 }
 
-QueueType& register_input_listener()
+InputQueueType& register_input_listener()
 {
     for (auto& [queue, isTaken] : queues)
     {

@@ -1,6 +1,11 @@
 #include "ImmSimulator.h"
 
+#include <thread>
+
+#include <atomic_queue/atomic_queue.h>
+
 #include "../input_multicast/input_multicast.h"
+#include "../utils/logger.h"
 
 
 void ImmSimulator::AddLetter(wchar_t letter)
@@ -229,4 +234,46 @@ wchar_t ImmSimulator::composeLetter() const
         MEDIAL_COUNT * FINAL_COUNT * INITIAL_MAP[mComposition.initial - L'ㄱ'] +
         FINAL_COUNT * (medial - L'ㅏ') +
         (final ? FINAL_MAP[final - L'ㄱ'] + 1 : 0);
+}
+
+
+using RawInputQueueType = atomic_queue::AtomicQueue<wchar_t, 20, atomic_queue::details::nil<wchar_t>(), true, true, true, true>;
+RawInputQueueType raw_input_queue;
+std::jthread imm_simulator_thread;
+
+
+void setup_imm_simulator()
+{
+    if (imm_simulator_thread.joinable()) [[unlikely]]
+    {
+        g_console_logger.Log("Imm Simulator is already running.", ELogLevel::WARNING);
+        return;
+    }
+
+    imm_simulator_thread = std::jthread{ [&queue = raw_input_queue, simulator = ImmSimulator{}](const std::stop_token& stopToken) mutable
+    {
+        while (true)
+        {
+            if (stopToken.stop_requested()) [[unlikely]]
+            {
+                break;
+            }
+
+            simulator.AddLetter(queue.pop());
+        }
+    } };
+}
+
+void teardown_imm_simulator()
+{
+    imm_simulator_thread.request_stop();
+    if (imm_simulator_thread.joinable())
+    {
+        imm_simulator_thread.join();
+    }
+}
+
+void send_raw_input_to_imm_simulator(wchar_t letter)
+{
+    raw_input_queue.push(letter);
 }

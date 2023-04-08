@@ -3,6 +3,7 @@
 #include "low_level/keyboard_watcher.h"
 #include "low_level/file_change_watcher.h"
 
+#include "imm/ImmSimulator.h"
 #include "input_multicast/input_multicast.h"
 #include "match/trigger_tree.h"
 #include "utils/logger.h"
@@ -15,6 +16,7 @@ int main()
                               {
                                   reconstruct_trigger_tree();
                               });
+    setup_imm_simulator();
     initiate_trigger_tree("C:/Users/yeshj/Desktop/folders/Visual Studio/AutoCorrect/AutoCorrect/data/test.json5");
 
     std::thread t{
@@ -37,5 +39,6 @@ int main()
 
     end_keyboard_watcher();
     end_file_change_watcher();
+    teardown_imm_simulator();
     return 0;
 }

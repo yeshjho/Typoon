@@ -11,9 +11,9 @@ struct InputMessage
 };
 
 
-using QueueType = atomic_queue::AtomicQueue<InputMessage, 20, atomic_queue::details::nil<InputMessage>(), true, true, true, true>;
+using InputQueueType = atomic_queue::AtomicQueue<InputMessage, 20, atomic_queue::details::nil<InputMessage>(), true, true, true, true>;
 
-// NOTE: Keyboard watcher thread only.
+// NOTE: Imm simulator thread only.
 void multicast_input(InputMessage value);
 // NOTE: Main thread only. If you need it in another thread, call it from main thread and pass the queue to that thread.
-QueueType& register_input_listener();
+InputQueueType& register_input_listener();

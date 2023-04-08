@@ -38,3 +38,9 @@ private:
 
     Composition mComposition;
 };
+
+
+void setup_imm_simulator();
+void teardown_imm_simulator();
+
+void send_raw_input_to_imm_simulator(wchar_t letter);

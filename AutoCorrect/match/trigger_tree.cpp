@@ -121,7 +121,7 @@ void initiate_trigger_tree(std::filesystem::path matchFile)
 
             const auto [inputLetter, isBeingComposed] = listener.pop();
 
-            const auto lambdaAdvanceAgent = [inputLetter, &nextIterationAgents](const std::wstring& stroke, const std::map<Letter, Node>& childMap)  // returns true if a trigger was found
+            const auto lambdaAdvanceAgent = [inputLetter, isBeingComposed, &nextIterationAgents](const std::wstring& stroke, const std::map<Letter, Node>& childMap)  // returns true if a trigger was found
             {
                 for (const auto& [letter, child] : childMap)
                 {
@@ -143,26 +143,37 @@ void initiate_trigger_tree(std::filesystem::path matchFile)
                         return true;
                     }
 
-                    nextIterationAgents.emplace_back(stroke, &child);
-                    // NOTE: multiple matches can happen, not breaking here
+                    if (!isBeingComposed)
+                    {
+                        nextIterationAgents.emplace_back(stroke, &child);
+                        // NOTE: multiple matches can happen, not breaking here
+                    }
                 }
 
                 return false;
             };
 
-            if (!lambdaAdvanceAgent(L"", trigger_tree_root.children))
+            bool isTriggerFound = false;
+
+            // Check for triggers in the root node.
+            if (isTriggerFound = lambdaAdvanceAgent(L"", trigger_tree_root.children);
+                !isTriggerFound)
             {
                 for (auto& [stroke, node] : agents)
                 {
-                    if (lambdaAdvanceAgent(stroke + inputLetter, node->children))
+                    if (isTriggerFound = lambdaAdvanceAgent(stroke + inputLetter, node->children);
+                        isTriggerFound)
                     {
                         break;
                     }
                 }
             }
 
-            agents.clear();
-            std::swap(agents, nextIterationAgents);
+            if (!isBeingComposed || isTriggerFound)
+            {
+                agents.clear();
+                std::swap(agents, nextIterationAgents);
+            }
         }
     } };
 }
@@ -196,9 +207,8 @@ void reconstruct_trigger_tree()
         {
             for (const auto& trigger : triggers)
             {
-                std::wstring normalizedTrigger = normalize_hangul(trigger);
                 Node* node = &trigger_tree_root;
-                for (auto triggerIt = normalizedTrigger.begin(); triggerIt != normalizedTrigger.end() - 1; ++triggerIt)
+                for (auto triggerIt = trigger.begin(); triggerIt != trigger.end() - 1; ++triggerIt)
                 {
                     const wchar_t ch = *triggerIt;
                     auto [it, isNew] = node->children.try_emplace(Letter{ ch, isCaseSensitive && is_cased_alpha(ch) }, Node{});
@@ -211,14 +221,13 @@ void reconstruct_trigger_tree()
                 }
 
                 const wchar_t lastLetter = trigger.back();
-                const wchar_t lastNormalizedLetter = normalizedTrigger.back();
                 auto backspaceCount = static_cast<unsigned int>(trigger.size());
                 if (L'가' <= lastLetter && lastLetter <= L'힣')
                 {
                     backspaceCount += static_cast<int>(normalize_hangul(std::wstring{ lastLetter }).size()) - 1;
                 }
                 // Since finding a match resets all the agents, we cannot advance further anyway. Therefore overwriting is fine.
-                node->children[{ lastNormalizedLetter, isCaseSensitive && is_cased_alpha(lastNormalizedLetter) }] =
+                node->children[{ lastLetter, isCaseSensitive && is_cased_alpha(lastLetter) }] =
                     { .isTrigger = true, .replace = replace, .backspaceCount = backspaceCount };
                 STOP
             }

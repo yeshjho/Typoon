@@ -35,5 +35,13 @@
             triggers: ['스비낟', '스빈다'],
             replace: '습니다'
         },
+        {
+            trigger: 'ga가q구',
+            replace: 'ㅁㄴㅇㄹ',
+        },
+        {
+            trigger: '히히ab',
+            replace: 'qwer',
+        },
     ]
 }

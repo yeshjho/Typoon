@@ -4,6 +4,7 @@
 #include <thread>
 #include <Windows.h>
 
+#include "../../imm/ImmSimulator.h"
 #include "../../utils/logger.h"
 
 
@@ -87,8 +88,7 @@ static LRESULT CALLBACK low_level_keyboard_proc(int nCode, WPARAM wParam, LPARAM
     {
         if (character != '\0')
         {
-            // TODO: Send it to the imm
-            //multicast_input(character);
+            send_raw_input_to_imm_simulator(character);
         }
     }
 
