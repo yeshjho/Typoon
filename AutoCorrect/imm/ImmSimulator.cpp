@@ -10,6 +10,17 @@
 
 void ImmSimulator::AddLetter(wchar_t letter)
 {
+    if (letter == '\b')
+    {
+        if (!RemoveLetter())
+        {
+            multicast_input({ letter, false });
+        }
+        // We don't need to multicast the input at all if a letter is successfully removed from the composition,
+        // since the after-backspace-composition has already been cast for trigger checking before the backspace.
+        return;
+    }
+
     const bool isConsonant = L'ㄱ' <= letter && letter <= L'ㅎ';
     const bool isVowel = L'ㅏ' <= letter && letter <= L'ㅣ';
 
@@ -68,6 +79,37 @@ void ImmSimulator::AddLetter(wchar_t letter)
     }
 
     multicast_input({ composeLetter(), true });
+}
+
+
+bool ImmSimulator::RemoveLetter()
+{
+    if (mComposition.final[1] != 0)
+    {
+        mComposition.final[1] = 0;
+    }
+    else if (mComposition.final[0] != 0)
+    {
+        mComposition.final[0] = 0;
+    }
+    else if (mComposition.medial[1] != 0)
+    {
+        mComposition.medial[1] = 0;
+    }
+    else if (mComposition.medial[0] != 0)
+    {
+        mComposition.medial[0] = 0;
+    }
+    else if (mComposition.initial != 0)
+    {
+        mComposition.initial = 0;
+    }
+    else
+    {
+        return false;
+    }
+
+    return true;
 }
 
 

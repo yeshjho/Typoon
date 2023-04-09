@@ -5,7 +5,8 @@ class ImmSimulator
 {
 public:
     void AddLetter(wchar_t letter);
-    void RemoveLetter();  // TODO
+    // Returns whether a letter was removed from the current composition.
+    bool RemoveLetter();
     
     // Called when the composition is finished by either
     // 1. Adding another letter

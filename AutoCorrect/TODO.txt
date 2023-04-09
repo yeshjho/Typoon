@@ -1,4 +1,4 @@
-백스페이스 지원(imm / stroke 둘 다)
+백스페이스 지원(stroke)
 
 keyboard_ll 훅에서 raw input device로 바꾸기
 
