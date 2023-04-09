@@ -13,6 +13,7 @@ void ImmSimulator::AddLetter(wchar_t letter)
     const bool isConsonant = L'ㄱ' <= letter && letter <= L'ㅎ';
     const bool isVowel = L'ㅏ' <= letter && letter <= L'ㅣ';
 
+    // If the letter is not a Korean letter, emit the current composition and then emit the letter.
     if (!isConsonant && !isVowel)
     {
         ComposeEmitResetComposition();
@@ -22,12 +23,18 @@ void ImmSimulator::AddLetter(wchar_t letter)
 
     if (isConsonant)
     {
+        // Since there is no initial requires two key strokes to be composed, if there is no initial letter, we can emit the previous and set the letter as the initial.
+        // Why emit and set instead of setting right away? There are compositions which only contain medial letters. (ex - 'ㅏ' followed by 'ㄱ')
+        // If there is no medial letter, we also can know that the previous composition is finished. (ex - 'ㄱ' followed by 'ㄱ')
+        // If the final letters are full(ex - '갃' followed by 'ㄱ') or the letter cannot be combined with the previous final letter(ex - '간' followed by 'ㄱ'),
+        // the composition if finished.
         if (mComposition.initial == 0 || mComposition.medial[0] == 0 ||
             mComposition.final[1] != 0 || !canCombineLetters(mComposition.final[0], letter))
         {
             ComposeEmitResetComposition();
             mComposition.initial = letter;
         }
+        // There is an initial letter, at least one medial letter, and the letter can be combined with the previous final letter (or there was no final letter).
         else
         {
             mComposition.final[mComposition.final[0] == 0 ? 0 : 1] = letter;
@@ -35,6 +42,8 @@ void ImmSimulator::AddLetter(wchar_t letter)
     }
     else  // isVowel
     {
+        // If there is at least one letter in the final, detach the latter one and use that as a new letter's initial. (ex - '각' followed by 'ㅑ' becomes '가갸')
+        // This is also the reason why we can't emit a composition right away even if there are no letters left that can be added to the composition.
         if (mComposition.final[0] != 0)
         {
             wchar_t& consonantToDetach = mComposition.final[mComposition.final[1] == 0 ? 0 : 1];
@@ -44,11 +53,14 @@ void ImmSimulator::AddLetter(wchar_t letter)
             mComposition.initial = newInitial;
             mComposition.medial[0] = letter;
         }
+        // If the medial letters are full(ex - '과' followed by 'ㅏ') or the letter cannot be combined with the previous medial letter(ex - '구' followed by 'ㅏ'),
+        // Emit the previous composition and set the letter as the medial (It'll become a medial-only letter, with no initial letter).
         else if (mComposition.medial[1] != 0 || !canCombineLetters(mComposition.medial[0], letter))
         {
             ComposeEmitResetComposition();
             mComposition.medial[0] = letter;
         }
+        // There is no final letter, and the letter can be combined with the previous medial letter (or there was no medial letter).
         else
         {
             mComposition.medial[mComposition.medial[0] == 0 ? 0 : 1] = letter;
@@ -123,6 +135,7 @@ wchar_t ImmSimulator::combineLetters(wchar_t a, wchar_t b)
         return a;
     }
 
+    // It assumes that two letters are combineable. (Use canCombineLetters() to check)
     switch (a)
     {
     case L'ㄱ':
@@ -156,7 +169,7 @@ wchar_t ImmSimulator::combineLetters(wchar_t a, wchar_t b)
             return L'ㅀ';
 
         default:
-            throw;
+            std::unreachable();
         }
 
     case L'ㅂ':
@@ -175,7 +188,7 @@ wchar_t ImmSimulator::combineLetters(wchar_t a, wchar_t b)
             return L'ㅚ';
 
         default:
-            throw;
+            std::unreachable();
         }
 
     case L'ㅜ':
@@ -191,14 +204,14 @@ wchar_t ImmSimulator::combineLetters(wchar_t a, wchar_t b)
             return L'ㅟ';
 
         default:
-            throw;
+            std::unreachable();
         }
 
     case L'ㅡ':
         return L'ㅢ';
 
     default:
-        throw;
+        std::unreachable();
     }
 }
 
@@ -207,10 +220,12 @@ wchar_t ImmSimulator::composeLetter() const
 {
     const wchar_t medial = combineLetters(mComposition.medial[0], mComposition.medial[1]);
 
+    // If there is no initial letter, it can only be a medial-only letter.
     if (mComposition.initial == 0)
     {
         return medial;
     }
+    // If there is no medial letter, it can only be an initial-only letter.
     if (medial == 0)
     {
         return mComposition.initial;
@@ -222,7 +237,10 @@ wchar_t ImmSimulator::composeLetter() const
     constexpr wchar_t FINAL_COUNT = L'갛' - L'가' + 1;
     constexpr wchar_t INVALID = 0xFFFF;
 
-    // ㄱ ㄲ ㄳ ㄴ ㄵ ㄶ ㄷ ㄸ ㄹ ㄺ ㄻ ㄼ ㄽ ㄾ ㄿ ㅀ ㅁ ㅂ ㅃ ㅄ ㅅ ㅆ ㅇ ㅈ ㅉ ㅊ ㅋ ㅌ ㅍ ㅎ
+    // All possible consonant combinations are (in Unicode-order):
+    // ㄱ ㄲ ㄳ ㄴ ㄵ ㄶ ㄷ ㄸ ㄹ ㄺ ㄻ ㄼ ㄽ ㄾ ㄿ ㅀ ㅁ ㅂ ㅃ ㅄ ㅅ ㅆ ㅇ ㅈ ㅉ ㅊ ㅋ ㅌ ㅍ ㅎ (0x3131 ~ 0x314E)
+    // But not all combinations can be used as an initial nor a final.
+    // The composed letters, starting from 0xAC00, of course skips the invalid ones. So we need to map appropriately.
     constexpr wchar_t INITIAL_MAP[] = {
         0, 1, INVALID, 2, INVALID, INVALID, 3, 4, 5, INVALID, INVALID, INVALID, INVALID, INVALID, INVALID, INVALID, 6, 7, 8, INVALID, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18
     };
@@ -233,7 +251,7 @@ wchar_t ImmSimulator::composeLetter() const
     return L'가' + 
         MEDIAL_COUNT * FINAL_COUNT * INITIAL_MAP[mComposition.initial - L'ㄱ'] +
         FINAL_COUNT * (medial - L'ㅏ') +
-        (final ? FINAL_MAP[final - L'ㄱ'] + 1 : 0);
+        (final ? FINAL_MAP[final - L'ㄱ'] + 1 : 0);  // There can be no final letter at all
 }
 
 

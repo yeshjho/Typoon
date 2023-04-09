@@ -7,6 +7,8 @@
 #include "../match/match.h"
 
 
+// A helper class for parsing the matches.
+// If the names of the fields are identical to the strings in the data file, reflection part can be automatically handled by the json5 library.
 struct MatchForParse
 {
     enum class EUppercaseStyle

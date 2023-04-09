@@ -33,6 +33,7 @@ void start_file_change_watcher(std::filesystem::path path, std::function<void()>
                 break;
             }
 
+            // TODO: This blocks, so stopToken is meaningless. Should use an async method.
             if (!ReadDirectoryChangesW(dir, buffer, sizeof(buffer), true, FILE_NOTIFY_CHANGE_LAST_WRITE | FILE_NOTIFY_CHANGE_CREATION, 
                                        &bytesReturned, nullptr, nullptr)) [[unlikely]]
             {

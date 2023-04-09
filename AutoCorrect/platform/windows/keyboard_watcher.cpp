@@ -16,9 +16,9 @@ static LRESULT CALLBACK low_level_keyboard_proc(int nCode, WPARAM wParam, LPARAM
     }
 
     const auto param = reinterpret_cast<LPKBDLLHOOKSTRUCT>(lParam);
+    // Ignore inputs generated with SendInput().
     if (param->flags & LLKHF_INJECTED)
     {
-        // Ignore inputs generated with SendInput().
         return CallNextHookEx(nullptr, nCode, wParam, lParam);
     }
 
@@ -31,6 +31,7 @@ static LRESULT CALLBACK low_level_keyboard_proc(int nCode, WPARAM wParam, LPARAM
     {
         return CallNextHookEx(nullptr, nCode, wParam, lParam);
     }
+    // TODO: Alt key can affect the following key even when it's not down currently.
 
     const HWND foregroundWindow = GetForegroundWindow();
     if (const int result = ToUnicodeEx(param->vkCode, param->scanCode, keyboardState, characters, static_cast<int>(std::size(characters)), 0, GetKeyboardLayout(GetWindowThreadProcessId(foregroundWindow, nullptr)));
@@ -41,7 +42,7 @@ static LRESULT CALLBACK low_level_keyboard_proc(int nCode, WPARAM wParam, LPARAM
 
     for (wchar_t& character : characters)
     {
-        if (character == '\0')
+        if (character == 0)
         {
             continue;
         }
@@ -49,13 +50,15 @@ static LRESULT CALLBACK low_level_keyboard_proc(int nCode, WPARAM wParam, LPARAM
         if (const bool isLowerAlphabet = 'a' <= character && character <= 'z', isUpperAlphabet = 'A' <= character && character <= 'Z';
             isLowerAlphabet || isUpperAlphabet)
         {
+            // is Hangul on
             if (const HWND defaultImeWindow = ImmGetDefaultIMEWnd(foregroundWindow);
-                SendMessage(defaultImeWindow, WM_IME_CONTROL, 0x0005/*IMC_GETOPENSTATUS*/, 0))  // is Hangul on
+                SendMessage(defaultImeWindow, WM_IME_CONTROL, 0x0005/*IMC_GETOPENSTATUS*/, 0))
                 // keyboardState[VK_HANGUL] doesn't work since it only stores the state of the last key pressed, not the current state(toggled), unlike VK_CAPITAL.
                 // Maybe should check the keyboard layout?
             {
                 if (keyboardState[VK_CAPITAL] & 0x1)
                 {
+                    // Flip the case since the CapsLock can't affect the Korean letters, but we'll use the English letters to convert to Korean letters.
                     if (isLowerAlphabet)
                     {
                         character -= 'a' - 'A';
@@ -86,7 +89,7 @@ static LRESULT CALLBACK low_level_keyboard_proc(int nCode, WPARAM wParam, LPARAM
 
     for (const wchar_t character : characters)
     {
-        if (character != '\0')
+        if (character != 0)
         {
             send_raw_input_to_imm_simulator(character);
         }
