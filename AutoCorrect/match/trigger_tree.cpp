@@ -63,16 +63,6 @@ struct Letter
 };
 
 
-struct Node
-{
-    std::map<Letter, Node> children;
-    bool isTrigger = false;
-    std::wstring replace;  // Only valid if `isTrigger` is true.
-    unsigned int backspaceCount = 0;  // Only valid if `isTrigger` is true.
-    // TODO: If only-valid-if-is-trigger fields are added more, consider making a union or std::optional.
-};
-
-
 // The agents for tracking the current possible matches.
 struct Agent
 {
@@ -131,6 +121,12 @@ void setup_trigger_tree(std::filesystem::path matchFile)
             // returns true if a trigger was found
             const auto lambdaAdvanceAgent = [inputLetter, isBeingComposed, &nextIterationAgents](const std::wstring& stroke, const std::map<Letter, Node>& childMap)
             {
+                if (!is_trigger_tree_available.load())
+                {
+                    // Pretend a trigger was found so that the invalid agents are cleared & short-circuit the checks.
+                    return true;
+                }
+
                 for (const auto& [letter, child] : childMap)
                 {
                     if (letter != inputLetter)
@@ -185,7 +181,39 @@ std::jthread trigger_tree_constructor_thread;
 
 void reconstruct_trigger_tree()
 {
-    trigger_tree_root = Node{};
+    struct EndingMetaData
+    {
+        std::wstring replace;
+        unsigned int backspaceCount = 0;
+    };
+
+    struct TempNode
+    {
+        /// These are used for recording duplicates
+        Match match;
+        std::wstring trigger;
+
+        /// This is used in the second iteration
+        int parentIndex = -1;
+
+        std::map<Letter, TempNode> children;  // empty == ending
+        EndingMetaData endingMetaData;  // only valid if children is empty
+    };
+
+    struct Ending
+    {
+        int replaceStringIndex = -1;
+        int replaceStringLength = 0;
+        unsigned int backspaceCount = 0;
+    };
+
+    struct Link
+    {
+        int parentIndex = -1;
+        int childStartIndex = -1;
+        int childLength = 0;
+        int endingIndex = -1;
+    };
 
     trigger_tree_constructor_thread.request_stop();
     if (trigger_tree_constructor_thread.joinable())
@@ -193,6 +221,9 @@ void reconstruct_trigger_tree()
         trigger_tree_constructor_thread.join();
     }
     is_trigger_tree_available.store(false);
+
+    trigger_tree_root = Node{};
+
     trigger_tree_constructor_thread = std::jthread{ [](const std::stop_token& stopToken)
     {
 #define STOP if (stopToken.stop_requested()) { return; }
@@ -204,28 +235,38 @@ void reconstruct_trigger_tree()
         matches.reserve(matchesParsed.size());
         std::ranges::transform(matchesParsed, std::back_inserter(matches), [](const MatchForParse& match) { return match; });
         STOP
-        // TODO: First iteration. Focus on 'constructing' the tree, runtime efficiency will be handled later.
-        for (const auto& [triggers, replace, isCaseSensitive] : matches)
+        TempNode root;
+        std::vector<std::pair<Match, std::wstring>> triggersOverwritten;
+        for (const Match& match : matches)
         {
+            const auto& [triggers, replace, isCaseSensitive] = match;
             for (const auto& trigger : triggers)
             {
-                Node* node = &trigger_tree_root;
-                // Make a node for each letter except the last one, that will be a 'trigger node'.
+                TempNode* node = &root;
+
+                bool isTriggerOverwritten = false;
+                // Make a node for each letter except the last one, that will be an 'ending node'.
                 for (auto triggerIt = trigger.begin(); triggerIt != trigger.end() - 1; ++triggerIt)
                 {
                     const wchar_t ch = *triggerIt;
-                    auto [it, isNew] = node->children.try_emplace(Letter{ ch, isCaseSensitive && is_cased_alpha(ch) }, Node{});
+                    auto [it, isNew] = node->children.try_emplace(Letter{ ch, isCaseSensitive && is_cased_alpha(ch) }, TempNode{ match, trigger });
                     // Same case with the last letter overwriting, but in a reverse order.
                     // The letters from here are not reachable anyway, so discard them altogether.
-                    if (!isNew && it->second.isTrigger)  
+                    if (!isNew && it->second.children.empty())  
                     {
+                        triggersOverwritten.emplace_back(match, trigger);
+                        isTriggerOverwritten = true;
                         break;
                     }
                     node = &it->second;
                     STOP
                 }
+                if (isTriggerOverwritten)
+                {
+                    continue;
+                }
 
-                // The 'trigger node'
+                // The 'ending node'
                 const wchar_t lastLetter = trigger.back();
                 auto backspaceCount = static_cast<unsigned int>(trigger.size());
                 // If the last letter is Korean, it's probably composed with more than 2 letters.
@@ -235,20 +276,80 @@ void reconstruct_trigger_tree()
                 {
                     backspaceCount += static_cast<int>(normalize_hangul(std::wstring{ lastLetter }).size()) - 1;
                 }
+                STOP
+
                 // Since finding a match resets all the agents, we cannot advance further anyway. Therefore overwriting is fine.
-                // TODO: Remove all nodes orphaned by overwriting with trigger node (nodes became non-reachable)
-                node->children[{ lastLetter, isCaseSensitive && is_cased_alpha(lastLetter) }] =
-                    { .isTrigger = true, .replace = replace, .backspaceCount = backspaceCount };
+                Letter letter{ lastLetter, isCaseSensitive&& is_cased_alpha(lastLetter) };
+                if (node->children.contains(letter))
+                {
+                    TempNode& duplicate = node->children.at(letter);
+                    if (duplicate.children.empty())
+                    {
+                        // If there is already an ending node, keep the existing one.
+                        triggersOverwritten.emplace_back(match, trigger);
+                        continue;
+                    }
+                    else
+                    {
+                        // TODO: Its children will be non-reachable, mark them as overwritten.
+                        
+                    }
+                }
+                node->children[letter] = { .endingMetaData = { replace, backspaceCount } };
                 STOP
             }
             STOP
         }
+        STOP
+            
+        std::vector<Link> tree;
+        std::vector<Ending> endings;
+        std::wstring replaceStrings;
+
+        // TODO: Add comments
+        std::queue<TempNode> nodes;
+        nodes.push(root);
+        while (!nodes.empty())
+        {
+            const int index = static_cast<int>(tree.size());
+
+            TempNode& node = nodes.front();
+            nodes.pop();
+            tree.emplace_back(Link{ node.parentIndex });
+            STOP
+
+            if (node.children.empty())
+            {
+                tree.back().endingIndex = static_cast<int>(endings.size());
+
+                const int replaceStringIndex = static_cast<int>(replaceStrings.size());
+                replaceStrings.append(node.endingMetaData.replace);
+                endings.emplace_back(replaceStringIndex, static_cast<int>(node.endingMetaData.replace.size()), node.endingMetaData.backspaceCount);
+                STOP
+            }
+
+            Link& parent = tree.at(node.parentIndex);
+            if (parent.childStartIndex < 0)
+            {
+                parent.childStartIndex = index;
+            }
+            parent.childLength++;
+            STOP
+
+            for (TempNode& child : node.children | std::views::values)
+            {
+                child.parentIndex = index;
+                nodes.push(child);
+                STOP
+            }
+            STOP
+        }
+
         is_trigger_tree_available.store(true);
         trigger_tree_cv.notify_one();
 
 #undef STOP
     } };
-
 }
 
 void teardown_trigger_tree()
