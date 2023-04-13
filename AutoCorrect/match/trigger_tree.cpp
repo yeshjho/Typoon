@@ -235,6 +235,8 @@ void reconstruct_trigger_tree()
         matches.reserve(matchesParsed.size());
         std::ranges::transform(matchesParsed, std::back_inserter(matches), [](const MatchForParse& match) { return match; });
         STOP
+
+        /// First iteration. Construct the tree, preprocessing the data to be easy to use.
         TempNode root;
         std::vector<std::pair<Match, std::wstring>> triggersOverwritten;
         for (const Match& match : matches)
@@ -291,8 +293,27 @@ void reconstruct_trigger_tree()
                     }
                     else
                     {
-                        // TODO: Its children will be non-reachable, mark them as overwritten.
-                        
+                        // Its children will be non-reachable, mark them as overwritten.
+                        std::queue<TempNode*> nodes;
+                        nodes.push(&duplicate);
+                        while (!nodes.empty())
+                        {
+                            TempNode* childNode = nodes.front();
+                            nodes.pop();
+                            if (childNode->children.empty())
+                            {
+                                triggersOverwritten.emplace_back(childNode->match, childNode->trigger);
+                            }
+                            else
+                            {
+                                for (auto& child : childNode->children | std::views::values)
+                                {
+                                    nodes.push(&child);
+                                    STOP
+                                }
+                            }
+                            STOP
+                        }
                     }
                 }
                 node->children[letter] = { .endingMetaData = { replace, backspaceCount } };
@@ -301,34 +322,37 @@ void reconstruct_trigger_tree()
             STOP
         }
         STOP
+
+        // TODO: Warn with triggersOverwritten
             
         std::vector<Link> tree;
         std::vector<Ending> endings;
         std::wstring replaceStrings;
-
-        // TODO: Add comments
-        std::queue<TempNode> nodes;
-        nodes.push(root);
+        
+        /// Second iteration. Actually build the tree which will be used at runtime.
+        std::queue<TempNode*> nodes;
+        nodes.push(&root);
+        // Traverse the tree in level-order, so that all the links of a node to be contiguous.
         while (!nodes.empty())
         {
             const int index = static_cast<int>(tree.size());
 
-            TempNode& node = nodes.front();
+            TempNode* node = nodes.front();
             nodes.pop();
-            tree.emplace_back(Link{ node.parentIndex });
+            tree.emplace_back(Link{ node->parentIndex });
             STOP
 
-            if (node.children.empty())
+            if (node->children.empty())
             {
                 tree.back().endingIndex = static_cast<int>(endings.size());
 
                 const int replaceStringIndex = static_cast<int>(replaceStrings.size());
-                replaceStrings.append(node.endingMetaData.replace);
-                endings.emplace_back(replaceStringIndex, static_cast<int>(node.endingMetaData.replace.size()), node.endingMetaData.backspaceCount);
+                replaceStrings.append(node->endingMetaData.replace);
+                endings.emplace_back(replaceStringIndex, static_cast<int>(node->endingMetaData.replace.size()), node->endingMetaData.backspaceCount);
                 STOP
             }
 
-            Link& parent = tree.at(node.parentIndex);
+            Link& parent = tree.at(node->parentIndex);
             if (parent.childStartIndex < 0)
             {
                 parent.childStartIndex = index;
@@ -336,10 +360,10 @@ void reconstruct_trigger_tree()
             parent.childLength++;
             STOP
 
-            for (TempNode& child : node.children | std::views::values)
+            for (TempNode& child : node->children | std::views::values)
             {
                 child.parentIndex = index;
-                nodes.push(child);
+                nodes.push(&child);
                 STOP
             }
             STOP
