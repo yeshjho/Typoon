@@ -190,11 +190,12 @@ void reconstruct_trigger_tree()
     struct TempNode
     {
         /// These are used for recording duplicates
-        Match match;
-        std::wstring trigger;
+        const Match* match = nullptr;
+        const std::wstring* trigger = nullptr;
 
         /// This is used in the second iteration
         int parentIndex = -1;
+        const Letter* letter = nullptr;
 
         std::map<Letter, TempNode> children;  // empty == ending
         EndingMetaData endingMetaData;  // only valid if children is empty
@@ -207,11 +208,12 @@ void reconstruct_trigger_tree()
         unsigned int backspaceCount = 0;
     };
 
-    struct Link
+    struct Node
     {
         int parentIndex = -1;
         int childStartIndex = -1;
         int childLength = 0;
+        Letter letter;
         int endingIndex = -1;
     };
 
@@ -238,7 +240,7 @@ void reconstruct_trigger_tree()
 
         /// First iteration. Construct the tree, preprocessing the data to be easy to use.
         TempNode root;
-        std::vector<std::pair<Match, std::wstring>> triggersOverwritten;
+        std::vector<std::pair<const Match*, const std::wstring*>> triggersOverwritten;
         for (const Match& match : matches)
         {
             const auto& [triggers, replace, isCaseSensitive] = match;
@@ -251,12 +253,12 @@ void reconstruct_trigger_tree()
                 for (auto triggerIt = trigger.begin(); triggerIt != trigger.end() - 1; ++triggerIt)
                 {
                     const wchar_t ch = *triggerIt;
-                    auto [it, isNew] = node->children.try_emplace(Letter{ ch, isCaseSensitive && is_cased_alpha(ch) }, TempNode{ match, trigger });
+                    auto [it, isNew] = node->children.try_emplace(Letter{ ch, isCaseSensitive && is_cased_alpha(ch) }, TempNode{ &match, &trigger });
                     // Same case with the last letter overwriting, but in a reverse order.
                     // The letters from here are not reachable anyway, so discard them altogether.
                     if (!isNew && it->second.children.empty())  
                     {
-                        triggersOverwritten.emplace_back(match, trigger);
+                        triggersOverwritten.emplace_back(&match, &trigger);
                         isTriggerOverwritten = true;
                         break;
                     }
@@ -288,7 +290,7 @@ void reconstruct_trigger_tree()
                     if (duplicate.children.empty())
                     {
                         // If there is already an ending node, keep the existing one.
-                        triggersOverwritten.emplace_back(match, trigger);
+                        triggersOverwritten.emplace_back(&match, &trigger);
                         continue;
                     }
                     else
@@ -325,7 +327,7 @@ void reconstruct_trigger_tree()
 
         // TODO: Warn with triggersOverwritten
             
-        std::vector<Link> tree;
+        std::vector<Node> tree;
         std::vector<Ending> endings;
         std::wstring replaceStrings;
         
@@ -339,7 +341,7 @@ void reconstruct_trigger_tree()
 
             TempNode* node = nodes.front();
             nodes.pop();
-            tree.emplace_back(Link{ node->parentIndex });
+            tree.emplace_back(Node{ .parentIndex = node->parentIndex, .letter = *node->letter });
             STOP
 
             if (node->children.empty())
@@ -352,7 +354,7 @@ void reconstruct_trigger_tree()
                 STOP
             }
 
-            Link& parent = tree.at(node->parentIndex);
+            Node& parent = tree.at(node->parentIndex);
             if (parent.childStartIndex < 0)
             {
                 parent.childStartIndex = index;
@@ -360,8 +362,9 @@ void reconstruct_trigger_tree()
             parent.childLength++;
             STOP
 
-            for (TempNode& child : node->children | std::views::values)
+            for (auto& [letter, child] : node->children)
             {
+                child.letter = &letter;
                 child.parentIndex = index;
                 nodes.push(&child);
                 STOP
