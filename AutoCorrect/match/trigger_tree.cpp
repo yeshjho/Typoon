@@ -53,7 +53,7 @@ struct Letter
         }
 
         if (const auto comp = letter <=> other.letter;
-            comp != 0)
+            comp != std::strong_ordering::equal)
         {
             return comp;
         }
@@ -62,20 +62,41 @@ struct Letter
     }
 };
 
+// A node of the tree. It's essentially a link, since a node doesn't hold any information.
+struct Node
+{
+    int parentIndex = -1;
+    int childStartIndex = -1;
+    int childLength = 0;
+    Letter letter;
+    int endingIndex = -1;
+};
 
-// The agents for tracking the current possible matches.
+// The last letter of a trigger, contains the information for the replacement string.
+struct Ending
+{
+    int replaceStringIndex = -1;
+    unsigned int replaceStringLength = 0;
+    unsigned int backspaceCount = 0;
+};
+
+// The agents for tracking the current possible triggers.
 struct Agent
 {
-    std::wstring stroke;  // TODO: Storing a stroke for each agent is extremely inefficient.
-    const Node* node;
+    const Node* node = nullptr;
+    int strokeStartIndex = -1;
 };
 
 
 std::filesystem::path match_file;
-Node trigger_tree_root;
-std::atomic<bool> is_trigger_tree_available = false;
-std::mutex trigger_tree_mutex;
-std::condition_variable trigger_tree_cv;
+
+std::vector<Node> tree;
+unsigned int tree_height;
+std::vector<Ending> endings;
+std::wstring replace_strings;
+
+std::atomic<bool> is_trigger_tree_outdated = true;
+std::atomic<bool> is_constructing_trigger_tree = false;
 
 
 std::jthread trigger_tree_thread;
@@ -93,8 +114,9 @@ void setup_trigger_tree(std::filesystem::path matchFile)
     
     trigger_tree_thread = std::jthread{ [&listener = register_input_listener()](const std::stop_token& stopToken)
     {
-        std::vector<Agent> agents;  // TODO: Analyze the tree and reserve the max amount. Maybe use a pool?
+        std::vector<Agent> agents;
         std::vector<Agent> nextIterationAgents;
+        std::wstring stroke;
         
         while (true)
         {
@@ -103,55 +125,83 @@ void setup_trigger_tree(std::filesystem::path matchFile)
                 break;
             }
 
-            if (!is_trigger_tree_available.load())
+            const auto [inputLetter, isBeingComposed] = listener.pop();
+
+            if (is_trigger_tree_outdated.load())
             {
-                std::unique_lock lock{ trigger_tree_mutex };
-                trigger_tree_cv.wait(lock);
+                while (is_constructing_trigger_tree.load())
+                {
+                    using namespace std::chrono_literals;
+                    std::this_thread::sleep_for(10ms);
+                }
+                is_trigger_tree_outdated.store(false);
 
                 // Discard any input received during the loading. A workaround for listener.clear() (there's no such function).
                 InputMessage discard;
                 while (listener.try_pop(discard))
                 {}
 
-                continue;
+                agents.clear();
+                nextIterationAgents.clear();
+                stroke.clear();
+                agents.reserve(tree_height);
+                nextIterationAgents.reserve(tree_height);
+                stroke.resize(tree_height, 0);
             }
 
-            const auto [inputLetter, isBeingComposed] = listener.pop();
-
-            // returns true if a trigger was found
-            const auto lambdaAdvanceAgent = [inputLetter, isBeingComposed, &nextIterationAgents](const std::wstring& stroke, const std::map<Letter, Node>& childMap)
+            std::ranges::rotate(stroke, stroke.begin() + 1);
+            stroke.back() = inputLetter;
+            for (Agent& agent : agents)
             {
-                if (!is_trigger_tree_available.load())
+                // NOTE: We don't need to handle the case the index goes negative
+                // since those agents can't be made.
+                agent.strokeStartIndex--;
+            }
+
+            // returns true if an ending was found
+            const auto lambdaAdvanceAgent = [inputLetter, isBeingComposed, &nextIterationAgents](const Agent& agent)
+            {
+                if (is_trigger_tree_outdated.load())
                 {
-                    // Pretend a trigger was found so that the invalid agents are cleared & short-circuit the checks.
+                    // Pretend a trigger was found so that the invalid agents are cleared & short-circuit the remaining checks.
                     return true;
                 }
 
-                for (const auto& [letter, child] : childMap)
+                const Node& node = *agent.node;
+                // TODO: Maybe use binary search(std::equal_range)? Should modify the spaceship operator too, then.
+
+                for (int i = node.childStartIndex; i < node.childStartIndex + node.childLength; i++)
                 {
-                    if (letter != inputLetter)
+                    const Node& child = tree.at(i);
+                    if (child.letter != inputLetter)
                     {
                         continue;
                     }
 
-                    if (child.isTrigger)
+                    if (child.endingIndex >= 0)
                     {
+                        const auto& [replaceStringIndex, replaceStringLength, backspaceCount] = endings.at(child.endingIndex);
+                        const std::wstring_view replace{ replace_strings.data() + replaceStringIndex, replaceStringLength };
+
                         std::vector<FakeInput> inputs;
-                        inputs.reserve(child.backspaceCount + child.replace.size());
-                        std::fill_n(std::back_inserter(inputs), child.backspaceCount, FakeInput{ .type = FakeInput::EType::BACKSPACE });
-                        std::ranges::transform(child.replace, std::back_inserter(inputs),
-                            [](wchar_t ch) { return FakeInput{ FakeInput::EType::LETTER, ch }; });
+                        inputs.reserve(backspaceCount + replace.size());
+                        std::fill_n(std::back_inserter(inputs), backspaceCount, FakeInput{ .type = FakeInput::EType::BACKSPACE });
+                        std::ranges::transform(replace, std::back_inserter(inputs),
+                            [](const wchar_t& ch) { return FakeInput{ FakeInput::EType::LETTER, ch }; });
                         send_fake_inputs(inputs);  // TODO: run it on a separate thread?
+
                         return true;
                     }
-
-                    // If the letter is being composed, only check for the triggers, don't advance the agents.
-                    // ex - Typing '갃' should match '가' in the middle of the composition.
-                    // But we should not advance the agents since doing so would fail to match any Korean letters which are composed more than 1 letter.
-                    if (!isBeingComposed)
+                    else
                     {
-                        nextIterationAgents.emplace_back(stroke, &child);
-                        // NOTE: multiple matches can happen, not breaking here
+                        // If the letter is being composed, only check for the triggers, don't advance the agents.
+                        // ex - Typing '갃' should match '가' in the middle of the composition.
+                        // But we should not advance the agents since doing so would fail to match any Korean letters which are composed more than 1 letter.
+                        if (!isBeingComposed)
+                        {
+                            nextIterationAgents.emplace_back(&child, agent.strokeStartIndex - 1);
+                        }
+                        // NOTE: multiple matches can happen(ex - case-sensitive one and non- one), hence not breaking
                     }
                 }
 
@@ -159,8 +209,9 @@ void setup_trigger_tree(std::filesystem::path matchFile)
             };
             
             // Check for triggers in the root node first.
-            const bool isTriggerFound = lambdaAdvanceAgent(L"", trigger_tree_root.children) ||
-                std::ranges::any_of(agents, [lambdaAdvanceAgent, inputLetter](const auto& agent) { return lambdaAdvanceAgent(agent.stroke + inputLetter, agent.node->children); });
+            Agent root{ &tree.front(), static_cast<int>(tree_height - 1) };
+            const bool isTriggerFound = lambdaAdvanceAgent(root) ||
+                std::ranges::any_of(agents, [lambdaAdvanceAgent, inputLetter](const Agent& agent) { return lambdaAdvanceAgent(agent); });
 
             if (isTriggerFound)
             {
@@ -196,25 +247,10 @@ void reconstruct_trigger_tree()
         /// This is used in the second iteration
         int parentIndex = -1;
         const Letter* letter = nullptr;
+        unsigned int height = 0;
 
         std::map<Letter, TempNode> children;  // empty == ending
         EndingMetaData endingMetaData;  // only valid if children is empty
-    };
-
-    struct Ending
-    {
-        int replaceStringIndex = -1;
-        int replaceStringLength = 0;
-        unsigned int backspaceCount = 0;
-    };
-
-    struct Node
-    {
-        int parentIndex = -1;
-        int childStartIndex = -1;
-        int childLength = 0;
-        Letter letter;
-        int endingIndex = -1;
     };
 
     trigger_tree_constructor_thread.request_stop();
@@ -222,9 +258,8 @@ void reconstruct_trigger_tree()
     {
         trigger_tree_constructor_thread.join();
     }
-    is_trigger_tree_available.store(false);
-
-    trigger_tree_root = Node{};
+    is_trigger_tree_outdated.store(true);
+    is_constructing_trigger_tree.store(true);
 
     trigger_tree_constructor_thread = std::jthread{ [](const std::stop_token& stopToken)
     {
@@ -256,7 +291,7 @@ void reconstruct_trigger_tree()
                     auto [it, isNew] = node->children.try_emplace(Letter{ ch, isCaseSensitive && is_cased_alpha(ch) }, TempNode{ &match, &trigger });
                     // Same case with the last letter overwriting, but in a reverse order.
                     // The letters from here are not reachable anyway, so discard them altogether.
-                    if (!isNew && it->second.children.empty())  
+                    if (!isNew && it->second.children.empty())
                     {
                         triggersOverwritten.emplace_back(&match, &trigger);
                         isTriggerOverwritten = true;
@@ -326,14 +361,15 @@ void reconstruct_trigger_tree()
         STOP
 
         // TODO: Warn with triggersOverwritten
-            
-        std::vector<Node> tree;
-        std::vector<Ending> endings;
-        std::wstring replaceStrings;
+
+        tree.clear();
+        endings.clear();
+        replace_strings.clear();
         
         /// Second iteration. Actually build the tree which will be used at runtime.
         std::queue<TempNode*> nodes;
         nodes.push(&root);
+        unsigned int height = 0;
         // Traverse the tree in level-order, so that all the links of a node to be contiguous.
         while (!nodes.empty())
         {
@@ -341,39 +377,59 @@ void reconstruct_trigger_tree()
 
             TempNode* node = nodes.front();
             nodes.pop();
-            tree.emplace_back(Node{ .parentIndex = node->parentIndex, .letter = *node->letter });
+            tree.emplace_back(Node{ .parentIndex = node->parentIndex });
+            if (node->letter)
+            {
+                tree.back().letter = *node->letter;
+            }
+            height = std::max(height, node->height);
             STOP
 
             if (node->children.empty())
             {
                 tree.back().endingIndex = static_cast<int>(endings.size());
 
-                const int replaceStringIndex = static_cast<int>(replaceStrings.size());
-                replaceStrings.append(node->endingMetaData.replace);
+                // TODO: Improve duplicate detection (ex - abc being added after bc is added)
+                int replaceStringIndex = -1;
+                if (const size_t result = replace_strings.find(node->endingMetaData.replace);
+                    result == std::wstring::npos)
+                {
+                    replaceStringIndex = static_cast<int>(replace_strings.size());
+                    replace_strings.append(node->endingMetaData.replace);
+                }
+                else
+                {
+                    replaceStringIndex = static_cast<int>(result);
+                }
+
                 endings.emplace_back(replaceStringIndex, static_cast<int>(node->endingMetaData.replace.size()), node->endingMetaData.backspaceCount);
                 STOP
             }
 
-            Node& parent = tree.at(node->parentIndex);
-            if (parent.childStartIndex < 0)
+            if (node->parentIndex >= 0)
             {
-                parent.childStartIndex = index;
+                Node& parent = tree.at(node->parentIndex);
+                if (parent.childStartIndex < 0)
+                {
+                    parent.childStartIndex = index;
+                }
+                parent.childLength++;
             }
-            parent.childLength++;
             STOP
 
             for (auto& [letter, child] : node->children)
             {
-                child.letter = &letter;
                 child.parentIndex = index;
+                child.letter = &letter;
+                child.height = node->height + 1;
                 nodes.push(&child);
                 STOP
             }
             STOP
         }
 
-        is_trigger_tree_available.store(true);
-        trigger_tree_cv.notify_one();
+        tree_height = height;
+        is_constructing_trigger_tree.store(false);
 
 #undef STOP
     } };
