@@ -6,8 +6,6 @@ safe input. 비밀번호 입력 등 감지해서 off
 
 logger 제대로
 
-트리거 트리 Optimization
-
 매치에 각종 옵션들 구현 (isWord, doPropagateCase, ...)
 
 각종 파일 관리 (여러 개로 나누고 import, ...)
