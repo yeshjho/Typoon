@@ -1,7 +1,9 @@
 #include "../../low_level/keyboard_watcher.h"
 
+#include <cwctype>
 #include <system_error>
 #include <thread>
+
 #include <Windows.h>
 
 #include "../../imm/ImmSimulator.h"
@@ -25,9 +27,12 @@ static LRESULT CALLBACK low_level_keyboard_proc(int nCode, WPARAM wParam, LPARAM
     unsigned char keyboardState[256] = { 0, };
     // ToUnicodeEx produces in UTF-16, so 2 wchar_t's are enough.
     wchar_t characters[2] = { 0, };
-
+    
     GetKeyState(0);  // GetKeyboardState doesn't fetch control keys such as Shift, CapsLock, etc. without this call.
-    if (!GetKeyboardState(keyboardState) || (keyboardState[VK_LWIN] & 0x80))  // Even when the Windows key is pressed, ToAsciiEx will return the character of the key, thus filtering out.
+    if (!GetKeyboardState(keyboardState) ||
+        // Even when the Windows key is pressed, ToUnicodeEx will return the character of the key, thus filtering out.
+        // Also, the control key + a-z => 1~26, filter out.
+        (keyboardState[VK_LWIN] & 0x80) || (keyboardState[VK_RWIN] & 0x80) || (keyboardState[VK_CONTROL] & 0x80))
     {
         return CallNextHookEx(nullptr, nCode, wParam, lParam);
     }
@@ -42,11 +47,6 @@ static LRESULT CALLBACK low_level_keyboard_proc(int nCode, WPARAM wParam, LPARAM
 
     for (wchar_t& character : characters)
     {
-        if (character == 0)
-        {
-            continue;
-        }
-
         if (const bool isLowerAlphabet = 'a' <= character && character <= 'z', isUpperAlphabet = 'A' <= character && character <= 'Z';
             isLowerAlphabet || isUpperAlphabet)
         {
@@ -89,7 +89,7 @@ static LRESULT CALLBACK low_level_keyboard_proc(int nCode, WPARAM wParam, LPARAM
 
     for (const wchar_t character : characters)
     {
-        if (character != 0)
+        if (std::iswprint(character) || std::iswspace(character) || character != L'\b')
         {
             send_raw_input_to_imm_simulator(character);
         }
