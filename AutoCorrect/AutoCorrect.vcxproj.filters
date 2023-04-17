@@ -15,9 +15,6 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="main.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="utils\logger.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -45,7 +42,10 @@
     <ClCompile Include="platform\windows\fake_input.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="imm\ImmSimulator.cpp">
+    <ClCompile Include="imm\imm_simulator.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="platform\windows\main.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
@@ -80,7 +80,7 @@
     <ClInclude Include="low_level\fake_input.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="imm\ImmSimulator.h">
+    <ClInclude Include="imm\imm_simulator.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
