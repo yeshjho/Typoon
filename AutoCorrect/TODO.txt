@@ -32,5 +32,8 @@ off 시 리소스 안 먹게 아예 쓰레드 죽여버리기
 이 프로그램에서 보낸 SendInput이랑 다른 데서 보낸 가짜 인풋이랑 구분해서 여기에서 보낸 것만 거르기 (ex - 파섹 등 원격 조종)
 
 spin wait(pop) CPU 사용량 너무 높은데 condition variable로 바꿔야 할듯?
+    -> 애초에 hook에서 rid로 바꾸면 sync하게 처리해도 상관 없음
+
+어떤 마우스 버튼들이 stroke를 초기화할지 설정 가능하게. 프로그램별로 override도 가능하게
 
 IME abstractize
