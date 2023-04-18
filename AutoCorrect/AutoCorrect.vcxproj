@@ -26,7 +26,7 @@
     <ClCompile Include="parse\parse.cpp" />
     <ClCompile Include="platform\windows\fake_input.cpp" />
     <ClCompile Include="platform\windows\file_change_watcher.cpp" />
-    <ClCompile Include="platform\windows\keyboard_watcher.cpp" />
+    <ClCompile Include="platform\windows\input_watcher.cpp" />
     <ClCompile Include="platform\windows\main.cpp" />
     <ClCompile Include="utils\logger.cpp" />
     <ClCompile Include="utils\string.cpp" />
@@ -36,7 +36,7 @@
     <ClInclude Include="input_multicast\input_multicast.h" />
     <ClInclude Include="low_level\fake_input.h" />
     <ClInclude Include="low_level\file_change_watcher.h" />
-    <ClInclude Include="low_level\keyboard_watcher.h" />
+    <ClInclude Include="low_level\input_watcher.h" />
     <ClInclude Include="match\match.h" />
     <ClInclude Include="match\trigger_tree.h" />
     <ClInclude Include="parse\match_for_parse.h" />

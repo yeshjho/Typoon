@@ -18,7 +18,7 @@
     <ClCompile Include="utils\logger.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="platform\windows\keyboard_watcher.cpp">
+    <ClCompile Include="platform\windows\input_watcher.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="platform\windows\file_change_watcher.cpp">
@@ -53,7 +53,7 @@
     <ClInclude Include="utils\logger.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="low_level\keyboard_watcher.h">
+    <ClInclude Include="low_level\input_watcher.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="low_level\file_change_watcher.h">

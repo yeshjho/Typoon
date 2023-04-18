@@ -1,8 +1,7 @@
-#include "../../low_level/keyboard_watcher.h"
+#include "../../low_level/input_watcher.h"
 
 #include <cwctype>
 #include <system_error>
-#include <thread>
 
 #include <Windows.h>
 #include <hidusage.h>
@@ -11,7 +10,7 @@
 #include "../../utils/logger.h"
 
 
-LRESULT CALLBACK low_level_keyboard_proc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
+LRESULT CALLBACK input_proc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
 {
     if (msg != WM_INPUT)
     {
@@ -123,19 +122,19 @@ LRESULT CALLBACK low_level_keyboard_proc(HWND hWnd, UINT msg, WPARAM wParam, LPA
 }
 
 
-void start_keyboard_watcher(const std::any& data)
+void start_input_watcher(const std::any& data)
 {
     static bool didStart = false;
     if (didStart)
     {
-        g_console_logger.Log("Keyboard watcher is already running.", ELogLevel::WARNING);
+        g_console_logger.Log("Input watcher is already running.", ELogLevel::WARNING);
         return;
     }
     didStart = true;
 
     const HWND hWnd = std::any_cast<HWND>(data);
 
-    if (!SetWindowLongPtr(hWnd, GWLP_WNDPROC, reinterpret_cast<LONG_PTR>(low_level_keyboard_proc)))
+    if (!SetWindowLongPtr(hWnd, GWLP_WNDPROC, reinterpret_cast<LONG_PTR>(input_proc)))
     {
         g_console_logger.Log(ELogLevel::FATAL, "SetWindowLongPtr failed:", std::system_category().message(static_cast<int>(GetLastError())));
         std::exit(-1);  // It's fatal anyway, thread safety
@@ -160,7 +159,7 @@ void start_keyboard_watcher(const std::any& data)
     }
 }
 
-void end_keyboard_watcher()
+void end_input_watcher()
 {
 }
 

@@ -1,6 +1,6 @@
 #include <Windows.h>
 
-#include "../../low_level/keyboard_watcher.h"
+#include "../../low_level/input_watcher.h"
 #include "../../low_level/file_change_watcher.h"
 
 #include "../../imm/imm_simulator.h"
@@ -23,7 +23,7 @@ int wWinMain(HINSTANCE hInstance, [[maybe_unused]] HINSTANCE hPrevInstance, [[ma
     WNDCLASSEX windowClass = {};
     windowClass.cbSize = sizeof(WNDCLASSEX);
     windowClass.lpfnWndProc = dummy_wnd_proc;  // CreateWindow calls wndProc, so setting to a dummy.
-                                               // Will be replaced in the keyboard watcher.
+                                               // Will be replaced in the input watcher.
     windowClass.hInstance = hInstance;
     windowClass.lpszClassName = windowClassName;
     if (!RegisterClassExW(&windowClass))
@@ -46,7 +46,7 @@ int wWinMain(HINSTANCE hInstance, [[maybe_unused]] HINSTANCE hPrevInstance, [[ma
     freopen_s(&fDummy, "CONOUT$", "w", stderr);
 #endif
 
-    start_keyboard_watcher(window);
+    start_input_watcher(window);
     start_file_change_watcher("C:/Users/yeshj/Desktop/folders/Visual Studio/AutoCorrect/AutoCorrect/data/", []()
         {
             reconstruct_trigger_tree();
@@ -60,7 +60,7 @@ int wWinMain(HINSTANCE hInstance, [[maybe_unused]] HINSTANCE hPrevInstance, [[ma
         DispatchMessage(&msg);
     }
 
-    end_keyboard_watcher();
+    end_input_watcher();
     end_file_change_watcher();
     teardown_imm_simulator();
 
