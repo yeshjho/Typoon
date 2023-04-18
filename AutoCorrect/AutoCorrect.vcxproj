@@ -19,7 +19,7 @@
     </ProjectConfiguration>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="imm\ImmSimulator.cpp" />
+    <ClCompile Include="imm\imm_simulator.cpp" />
     <ClCompile Include="input_multicast\input_multicast.cpp" />
     <ClCompile Include="match\trigger_tree.cpp" />
     <ClCompile Include="parse\match_for_parse.cpp" />
@@ -27,12 +27,12 @@
     <ClCompile Include="platform\windows\fake_input.cpp" />
     <ClCompile Include="platform\windows\file_change_watcher.cpp" />
     <ClCompile Include="platform\windows\keyboard_watcher.cpp" />
-    <ClCompile Include="main.cpp" />
+    <ClCompile Include="platform\windows\main.cpp" />
     <ClCompile Include="utils\logger.cpp" />
     <ClCompile Include="utils\string.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="imm\ImmSimulator.h" />
+    <ClInclude Include="imm\imm_simulator.h" />
     <ClInclude Include="input_multicast\input_multicast.h" />
     <ClInclude Include="low_level\fake_input.h" />
     <ClInclude Include="low_level\file_change_watcher.h" />
@@ -110,7 +110,7 @@
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
     </ClCompile>
     <Link>
-      <SubSystem>Console</SubSystem>
+      <SubSystem>Windows</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <AdditionalDependencies>Imm32.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
@@ -128,7 +128,7 @@
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
     </ClCompile>
     <Link>
-      <SubSystem>Console</SubSystem>
+      <SubSystem>Windows</SubSystem>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
       <GenerateDebugInformation>true</GenerateDebugInformation>
@@ -148,7 +148,7 @@
       <ExternalWarningLevel>TurnOffAllWarnings</ExternalWarningLevel>
     </ClCompile>
     <Link>
-      <SubSystem>Console</SubSystem>
+      <SubSystem>Windows</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <AdditionalDependencies>Imm32.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
@@ -168,7 +168,7 @@
       <ExternalWarningLevel>TurnOffAllWarnings</ExternalWarningLevel>
     </ClCompile>
     <Link>
-      <SubSystem>Console</SubSystem>
+      <SubSystem>Windows</SubSystem>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
       <GenerateDebugInformation>true</GenerateDebugInformation>
