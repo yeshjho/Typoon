@@ -1,4 +1,5 @@
 #pragma once
+#include "../input_multicast/input_multicast.h"
 
 
 class ImmSimulator
@@ -13,7 +14,6 @@ public:
     // 2. Adding non-Korean letter
     // 3. A non-letter key (ex - Korean/English toggle key)
     // 4. A mouse input
-    void ComposeEmitResetComposition();
     void ClearComposition();
 
 private:
@@ -24,6 +24,8 @@ private:
     
     // Compose a letter with the current composition.
     [[nodiscard]] wchar_t composeLetter() const;
+
+    InputMessage composeEmitResetComposition();
 
 
 private:

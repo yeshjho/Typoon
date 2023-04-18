@@ -1,31 +1,18 @@
 #include "input_multicast.h"
 
-#include <array>
 
+std::vector<std::function<void(InputMessage(&inputs)[MAX_INPUT_COUNT], int length)>> listeners;
 
-std::array<std::pair<InputQueueType, bool>, 5> queues;
-
-void multicast_input(InputMessage value)
+void multicast_input(InputMessage(&inputs)[MAX_INPUT_COUNT], int length)
 {
-    for (auto& [queue, isTaken] : queues)
+    for (auto& listener : listeners)
     {
-        if (isTaken)
-        {
-            queue.push(value);
-        }
+        listener(inputs, length);
     }
 }
 
-InputQueueType& register_input_listener()
-{
-    for (auto& [queue, isTaken] : queues)
-    {
-        if (!isTaken)
-        {
-            isTaken = true;
-            return queue;
-        }
-    }
 
-    throw std::exception{ "No left input queue" };
+void register_input_listener(std::function<void(const InputMessage(&inputs)[MAX_INPUT_COUNT], int length)> listener)
+{
+    listeners.emplace_back(std::move(listener));
 }

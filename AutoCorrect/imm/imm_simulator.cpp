@@ -4,17 +4,30 @@
 
 #include <atomic_queue/atomic_queue.h>
 
-#include "../input_multicast/input_multicast.h"
-#include "../utils/logger.h"
-
 
 void ImmSimulator::AddLetter(wchar_t letter)
 {
+    InputMessage messages[MAX_INPUT_COUNT];
+    int messageLength = 0;
+    const auto lambdaAddMessage = [&messages, &messageLength](const InputMessage& message)
+    {
+        if (messageLength >= MAX_INPUT_COUNT)
+        {
+            throw;
+        }
+
+        if (message.letter != 0)
+        {
+            messages[messageLength++] = message;
+        }
+    };
+
     if (letter == '\b')
     {
         if (!RemoveLetter())
         {
-            multicast_input({ letter, false });
+            lambdaAddMessage({ letter, false });
+            multicast_input(messages, messageLength);
         }
         // We don't need to multicast the input at all if a letter is successfully removed from the composition,
         // since the after-backspace-composition has already been cast for trigger checking before the backspace.
@@ -27,8 +40,9 @@ void ImmSimulator::AddLetter(wchar_t letter)
     // If the letter is not a Korean letter, emit the current composition and then emit the letter.
     if (!isConsonant && !isVowel)
     {
-        ComposeEmitResetComposition();
-        multicast_input({ letter, false });
+        lambdaAddMessage(composeEmitResetComposition());
+        lambdaAddMessage({ letter, false });
+        multicast_input(messages, messageLength);
         return;
     }
 
@@ -42,7 +56,7 @@ void ImmSimulator::AddLetter(wchar_t letter)
         if (mComposition.initial == 0 || mComposition.medial[0] == 0 ||
             mComposition.final[1] != 0 || !canCombineLetters(mComposition.final[0], letter))
         {
-            ComposeEmitResetComposition();
+            lambdaAddMessage(composeEmitResetComposition());
             mComposition.initial = letter;
         }
         // There is an initial letter, at least one medial letter, and the letter can be combined with the previous final letter (or there was no final letter).
@@ -60,7 +74,7 @@ void ImmSimulator::AddLetter(wchar_t letter)
             wchar_t& consonantToDetach = mComposition.final[mComposition.final[1] == 0 ? 0 : 1];
             const wchar_t newInitial = consonantToDetach;
             consonantToDetach = 0;
-            ComposeEmitResetComposition();
+            lambdaAddMessage(composeEmitResetComposition());
             mComposition.initial = newInitial;
             mComposition.medial[0] = letter;
         }
@@ -68,7 +82,7 @@ void ImmSimulator::AddLetter(wchar_t letter)
         // Emit the previous composition and set the letter as the medial (It'll become a medial-only letter, with no initial letter).
         else if (mComposition.medial[1] != 0 || !canCombineLetters(mComposition.medial[0], letter))
         {
-            ComposeEmitResetComposition();
+            lambdaAddMessage(composeEmitResetComposition());
             mComposition.medial[0] = letter;
         }
         // There is no final letter, and the letter can be combined with the previous medial letter (or there was no medial letter).
@@ -77,8 +91,9 @@ void ImmSimulator::AddLetter(wchar_t letter)
             mComposition.medial[mComposition.medial[0] == 0 ? 0 : 1] = letter;
         }
     }
-
-    multicast_input({ composeLetter(), true });
+    
+    lambdaAddMessage({ composeLetter(), true });
+    multicast_input(messages, messageLength);
 }
 
 
@@ -113,14 +128,11 @@ bool ImmSimulator::RemoveLetter()
 }
 
 
-void ImmSimulator::ComposeEmitResetComposition()
+InputMessage ImmSimulator::composeEmitResetComposition()
 {
-    if (const wchar_t letter = composeLetter();
-        letter != 0)
-    {
-        multicast_input({ letter, false });
-    }
+    const wchar_t letter = composeLetter();
     ClearComposition();
+    return { letter, false };
 }
 
 
@@ -297,43 +309,18 @@ wchar_t ImmSimulator::composeLetter() const
 }
 
 
-using RawInputQueueType = atomic_queue::AtomicQueue<wchar_t, 20, atomic_queue::details::nil<wchar_t>(), true, true, true, true>;
-RawInputQueueType raw_input_queue;
-std::jthread imm_simulator_thread;
+ImmSimulator simulator{};
 
 
 void setup_imm_simulator()
 {
-    if (imm_simulator_thread.joinable()) [[unlikely]]
-    {
-        g_console_logger.Log("Imm Simulator is already running.", ELogLevel::WARNING);
-        return;
-    }
-
-    imm_simulator_thread = std::jthread{ [&queue = raw_input_queue, simulator = ImmSimulator{}](const std::stop_token& stopToken) mutable
-    {
-        while (true)
-        {
-            if (stopToken.stop_requested()) [[unlikely]]
-            {
-                break;
-            }
-
-            simulator.AddLetter(queue.pop());
-        }
-    } };
 }
 
 void teardown_imm_simulator()
 {
-    imm_simulator_thread.request_stop();
-    if (imm_simulator_thread.joinable())
-    {
-        imm_simulator_thread.join();
-    }
 }
 
 void send_raw_input_to_imm_simulator(wchar_t letter)
 {
-    raw_input_queue.push(letter);
+    simulator.AddLetter(letter);
 }

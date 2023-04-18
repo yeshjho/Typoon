@@ -99,132 +99,127 @@ std::atomic<bool> is_trigger_tree_outdated = true;
 std::atomic<bool> is_constructing_trigger_tree = false;
 
 
-std::jthread trigger_tree_thread;
+void on_input(const InputMessage(&inputs)[MAX_INPUT_COUNT], int length)
+{
+    static std::vector<Agent> agents{};
+    static std::vector<Agent> nextIterationAgents{};
+    static std::wstring stroke{};
+    static bool shouldResetAgents = false;
+
+    if (is_constructing_trigger_tree.load())
+    {
+        shouldResetAgents = true;
+        return;
+    }
+
+    if (shouldResetAgents || is_trigger_tree_outdated.load())
+    {
+        shouldResetAgents = false;
+        is_trigger_tree_outdated.store(false);
+
+        agents.clear();
+        nextIterationAgents.clear();
+        stroke.clear();
+        agents.reserve(tree_height);
+        nextIterationAgents.reserve(tree_height);
+        stroke.resize(tree_height, 0);
+    }
+
+    for (int i = 0; i < length; i++)
+    {
+        const auto [inputLetter, isBeingComposed] = inputs[i];
+        std::ranges::rotate(stroke, stroke.begin() + 1);
+        stroke.back() = inputLetter;
+        for (Agent& agent : agents)
+        {
+            // NOTE: We don't need to handle the case the index goes negative
+            // since those agents can't be made.
+            agent.strokeStartIndex--;
+        }
+
+        // returns true if an ending was found
+        const auto lambdaAdvanceAgent = [inputLetter, isBeingComposed](const Agent& agent)
+        {
+            if (is_trigger_tree_outdated.load())
+            {
+                // Pretend a trigger was found so that the invalid agents are cleared & short-circuit the remaining checks.
+                return true;
+            }
+
+            const Node& node = *agent.node;
+            // TODO: Maybe use binary search(std::equal_range)? Should modify the spaceship operator too, then.
+
+            for (int i = node.childStartIndex; i < node.childStartIndex + node.childLength; i++)
+            {
+                const Node& child = tree.at(i);
+                if (child.letter != inputLetter)
+                {
+                    continue;
+                }
+
+                if (child.endingIndex >= 0)
+                {
+                    const auto& [replaceStringIndex, replaceStringLength, backspaceCount] = endings.at(child.endingIndex);
+                    const std::wstring_view replace{ replace_strings.data() + replaceStringIndex, replaceStringLength };
+
+                    std::vector<FakeInput> inputs;
+                    inputs.reserve(backspaceCount + replace.size());
+                    std::fill_n(std::back_inserter(inputs), backspaceCount, FakeInput{ .type = FakeInput::EType::BACKSPACE });
+                    std::ranges::transform(replace, std::back_inserter(inputs),
+                        [](const wchar_t& ch) { return FakeInput{ FakeInput::EType::LETTER, ch }; });
+                    send_fake_inputs(inputs);  // TODO: run it on a separate thread?
+
+                    return true;
+                }
+                else
+                {
+                    // If the letter is being composed, only check for the triggers, don't advance the agents.
+                    // ex - Typing '갃' should match '가' in the middle of the composition.
+                    // But we should not advance the agents since doing so would fail to match any Korean letters which are composed more than 1 letter.
+                    if (!isBeingComposed)
+                    {
+                        nextIterationAgents.emplace_back(&child, agent.strokeStartIndex - 1);
+                    }
+                    // NOTE: multiple matches can happen(ex - case-sensitive one and non- one), hence not breaking
+                }
+            }
+
+            return false;
+        };
+
+        // Check for triggers in the root node first.
+        Agent root{ &tree.front(), static_cast<int>(tree_height - 1) };
+        const bool isTriggerFound = lambdaAdvanceAgent(root) ||
+            std::ranges::any_of(agents, [lambdaAdvanceAgent, inputLetter](const Agent& agent) { return lambdaAdvanceAgent(agent); });
+
+        if (isTriggerFound)
+        {
+            nextIterationAgents.clear();
+        }
+
+        if (!isBeingComposed || isTriggerFound)
+        {
+            agents.clear();
+            std::swap(agents, nextIterationAgents);
+        }
+    }
+}
+
 
 void setup_trigger_tree(std::filesystem::path matchFile)
 {
-    if (trigger_tree_thread.joinable()) [[unlikely]]
+    static bool didSetup = false;
+    if (didSetup)
     {
         g_console_logger.Log("Trigger tree is already running.", ELogLevel::WARNING);
         return;
     }
-
+    didSetup = true;
+    
     match_file = std::move(matchFile);
     reconstruct_trigger_tree();
-    
-    trigger_tree_thread = std::jthread{ [&listener = register_input_listener()](const std::stop_token& stopToken)
-    {
-        std::vector<Agent> agents;
-        std::vector<Agent> nextIterationAgents;
-        std::wstring stroke;
-        
-        while (true)
-        {
-            if (stopToken.stop_requested()) [[unlikely]]
-            {
-                break;
-            }
 
-            const auto [inputLetter, isBeingComposed] = listener.pop();
-
-            if (is_trigger_tree_outdated.load())
-            {
-                while (is_constructing_trigger_tree.load())
-                {
-                    using namespace std::chrono_literals;
-                    std::this_thread::sleep_for(10ms);
-                }
-                is_trigger_tree_outdated.store(false);
-
-                // Discard any input received during the loading. A workaround for listener.clear() (there's no such function).
-                InputMessage discard;
-                while (listener.try_pop(discard))
-                {}
-
-                agents.clear();
-                nextIterationAgents.clear();
-                stroke.clear();
-                agents.reserve(tree_height);
-                nextIterationAgents.reserve(tree_height);
-                stroke.resize(tree_height, 0);
-            }
-
-            std::ranges::rotate(stroke, stroke.begin() + 1);
-            stroke.back() = inputLetter;
-            for (Agent& agent : agents)
-            {
-                // NOTE: We don't need to handle the case the index goes negative
-                // since those agents can't be made.
-                agent.strokeStartIndex--;
-            }
-
-            // returns true if an ending was found
-            const auto lambdaAdvanceAgent = [inputLetter, isBeingComposed, &nextIterationAgents](const Agent& agent)
-            {
-                if (is_trigger_tree_outdated.load())
-                {
-                    // Pretend a trigger was found so that the invalid agents are cleared & short-circuit the remaining checks.
-                    return true;
-                }
-
-                const Node& node = *agent.node;
-                // TODO: Maybe use binary search(std::equal_range)? Should modify the spaceship operator too, then.
-
-                for (int i = node.childStartIndex; i < node.childStartIndex + node.childLength; i++)
-                {
-                    const Node& child = tree.at(i);
-                    if (child.letter != inputLetter)
-                    {
-                        continue;
-                    }
-
-                    if (child.endingIndex >= 0)
-                    {
-                        const auto& [replaceStringIndex, replaceStringLength, backspaceCount] = endings.at(child.endingIndex);
-                        const std::wstring_view replace{ replace_strings.data() + replaceStringIndex, replaceStringLength };
-
-                        std::vector<FakeInput> inputs;
-                        inputs.reserve(backspaceCount + replace.size());
-                        std::fill_n(std::back_inserter(inputs), backspaceCount, FakeInput{ .type = FakeInput::EType::BACKSPACE });
-                        std::ranges::transform(replace, std::back_inserter(inputs),
-                            [](const wchar_t& ch) { return FakeInput{ FakeInput::EType::LETTER, ch }; });
-                        send_fake_inputs(inputs);  // TODO: run it on a separate thread?
-
-                        return true;
-                    }
-                    else
-                    {
-                        // If the letter is being composed, only check for the triggers, don't advance the agents.
-                        // ex - Typing '갃' should match '가' in the middle of the composition.
-                        // But we should not advance the agents since doing so would fail to match any Korean letters which are composed more than 1 letter.
-                        if (!isBeingComposed)
-                        {
-                            nextIterationAgents.emplace_back(&child, agent.strokeStartIndex - 1);
-                        }
-                        // NOTE: multiple matches can happen(ex - case-sensitive one and non- one), hence not breaking
-                    }
-                }
-
-                return false;
-            };
-            
-            // Check for triggers in the root node first.
-            Agent root{ &tree.front(), static_cast<int>(tree_height - 1) };
-            const bool isTriggerFound = lambdaAdvanceAgent(root) ||
-                std::ranges::any_of(agents, [lambdaAdvanceAgent, inputLetter](const Agent& agent) { return lambdaAdvanceAgent(agent); });
-
-            if (isTriggerFound)
-            {
-                nextIterationAgents.clear();
-            }
-
-            if (!isBeingComposed || isTriggerFound)
-            {
-                agents.clear();
-                std::swap(agents, nextIterationAgents);
-            }
-        }
-    } };
+    register_input_listener(on_input);
 }
 
 
@@ -437,11 +432,6 @@ void reconstruct_trigger_tree()
 
 void teardown_trigger_tree()
 {
-    trigger_tree_thread.request_stop();
-    if (trigger_tree_thread.joinable())
-    {
-        trigger_tree_thread.join();
-    }
     trigger_tree_constructor_thread.request_stop();
     if (trigger_tree_constructor_thread.joinable())
     {

@@ -14,7 +14,7 @@ LRESULT dummy_wnd_proc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
 }
 
 
-int wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPWSTR cmdLine, int cmdShow)
+int wWinMain(HINSTANCE hInstance, [[maybe_unused]] HINSTANCE hPrevInstance, [[maybe_unused]] LPWSTR cmdLine, [[maybe_unused]] int cmdShow)
 {
     MSG msg;
 

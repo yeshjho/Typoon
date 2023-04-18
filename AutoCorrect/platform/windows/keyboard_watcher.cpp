@@ -59,52 +59,48 @@ LRESULT CALLBACK low_level_keyboard_proc(HWND hWnd, UINT msg, WPARAM wParam, LPA
         {
             break;
         }
-
-        for (wchar_t& character : characters)
+        
+        // We currently don't support characters need more than 2 bytes
+        wchar_t character = characters[0];
+        if (const bool isLowerAlphabet = 'a' <= character && character <= 'z', isUpperAlphabet = 'A' <= character && character <= 'Z';
+            isLowerAlphabet || isUpperAlphabet)
         {
-            if (const bool isLowerAlphabet = 'a' <= character && character <= 'z', isUpperAlphabet = 'A' <= character && character <= 'Z';
-                isLowerAlphabet || isUpperAlphabet)
+            // is Hangul on
+            if (const HWND defaultImeWindow = ImmGetDefaultIMEWnd(foregroundWindow);
+                SendMessage(defaultImeWindow, WM_IME_CONTROL, 0x0005/*IMC_GETOPENSTATUS*/, 0))
+                // keyboardState[VK_HANGUL] doesn't work since it only stores the state of the last key pressed, not the current state(toggled), unlike VK_CAPITAL.
+                // Maybe should check the keyboard layout?
             {
-                // is Hangul on
-                if (const HWND defaultImeWindow = ImmGetDefaultIMEWnd(foregroundWindow);
-                    SendMessage(defaultImeWindow, WM_IME_CONTROL, 0x0005/*IMC_GETOPENSTATUS*/, 0))
-                    // keyboardState[VK_HANGUL] doesn't work since it only stores the state of the last key pressed, not the current state(toggled), unlike VK_CAPITAL.
-                    // Maybe should check the keyboard layout?
+                if (keyboardState[VK_CAPITAL] & 0x1)
                 {
-                    if (keyboardState[VK_CAPITAL] & 0x1)
-                    {
-                        // Flip the case since the CapsLock can't affect the Korean letters, but we use the English letters to convert to Korean letters.
-                        if (isLowerAlphabet)
-                        {
-                            character -= 'a' - 'A';
-                        }
-                        else
-                        {
-                            character += 'a' - 'A';
-                        }
-                    }
-
-                    // Support only two-set keyboard layout for now.
-                    constexpr wchar_t lowerAlphabetToHangul[] = L"ㅁㅠㅊㅇㄷㄹㅎㅗㅑㅓㅏㅣㅡㅜㅐㅔㅂㄱㄴㅅㅕㅍㅈㅌㅛㅋ";
-                    constexpr wchar_t upperAlphabetToHangul[] = L"ㅁㅠㅊㅇㄸㄹㅎㅗㅑㅓㅏㅣㅡㅜㅒㅖㅃㄲㄴㅆㅕㅍㅉㅌㅛㅋ";
+                    // Flip the case since the CapsLock can't affect the Korean letters, but we use the English letters to convert to Korean letters.
                     if (isLowerAlphabet)
                     {
-                        character = lowerAlphabetToHangul[character - L'a'];
+                        character -= 'a' - 'A';
                     }
                     else
                     {
-                        character = upperAlphabetToHangul[character - L'A'];
+                        character += 'a' - 'A';
                     }
+                }
+
+                // Support only two-set keyboard layout for now.
+                constexpr wchar_t lowerAlphabetToHangul[] = L"ㅁㅠㅊㅇㄷㄹㅎㅗㅑㅓㅏㅣㅡㅜㅐㅔㅂㄱㄴㅅㅕㅍㅈㅌㅛㅋ";
+                constexpr wchar_t upperAlphabetToHangul[] = L"ㅁㅠㅊㅇㄸㄹㅎㅗㅑㅓㅏㅣㅡㅜㅒㅖㅃㄲㄴㅆㅕㅍㅉㅌㅛㅋ";
+                if (isLowerAlphabet)
+                {
+                    character = lowerAlphabetToHangul[character - L'a'];
+                }
+                else
+                {
+                    character = upperAlphabetToHangul[character - L'A'];
                 }
             }
         }
 
-        for (const wchar_t character : characters)
+        if (std::iswprint(character) || std::iswspace(character) || character == L'\b')
         {
-            if (std::iswprint(character) || std::iswspace(character) || character == L'\b')
-            {
-                send_raw_input_to_imm_simulator(character);
-            }
+            send_raw_input_to_imm_simulator(character);
         }
         break;
     }
@@ -127,64 +123,44 @@ LRESULT CALLBACK low_level_keyboard_proc(HWND hWnd, UINT msg, WPARAM wParam, LPA
 }
 
 
-HHOOK keyboard_watcher_hook = nullptr;
-std::jthread keyboard_watcher_thread;
-
 void start_keyboard_watcher(const std::any& data)
 {
-    if (keyboard_watcher_hook || keyboard_watcher_thread.joinable()) [[unlikely]]
+    static bool didStart = false;
+    if (didStart)
     {
         g_console_logger.Log("Keyboard watcher is already running.", ELogLevel::WARNING);
         return;
     }
+    didStart = true;
 
-    keyboard_watcher_thread = std::jthread{ [hWnd = std::any_cast<HWND>(data)](const std::stop_token& stopToken)
+    const HWND hWnd = std::any_cast<HWND>(data);
+
+    if (!SetWindowLongPtr(hWnd, GWLP_WNDPROC, reinterpret_cast<LONG_PTR>(low_level_keyboard_proc)))
     {
-        if (!SetWindowLongPtr(hWnd, GWLP_WNDPROC, reinterpret_cast<LONG_PTR>(low_level_keyboard_proc)))
-        {
-            g_console_logger.Log(ELogLevel::FATAL, "SetWindowLongPtr failed:", std::system_category().message(static_cast<int>(GetLastError())));
-            std::exit(-1);  // It's fatal anyway, thread safety
-        }
+        g_console_logger.Log(ELogLevel::FATAL, "SetWindowLongPtr failed:", std::system_category().message(static_cast<int>(GetLastError())));
+        std::exit(-1);  // It's fatal anyway, thread safety
+    }
 
-        RAWINPUTDEVICE rid[2];
+    RAWINPUTDEVICE rid[2];
 
-        rid[0].usUsagePage = HID_USAGE_PAGE_GENERIC;
-        rid[0].usUsage = HID_USAGE_GENERIC_KEYBOARD;
-        rid[0].dwFlags = RIDEV_NOLEGACY | RIDEV_INPUTSINK;
-        rid[0].hwndTarget = hWnd;
+    rid[0].usUsagePage = HID_USAGE_PAGE_GENERIC;
+    rid[0].usUsage = HID_USAGE_GENERIC_KEYBOARD;
+    rid[0].dwFlags = RIDEV_NOLEGACY | RIDEV_INPUTSINK;
+    rid[0].hwndTarget = hWnd;
 
-        //Rid[1].usUsagePage = HID_USAGE_PAGE_GENERIC;
-        //Rid[1].usUsage = HID_USAGE_GENERIC_MOUSE;
-        //Rid[1].dwFlags = RIDEV_INPUTSINK;
-        //Rid[1].hwndTarget = hWnd;
+    rid[1].usUsagePage = HID_USAGE_PAGE_GENERIC;
+    rid[1].usUsage = HID_USAGE_GENERIC_MOUSE;
+    rid[1].dwFlags = RIDEV_INPUTSINK;
+    rid[1].hwndTarget = hWnd;
 
-        if (!RegisterRawInputDevices(rid, 1, sizeof(rid[0])))
-        {
-            g_console_logger.Log(ELogLevel::FATAL, "RegisterRawInputDevices failed:", std::system_category().message(static_cast<int>(GetLastError())));
-            std::exit(-1);  // It's fatal anyway, thread safety is not needed.
-        }
-        
-        while (true)
-        {
-            if (stopToken.stop_requested()) [[unlikely]]
-            {
-                break;
-            }
-        }
-    } };
+    if (!RegisterRawInputDevices(rid, 1, sizeof(rid[0])))
+    {
+        g_console_logger.Log(ELogLevel::FATAL, "RegisterRawInputDevices failed:", std::system_category().message(static_cast<int>(GetLastError())));
+        std::exit(-1);  // It's fatal anyway, thread safety is not needed.
+    }
 }
 
 void end_keyboard_watcher()
 {
-    if (keyboard_watcher_hook) [[likely]]
-    {
-        // TODO?
-    }
-
-    keyboard_watcher_thread.request_stop();
-    if (keyboard_watcher_thread.joinable())
-    {
-        keyboard_watcher_thread.join();
-    }
 }
 
