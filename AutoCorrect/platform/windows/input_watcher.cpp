@@ -7,6 +7,7 @@
 #include <hidusage.h>
 
 #include "../../imm/imm_simulator.h"
+#include "../../input_multicast/input_multicast.h"
 #include "../../utils/logger.h"
 
 
@@ -106,6 +107,16 @@ LRESULT CALLBACK input_proc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
 
     case RIM_TYPEMOUSE:
     {
+        const RAWMOUSE& mouseData = inputData.data.mouse;
+
+        if (mouseData.usButtonFlags & 
+            (RI_MOUSE_BUTTON_1_DOWN | RI_MOUSE_BUTTON_2_DOWN | 
+                RI_MOUSE_BUTTON_4_DOWN | RI_MOUSE_BUTTON_5_DOWN)
+            )
+        {
+            multicast_input({}, 0, true);
+        }
+
         break;
     }
 
@@ -152,7 +163,7 @@ void start_input_watcher(const std::any& data)
     rid[1].dwFlags = RIDEV_INPUTSINK;
     rid[1].hwndTarget = hWnd;
 
-    if (!RegisterRawInputDevices(rid, 1, sizeof(rid[0])))
+    if (!RegisterRawInputDevices(rid, static_cast<UINT>(std::size(rid)), sizeof(rid[0])))
     {
         g_console_logger.Log(ELogLevel::FATAL, "RegisterRawInputDevices failed:", std::system_category().message(static_cast<int>(GetLastError())));
         std::exit(-1);  // It's fatal anyway, thread safety is not needed.

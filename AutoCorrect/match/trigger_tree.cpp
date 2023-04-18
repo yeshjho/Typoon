@@ -99,7 +99,7 @@ std::atomic<bool> is_trigger_tree_outdated = true;
 std::atomic<bool> is_constructing_trigger_tree = false;
 
 
-void on_input(const InputMessage(&inputs)[MAX_INPUT_COUNT], int length)
+void on_input(const InputMessage(&inputs)[MAX_INPUT_COUNT], int length, bool clearAllAgents)
 {
     static std::vector<Agent> agents{};
     static std::vector<Agent> nextIterationAgents{};
@@ -123,6 +123,11 @@ void on_input(const InputMessage(&inputs)[MAX_INPUT_COUNT], int length)
         agents.reserve(tree_height);
         nextIterationAgents.reserve(tree_height);
         stroke.resize(tree_height, 0);
+    }
+
+    if (clearAllAgents)
+    {
+        agents.clear();
     }
 
     for (int i = 0; i < length; i++)
