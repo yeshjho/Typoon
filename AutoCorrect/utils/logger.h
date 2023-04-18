@@ -78,12 +78,12 @@ private:
     ELogLevel mMinLogLevel;
 
     std::ostream& mStream;
-    std::mutex mStreamMutex;
 
     std::jthread mWriterThread;
 
     std::queue<std::string> mLogQueue;
     std::mutex mLogQueueMutex;
+    std::condition_variable mLogQueueConditionVariable;
 };
 
 
