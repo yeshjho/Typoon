@@ -18,4 +18,5 @@ struct Match
     bool isCaseSensitive;
     //bool doPropagateCase;  // TODO
     //EUppercaseStyle uppercaseStyle;  // TODO
+    bool doNeedFullComposite;
 };

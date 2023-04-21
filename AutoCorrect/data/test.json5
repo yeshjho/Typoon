@@ -43,5 +43,10 @@
             trigger: '히히ab',
             replace: 'qwer',
         },
+        {
+            trigger: '가나',
+            replace: '다라',
+            full_composite: true,
+        }
     ]
 }

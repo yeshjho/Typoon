@@ -5,7 +5,11 @@
 
 MatchForParse::operator Match() const
 {
-    Match match{ .replace = to_u16_string(replace), .isCaseSensitive = case_sensitive };
+    Match match{
+        .replace = to_u16_string(replace),
+        .isCaseSensitive = case_sensitive,
+        .doNeedFullComposite = full_composite,
+    };
 
     if (!triggers.empty())
     {

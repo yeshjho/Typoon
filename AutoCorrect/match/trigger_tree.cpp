@@ -15,6 +15,7 @@ struct Letter
 {
     wchar_t letter;
     bool isCaseSensitive;  // Won't be true if `letter` is not cased.
+    bool doNeedFullComposite;  // Won't be true if `letter` is not Korean or not an ending.
 
     bool operator==(wchar_t ch) const
     {
@@ -192,7 +193,7 @@ void on_input(const InputMessage(&inputs)[MAX_INPUT_COUNT], int length, bool cle
 
 
         // returns true if an ending was found
-        const auto lambdaAdvanceAgent = [inputLetter, isBeingComposed](const Agent& agent)
+        const auto lambdaAdvanceAgent = [inputLetter, isBeingComposed, i, length, inputs](const Agent& agent)
         {
             if (is_trigger_tree_outdated.load())
             {
@@ -204,9 +205,9 @@ void on_input(const InputMessage(&inputs)[MAX_INPUT_COUNT], int length, bool cle
             // TODO: Maybe use binary search(std::equal_range)? Should modify the spaceship operator too, then.
 
             bool didFindMatchingChild = false;
-            for (int i = node.childStartIndex; i < node.childStartIndex + node.childLength; i++)
+            for (int childIndex = node.childStartIndex; childIndex < node.childStartIndex + node.childLength; childIndex++)
             {
-                const Node& child = tree.at(i);
+                const Node& child = tree.at(childIndex);
                 if (child.letter != inputLetter)
                 {
                     continue;
@@ -214,15 +215,48 @@ void on_input(const InputMessage(&inputs)[MAX_INPUT_COUNT], int length, bool cle
 
                 if (child.endingIndex >= 0)
                 {
+                    const bool doNeedFullComposite = child.letter.doNeedFullComposite;
+                    if (doNeedFullComposite && isBeingComposed)
+                    {
+                        continue;
+                    }
+
                     const auto& [replaceStringIndex, replaceStringLength, backspaceCount] = endings.at(child.endingIndex);
                     const std::wstring_view replace{ replace_strings.data() + replaceStringIndex, replaceStringLength };
 
-                    std::vector<FakeInput> inputs;
-                    inputs.reserve(backspaceCount + replace.size());
-                    std::fill_n(std::back_inserter(inputs), backspaceCount, FakeInput{ .type = FakeInput::EType::BACKSPACE });
-                    std::ranges::transform(replace, std::back_inserter(inputs),
-                        [](const wchar_t& ch) { return FakeInput{ FakeInput::EType::LETTER, ch }; });
-                    send_fake_inputs(inputs);
+                    std::vector<FakeInput> fakeInputs;
+                    if (doNeedFullComposite)
+                    {
+                        unsigned int additionalBackspaceCount = 0;
+                        if (i + 1 < length)
+                        {
+                            // The length of the middle letters + the last letter's decomposition.
+                            additionalBackspaceCount = std::max(length - i - 2, 0) +
+                                static_cast<unsigned int>(normalize_hangul(std::wstring{ inputs[length - 1].letter }).size());
+                        }
+                        // Note that we're not using the backspaceCount from the ending, since the last letter will be decomposed to calculate the count.
+                        const unsigned int totalBackspaceCount = replaceStringLength + additionalBackspaceCount;
+                        fakeInputs.reserve(totalBackspaceCount + replace.size() + length - i - 1);
+                        std::fill_n(std::back_inserter(fakeInputs), totalBackspaceCount, FakeInput{ .type = FakeInput::EType::BACKSPACE });
+                        std::ranges::transform(replace, std::back_inserter(fakeInputs),
+                            [](const wchar_t& ch) { return FakeInput{ FakeInput::EType::LETTER, ch }; });
+
+                        std::ranges::transform(std::begin(inputs) + i + 1, std::begin(inputs) + length, std::back_inserter(fakeInputs),
+                            [](const InputMessage& msg) { return FakeInput{ FakeInput::EType::LETTER, msg.letter }; });
+                        // TODO: Don't send as a KEYEVENTF_UNICODE to keep the composition mode.
+                        // After doing this, add an option for a replace to enable this.
+
+                        // NOTE: We don't skip the remaining letters since that can be a trigger, too
+                        // ex - triggers: '가'(full composite), '나' / input: '가나'
+                    }
+                    else
+                    {
+                        fakeInputs.reserve(backspaceCount + replace.size());
+                        std::fill_n(std::back_inserter(fakeInputs), backspaceCount, FakeInput{ .type = FakeInput::EType::BACKSPACE });
+                        std::ranges::transform(replace, std::back_inserter(fakeInputs),
+                            [](const wchar_t& ch) { return FakeInput{ FakeInput::EType::LETTER, ch }; });
+                    }
+                    send_fake_inputs(fakeInputs);
 
                     return true;
                 }
@@ -338,7 +372,7 @@ void reconstruct_trigger_tree()
         std::vector<std::pair<const Match*, const std::wstring*>> triggersOverwritten;
         for (const Match& match : matches)
         {
-            const auto& [triggers, replace, isCaseSensitive] = match;
+            const auto& [triggers, replace, isCaseSensitive, doNeedFullComposite] = match;
             for (const auto& trigger : triggers)
             {
                 TempNode* node = &root;
@@ -348,7 +382,9 @@ void reconstruct_trigger_tree()
                 for (auto triggerIt = trigger.begin(); triggerIt != trigger.end() - 1; ++triggerIt)
                 {
                     const wchar_t ch = *triggerIt;
-                    auto [it, isNew] = node->children.try_emplace(Letter{ ch, isCaseSensitive && is_cased_alpha(ch) }, TempNode{ &match, &trigger });
+                    auto [it, isNew] = node->children.try_emplace(
+                        Letter{ ch, isCaseSensitive && is_cased_alpha(ch), false }, 
+                        TempNode{ &match, &trigger });
                     // Same case with the last letter overwriting, but in a reverse order.
                     // The letters from here are not reachable anyway, so discard them altogether.
                     if (!isNew && it->second.children.empty())
@@ -368,17 +404,19 @@ void reconstruct_trigger_tree()
                 // The 'ending node'
                 const wchar_t lastLetter = trigger.back();
                 auto backspaceCount = static_cast<unsigned int>(trigger.size());
+                const bool isKorean = 
+                    (L'가' <= lastLetter && lastLetter <= L'힣') ||
+                    (L'ㄱ' <= lastLetter && lastLetter <= L'ㅣ');
                 // If the last letter is Korean, it's probably composed with more than 2 letters.
                 // The backspace count should be adjusted accordingly.
-                if ((L'가' <= lastLetter && lastLetter <= L'힣') ||
-                    (L'ㄳ' <= lastLetter && lastLetter <= L'ㅢ'))
+                if (isKorean)
                 {
                     backspaceCount += static_cast<int>(normalize_hangul(std::wstring{ lastLetter }).size()) - 1;
                 }
                 STOP
 
                 // Since finding a match resets all the agents, we cannot advance further anyway. Therefore overwriting is fine.
-                Letter letter{ lastLetter, isCaseSensitive&& is_cased_alpha(lastLetter) };
+                Letter letter{ lastLetter, isCaseSensitive && is_cased_alpha(lastLetter), isKorean && doNeedFullComposite };
                 if (node->children.contains(letter))
                 {
                     TempNode& duplicate = node->children.at(letter);
