@@ -85,6 +85,14 @@ struct Agent
 {
     const Node* node = nullptr;
     int strokeStartIndex = -1;
+
+    constexpr bool operator==(const Agent& other) const noexcept = default;
+};
+
+// The agents that is 'dead' but can be brought back to life with backspaces.
+struct DeadAgent : Agent
+{
+    int backspacesNeeded = 0;
 };
 
 
@@ -101,10 +109,14 @@ std::atomic<bool> is_constructing_trigger_tree = false;
 
 void on_input(const InputMessage(&inputs)[MAX_INPUT_COUNT], int length, bool clearAllAgents)
 {
+    constexpr int MAX_BACKSPACE_COUNT = 5;
+
     static std::vector<Agent> agents{};
     static std::vector<Agent> nextIterationAgents{};
+    static std::deque<DeadAgent> deadAgents{};
     static std::wstring stroke{};
     static bool shouldResetAgents = false;
+    static Agent root;
 
     if (is_constructing_trigger_tree.load())
     {
@@ -123,16 +135,52 @@ void on_input(const InputMessage(&inputs)[MAX_INPUT_COUNT], int length, bool cle
         agents.reserve(tree_height);
         nextIterationAgents.reserve(tree_height);
         stroke.resize(tree_height, 0);
+        root = { &tree.front(), static_cast<int>(tree_height - 1) };
     }
 
     if (clearAllAgents)
     {
         agents.clear();
+        deadAgents.clear();
+    }
+
+    if (inputs[0].letter == L'\b')
+    {
+        // The input size is bigger than 1 only if letters are composed in the imm simulator.
+        // But a backspace can't be used to finish composing(other than clearing one completely),
+        // we don't need to check further.
+        for (const auto [node, strokeStartIndex] : agents)
+        {
+            if (node->parentIndex >= 0)
+            {
+                nextIterationAgents.emplace_back(&tree.at(node->parentIndex), strokeStartIndex);
+            }
+        }
+        agents.clear();
+        std::swap(agents, nextIterationAgents);
+
+        std::erase_if(deadAgents,
+            [](DeadAgent& deadAgent)
+            {
+                deadAgent.backspacesNeeded--;
+                if (deadAgent.backspacesNeeded <= 0)
+                {
+                    agents.emplace_back(deadAgent);
+                    return true;
+                }
+                return false;
+            }
+        );
+
+        return;
     }
 
     for (int i = 0; i < length; i++)
     {
         const auto [inputLetter, isBeingComposed] = inputs[i];
+
+        g_console_logger.Log(inputLetter);
+
         std::ranges::rotate(stroke, stroke.begin() + 1);
         stroke.back() = inputLetter;
         for (Agent& agent : agents)
@@ -141,6 +189,7 @@ void on_input(const InputMessage(&inputs)[MAX_INPUT_COUNT], int length, bool cle
             // since those agents can't be made.
             agent.strokeStartIndex--;
         }
+
 
         // returns true if an ending was found
         const auto lambdaAdvanceAgent = [inputLetter, isBeingComposed](const Agent& agent)
@@ -154,6 +203,7 @@ void on_input(const InputMessage(&inputs)[MAX_INPUT_COUNT], int length, bool cle
             const Node& node = *agent.node;
             // TODO: Maybe use binary search(std::equal_range)? Should modify the spaceship operator too, then.
 
+            bool didFindMatchingChild = false;
             for (int i = node.childStartIndex; i < node.childStartIndex + node.childLength; i++)
             {
                 const Node& child = tree.at(i);
@@ -172,7 +222,7 @@ void on_input(const InputMessage(&inputs)[MAX_INPUT_COUNT], int length, bool cle
                     std::fill_n(std::back_inserter(inputs), backspaceCount, FakeInput{ .type = FakeInput::EType::BACKSPACE });
                     std::ranges::transform(replace, std::back_inserter(inputs),
                         [](const wchar_t& ch) { return FakeInput{ FakeInput::EType::LETTER, ch }; });
-                    send_fake_inputs(inputs);  // TODO: run it on a separate thread?
+                    send_fake_inputs(inputs);
 
                     return true;
                 }
@@ -184,22 +234,32 @@ void on_input(const InputMessage(&inputs)[MAX_INPUT_COUNT], int length, bool cle
                     if (!isBeingComposed)
                     {
                         nextIterationAgents.emplace_back(&child, agent.strokeStartIndex - 1);
+                        didFindMatchingChild = true;
                     }
                     // NOTE: multiple matches can happen(ex - case-sensitive one and non- one), hence not breaking
                 }
             }
 
+            if (!didFindMatchingChild && agent != root)
+            {
+                deadAgents.emplace_back(agent);
+            }
             return false;
         };
 
         // Check for triggers in the root node first.
-        Agent root{ &tree.front(), static_cast<int>(tree_height - 1) };
         const bool isTriggerFound = lambdaAdvanceAgent(root) ||
-            std::ranges::any_of(agents, [lambdaAdvanceAgent, inputLetter](const Agent& agent) { return lambdaAdvanceAgent(agent); });
+            std::ranges::any_of(agents, [lambdaAdvanceAgent](const Agent& agent) { return lambdaAdvanceAgent(agent); });
 
         if (isTriggerFound)
         {
             nextIterationAgents.clear();
+            deadAgents.clear();
+        }
+
+        if (!isBeingComposed)
+        {
+            std::erase_if(deadAgents, [](DeadAgent& deadAgent) { return ++deadAgent.backspacesNeeded >= MAX_BACKSPACE_COUNT; });
         }
 
         if (!isBeingComposed || isTriggerFound)
