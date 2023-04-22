@@ -1,7 +1,5 @@
 #include "imm_simulator.h"
 
-#include <thread>
-
 
 void ImmSimulator::AddLetter(wchar_t letter)
 {
@@ -52,7 +50,7 @@ void ImmSimulator::AddLetter(wchar_t letter)
         // If the final letters are full(ex - '갃' followed by 'ㄱ') or the letter cannot be combined with the previous final letter(ex - '간' followed by 'ㄱ'),
         // the composition if finished.
         if (mComposition.initial == 0 || mComposition.medial[0] == 0 ||
-            mComposition.final[1] != 0 || !canCombineLetters(mComposition.final[0], letter))
+            !canBeAFinalLetter(letter) || mComposition.final[1] != 0 || !canCombineLetters(mComposition.final[0], letter))
         {
             lambdaAddMessage(composeEmitResetComposition());
             mComposition.initial = letter;
@@ -173,6 +171,12 @@ bool ImmSimulator::canCombineLetters(wchar_t a, wchar_t b)
     default:
         return false;
     }
+}
+
+
+bool ImmSimulator::canBeAFinalLetter(wchar_t consonant)
+{
+    return consonant != L'ㄸ' && consonant != L'ㅃ' && consonant != L'ㅉ';
 }
 
 
