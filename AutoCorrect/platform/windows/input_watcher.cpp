@@ -8,7 +8,9 @@
 
 #include "../../imm/imm_simulator.h"
 #include "../../input_multicast/input_multicast.h"
+#include "../../low_level/fake_input.h"
 #include "../../utils/logger.h"
+#include "../../utils/string.h"
 
 
 LRESULT CALLBACK input_proc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
@@ -34,7 +36,7 @@ LRESULT CALLBACK input_proc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
     {
         const RAWKEYBOARD& keyboardData = inputData.data.keyboard;
 
-        if (keyboardData.Message != WM_KEYDOWN)
+        if (keyboardData.Message != WM_KEYDOWN || keyboardData.ExtraInformation == FAKE_INPUT_EXTRA_INFO_CONSTANT)
         {
             break;
         }
@@ -84,17 +86,7 @@ LRESULT CALLBACK input_proc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
                     }
                 }
 
-                // Support only two-set keyboard layout for now.
-                constexpr wchar_t lowerAlphabetToHangul[] = L"ㅁㅠㅊㅇㄷㄹㅎㅗㅑㅓㅏㅣㅡㅜㅐㅔㅂㄱㄴㅅㅕㅍㅈㅌㅛㅋ";
-                constexpr wchar_t upperAlphabetToHangul[] = L"ㅁㅠㅊㅇㄸㄹㅎㅗㅑㅓㅏㅣㅡㅜㅒㅖㅃㄲㄴㅆㅕㅍㅉㅌㅛㅋ";
-                if (isLowerAlphabet)
-                {
-                    character = lowerAlphabetToHangul[character - L'a'];
-                }
-                else
-                {
-                    character = upperAlphabetToHangul[character - L'A'];
-                }
+                character = alphabet_to_hangeul({ &character, 1 })[0];
             }
         }
 

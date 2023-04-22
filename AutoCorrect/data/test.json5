@@ -47,6 +47,10 @@
             trigger: '가나',
             replace: '다라',
             full_composite: true,
+        },
+        {
+            trigger: '마',
+            replace: '바',
         }
     ]
 }

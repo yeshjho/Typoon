@@ -21,7 +21,7 @@ std::wstring to_u16_string(const std::string& str)
     return std::wstring{ str.begin(), str.end() };
 }
 
-std::wstring normalize_hangul(std::wstring_view str)
+std::wstring normalize_hangeul(std::wstring_view str)
 {
     std::wstring result;
     result.reserve(str.size());
@@ -62,6 +62,77 @@ std::wstring normalize_hangul(std::wstring_view str)
         else
         {
             result += c;
+        }
+    }
+
+    return result;
+}
+
+std::wstring alphabet_to_hangeul(std::wstring_view str)
+{
+    std::wstring result;
+    result.reserve(str.size());
+
+    // Support only two-set keyboard layout for now.
+    // a~z
+    constexpr wchar_t lowerAlphabetToHangul[] = L"ㅁㅠㅊㅇㄷㄹㅎㅗㅑㅓㅏㅣㅡㅜㅐㅔㅂㄱㄴㅅㅕㅍㅈㅌㅛㅋ";
+    constexpr wchar_t upperAlphabetToHangul[] = L"ㅁㅠㅊㅇㄸㄹㅎㅗㅑㅓㅏㅣㅡㅜㅒㅖㅃㄲㄴㅆㅕㅍㅉㅌㅛㅋ";
+
+    for (const wchar_t& character : str)
+    {
+        if ('a' <= character && character <= 'z')
+        {
+            result += lowerAlphabetToHangul[character - L'a'];
+        }
+        else if ('A' <= character && character <= 'Z')
+        {
+            result += upperAlphabetToHangul[character - L'A'];
+        }
+        else
+        {
+            result += character;
+        }
+    }
+
+    return result;
+}
+
+std::wstring hangeul_to_alphabet(std::wstring_view normalizedStr, bool isCapsLockOn)
+{
+    std::wstring result;
+    result.reserve(normalizedStr.size());
+
+    // Support only two-set keyboard layout for now.
+    // ㄱ~ㅣ
+    constexpr char hangeulToAlphabet[] = {
+        'r', 'R', 0, 's', 0, 0, 'e', 'E', 'f', 0, 0, 0, 0, 0, 0, 0, 'a', 'q', 'Q', 0, 't', 'T', 'd', 'w', 'W', 'c', 'z', 'x', 'v', 'g',
+        'k', 'o', 'i', 'O', 'j', 'p', 'u', 'P', 'h', 0, 0, 0, 'y', 'n', 0, 0, 0, 'b', 'm', 0, 'l'
+    };
+
+    for (const wchar_t& character : normalizedStr)
+    {
+        if (L'ㄱ' <= character && character <= L'ㅣ')
+        {
+            const char c = hangeulToAlphabet[character - L'ㄱ'];
+            if (isCapsLockOn)
+            {
+                if (std::isupper(c))
+                {
+                    result += static_cast<wchar_t>(std::tolower(c));
+                }
+                else
+                {
+                    result += static_cast<wchar_t>(std::toupper(c));
+                }
+            }
+            else
+            {
+                result += c;
+            }
+        }
+        else
+        {
+            result += character;
         }
     }
 
