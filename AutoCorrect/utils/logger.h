@@ -44,23 +44,46 @@ std::string to_string(const T& t)
 }
 
 
-enum class ELogLevel
+struct LogLevel
 {
-    MIN,
+    enum class ELogLevel
+    {
+        MIN,
 
-    DEBUG,
-    INFO,
-    WARNING,
-    ERROR,
-    FATAL,
+        DEBUG,
+        INFO,
+        WARNING,
+        ERROR,
+        FATAL,
 
-    MAX
+        MAX
+    };
+
+    constexpr auto operator<=>(const LogLevel& other) const = default;
+
+    ELogLevel logLevel;
 };
+
+namespace ELogLevel
+{
+
+constexpr struct LogLevelMin : LogLevel {} MIN{ LogLevel::ELogLevel::MIN };
+
+constexpr struct LogLevelDebug : LogLevel {} DEBUG{ LogLevel::ELogLevel::DEBUG };
+constexpr struct LogLevelInfo : LogLevel {} INFO{ LogLevel::ELogLevel::INFO };
+constexpr struct LogLevelWarning : LogLevel {} WARNING{ LogLevel::ELogLevel::WARNING };
+constexpr struct LogLevelError : LogLevel {} ERROR{ LogLevel::ELogLevel::ERROR };
+constexpr struct LogLevelFatal : LogLevel {} FATAL{ LogLevel::ELogLevel::FATAL };
+
+constexpr struct LogLevelMax : LogLevel {} MAX{ LogLevel::ELogLevel::MAX };
+
+}
+
 
 class Logger
 {
 public:
-    Logger(std::ostream& stream, ELogLevel minLogLevel = ELogLevel::ERROR);
+    Logger(std::ostream& stream, LogLevel minLogLevel = ELogLevel::ERROR);
     ~Logger();
 
     Logger(const Logger& other) = delete;
@@ -68,14 +91,27 @@ public:
     Logger& operator=(const Logger& other) = delete;
     Logger& operator=(Logger&& other) noexcept = delete;
 
-    void Log(const std::string& string, ELogLevel logLevel = ELogLevel::INFO);
+    void Log(const std::string& string, LogLevel logLevel = ELogLevel::INFO);
+
     template<_impl::CanBeString T>
-    void Log(const T& t, ELogLevel logLevel = ELogLevel::INFO);
+    void Log(const T& t, LogLevel logLevel = ELogLevel::INFO);
+
     template<_impl::CanBeString T, _impl::CanBeString ...Ts>
-    void Log(ELogLevel logLevel, const T& t, const Ts& ...ts);
+    void Log(LogLevel logLevel, const T& t, const Ts& ...ts);
+
+#ifndef _DEBUG
+    void Log(const std::string&, ELogLevel::LogLevelDebug) {}
+
+    template<_impl::CanBeString T>
+    void Log(const T&, ELogLevel::LogLevelDebug) {}
+
+    template<_impl::CanBeString T, _impl::CanBeString ...Ts>
+    void Log(ELogLevel::LogLevelDebug, const T&, const Ts& ...) {}
+#endif
+
 
 private:
-    ELogLevel mMinLogLevel;
+    LogLevel mMinLogLevel;
 
     std::ostream& mStream;
 
@@ -88,7 +124,7 @@ private:
 
 
 template<_impl::CanBeString T>
-void Logger::Log(const T& t, ELogLevel logLevel)
+void Logger::Log(const T& t, LogLevel logLevel)
 {
     if (logLevel < mMinLogLevel)
     {
@@ -99,7 +135,7 @@ void Logger::Log(const T& t, ELogLevel logLevel)
 }
 
 template<_impl::CanBeString T, _impl::CanBeString ...Ts>
-void Logger::Log(ELogLevel logLevel, const T& t, const Ts& ...ts)
+void Logger::Log(LogLevel logLevel, const T& t, const Ts& ...ts)
 {
     if (logLevel < mMinLogLevel)
     {

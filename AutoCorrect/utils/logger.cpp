@@ -5,7 +5,7 @@
 #include <fstream>
 
 
-Logger::Logger(std::ostream& stream, ELogLevel minLogLevel)
+Logger::Logger(std::ostream& stream, LogLevel minLogLevel)
     : mMinLogLevel(minLogLevel)
     , mStream(stream)
     , mWriterThread([this](const std::stop_token& stopToken)
@@ -50,7 +50,7 @@ Logger::~Logger()
 }
 
 
-void Logger::Log(const std::string& string, ELogLevel logLevel)
+void Logger::Log(const std::string& string, LogLevel logLevel)
 {
     using namespace std::chrono;
 
@@ -68,7 +68,7 @@ void Logger::Log(const std::string& string, ELogLevel logLevel)
     static const auto tz = current_zone();
 
     const auto now = zoned_time{ tz, system_clock::now() };
-    std::string line = std::format("{0:%Y-%m-%d %H:%M:%S} ", now) + logLevelStrings[static_cast<int>(logLevel)] + string;
+    std::string line = std::format("{0:%Y-%m-%d %H:%M:%S} ", now) + logLevelStrings[static_cast<int>(logLevel.logLevel)] + string;
 
     {
         std::scoped_lock lock{ mLogQueueMutex };
