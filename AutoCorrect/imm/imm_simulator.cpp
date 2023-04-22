@@ -2,8 +2,6 @@
 
 #include <thread>
 
-#include <atomic_queue/atomic_queue.h>
-
 
 void ImmSimulator::AddLetter(wchar_t letter)
 {
