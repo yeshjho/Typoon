@@ -16,6 +16,8 @@ public:
     // 4. A mouse input
     void ClearComposition();
 
+    void EmitAndClearCurrentComposite();
+
 private:
     [[nodiscard]] static bool canCombineLetters(wchar_t a, wchar_t b);
     [[nodiscard]] static bool canBeAFinalLetter(wchar_t consonant);
@@ -48,4 +50,5 @@ private:
 void setup_imm_simulator();
 void teardown_imm_simulator();
 
-void send_raw_input_to_imm_simulator(wchar_t letter);
+
+inline ImmSimulator imm_simulator{};

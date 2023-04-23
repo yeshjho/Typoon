@@ -41,6 +41,22 @@ LRESULT CALLBACK input_proc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
             break;
         }
 
+        const USHORT vKey = keyboardData.VKey;
+        if (vKey == VK_SHIFT || vKey == VK_CONTROL || vKey == VK_SNAPSHOT)
+        {
+            // These alone don't affect the stroke at all.
+            break;
+        }
+
+        if (vKey == VK_CAPITAL || vKey == VK_SCROLL || vKey == VK_NUMLOCK || 
+            vKey == VK_ESCAPE || vKey == VK_PAUSE || vKey == VK_INSERT || vKey == VK_PRIOR || vKey == VK_NEXT ||
+            vKey == VK_HANGEUL)
+        {
+            // These don't affect the stroke itself, but finishes the current composition.
+            imm_simulator.EmitAndClearCurrentComposite();
+            break;
+        }
+
         unsigned char keyboardState[256] = { 0, };
         // ToUnicodeEx produces in UTF-16, so 2 wchar_t's are enough.
         wchar_t characters[2] = { 0, };
@@ -51,14 +67,18 @@ LRESULT CALLBACK input_proc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
             // Also, the control key + a-z => 1~26, filter out.
             (keyboardState[VK_LWIN] & 0x80) || (keyboardState[VK_RWIN] & 0x80) || (keyboardState[VK_CONTROL] & 0x80))
         {
+            imm_simulator.ClearComposition();
+            multicast_input({}, 0, true);
             break;
         }
         // TODO: Alt key can affect the following key even when it's not down currently.
 
         const HWND foregroundWindow = GetForegroundWindow();
-        if (const int result = ToUnicodeEx(keyboardData.VKey, keyboardData.MakeCode, keyboardState, characters, static_cast<int>(std::size(characters)), 0, GetKeyboardLayout(GetWindowThreadProcessId(foregroundWindow, nullptr)));
+        if (const int result = ToUnicodeEx(vKey, keyboardData.MakeCode, keyboardState, characters, static_cast<int>(std::size(characters)), 0, GetKeyboardLayout(GetWindowThreadProcessId(foregroundWindow, nullptr)));
             result <= 0)
         {
+            imm_simulator.ClearComposition();
+            multicast_input({}, 0, true);
             break;
         }
         
@@ -92,7 +112,7 @@ LRESULT CALLBACK input_proc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
 
         if (std::iswprint(character) || std::iswspace(character) || character == L'\b')
         {
-            send_raw_input_to_imm_simulator(character);
+            imm_simulator.AddLetter(character);
         }
         break;
     }
@@ -106,6 +126,7 @@ LRESULT CALLBACK input_proc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
                 RI_MOUSE_BUTTON_4_DOWN | RI_MOUSE_BUTTON_5_DOWN)
             )
         {
+            imm_simulator.ClearComposition();
             multicast_input({}, 0, true);
         }
 

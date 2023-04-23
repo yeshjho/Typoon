@@ -4,6 +4,7 @@
 #include <map>
 #include <thread>
 
+#include "../imm/imm_simulator.h"
 #include "../input_multicast/input_multicast.h"
 #include "../low_level/fake_input.h"
 #include "../parse/parse.h"
@@ -216,68 +217,7 @@ void on_input(const InputMessage(&inputs)[MAX_INPUT_COUNT], int length, bool cle
                     continue;
                 }
 
-                if (child.endingIndex >= 0)
-                {
-                    const bool doNeedFullComposite = child.letter.doNeedFullComposite;
-                    if (doNeedFullComposite && isBeingComposed)
-                    {
-                        continue;
-                    }
-
-                    const auto& [replaceStringIndex, replaceStringLength, backspaceCount] = endings.at(child.endingIndex);
-                    const std::wstring_view replace{ replace_strings.data() + replaceStringIndex, replaceStringLength };
-
-                    std::vector<FakeInput> fakeInputs;
-                    if (doNeedFullComposite)
-                    {
-                        unsigned int additionalBackspaceCount = 0;
-                        std::wstring lastLetter = { inputs[length - 1].letter };
-                        // Is the current letter's composition finished by adding more letters
-                        if (i + 1 < length)
-                        {
-                            const std::wstring lastLetterNormalized = normalize_hangeul(lastLetter);
-                            lastLetter = hangeul_to_alphabet(lastLetterNormalized, false);
-                            // The length of the middle letters + the last letter's decomposition.
-                            additionalBackspaceCount = std::max(length - i - 2, 0) +
-                                static_cast<unsigned int>(lastLetterNormalized.size());
-                        }
-
-                        // Note that we're not using the backspaceCount from the ending,
-                        // since the last letter of the replace string was decomposed to calculate the count (we don't want that here).
-                        const unsigned int totalBackspaceCount = replaceStringLength + additionalBackspaceCount;
-                        fakeInputs.reserve(totalBackspaceCount + replace.size() + length - i - 2 + lastLetter.size());
-
-                        std::fill_n(std::back_inserter(fakeInputs), totalBackspaceCount, FakeInput{ .type = FakeInput::EType::BACKSPACE });
-
-                        // The replace string first
-                        std::ranges::transform(replace, std::back_inserter(fakeInputs),
-                            [](const wchar_t& ch) { return FakeInput{ FakeInput::EType::LETTER, ch }; });
-                        // Then the middle letters
-                        // Not using std::transform to avoid begin(i + 1) > end(length - 1)
-                        for (int j = i + 1; j < length - 1; j++)
-                        {
-                            fakeInputs.emplace_back(FakeInput::EType::LETTER, inputs[j].letter);
-                        }
-                        // Then the last letter's decomposition.
-                        // Why decompose and send as a key? If the last letter was in the middle of composing, we need to keep the 'composing' state.
-                        std::ranges::transform(lastLetter, std::back_inserter(fakeInputs),
-                            [](const wchar_t& ch) { return FakeInput{ FakeInput::EType::KEY, ch }; });
-
-                        // NOTE: We don't skip the remaining letters since that can be a trigger, too
-                        // ex - matches: '가'(full composite) -> '다', '나' -> '라' / input: '가나' / replace should be: '다라'
-                    }
-                    else
-                    {
-                        fakeInputs.reserve(backspaceCount + replace.size());
-                        std::fill_n(std::back_inserter(fakeInputs), backspaceCount, FakeInput{ .type = FakeInput::EType::BACKSPACE });
-                        std::ranges::transform(replace, std::back_inserter(fakeInputs),
-                            [](const wchar_t& ch) { return FakeInput{ FakeInput::EType::LETTER, ch }; });
-                    }
-                    send_fake_inputs(fakeInputs, false);
-
-                    return true;
-                }
-                else
+                if (child.endingIndex < 0)
                 {
                     // If the letter is being composed, only check for the triggers, don't advance the agents.
                     // ex - Typing '갃' should match '가' in the middle of the composition.
@@ -288,7 +228,76 @@ void on_input(const InputMessage(&inputs)[MAX_INPUT_COUNT], int length, bool cle
                         didFindMatchingChild = true;
                     }
                     // NOTE: multiple matches can happen(ex - case-sensitive one and non- one), hence not breaking
+                    continue;
                 }
+                
+                const bool doNeedFullComposite = child.letter.doNeedFullComposite;
+                if (doNeedFullComposite && isBeingComposed)
+                {
+                    continue;
+                }
+
+                const auto& [replaceStringIndex, replaceStringLength, backspaceCount] = endings.at(child.endingIndex);
+                const std::wstring_view replace{ replace_strings.data() + replaceStringIndex, replaceStringLength };
+
+                imm_simulator.ClearComposition();
+
+                std::vector<FakeInput> fakeInputs;
+                if (doNeedFullComposite)
+                {
+                    unsigned int additionalBackspaceCount = 0;
+                    std::wstring lastLetter = { inputs[length - 1].letter };
+                    // Is the current letter's composition finished by adding more letters
+                    if (i + 1 < length)
+                    {
+                        const std::wstring lastLetterNormalized = normalize_hangeul(lastLetter);
+                        lastLetter = hangeul_to_alphabet(lastLetterNormalized, false);
+                        // The length of the middle letters + the last letter's decomposition.
+                        additionalBackspaceCount = std::max(length - i - 2, 0) +
+                            static_cast<unsigned int>(lastLetterNormalized.size());
+                    }
+
+                    // Note that we're not using the backspaceCount from the ending,
+                    // since the last letter of the replace string was decomposed to calculate the count (we don't want that here).
+                    const unsigned int totalBackspaceCount = replaceStringLength + additionalBackspaceCount;
+                    fakeInputs.reserve(totalBackspaceCount + replace.size() + length - i - 2 + lastLetter.size());
+
+                    std::fill_n(std::back_inserter(fakeInputs), totalBackspaceCount, FakeInput{ .type = FakeInput::EType::BACKSPACE });
+
+                    // The replace string first
+                    std::ranges::transform(replace, std::back_inserter(fakeInputs),
+                        [](const wchar_t& ch) { return FakeInput{ FakeInput::EType::LETTER, ch }; });
+                    // Then the middle letters
+                    // Not using std::transform to avoid begin(i + 1) > end(length - 1)
+                    for (int j = i + 1; j < length - 1; j++)
+                    {
+                        fakeInputs.emplace_back(FakeInput::EType::LETTER, inputs[j].letter);
+                    }
+                    // Then the last letter's decomposition.
+                    // Why decompose and send as a key? If the last letter was in the middle of composing, we need to keep the 'composing' state.
+                    std::ranges::transform(lastLetter, std::back_inserter(fakeInputs),
+                        [](const wchar_t& ch) { return FakeInput{ FakeInput::EType::KEY, ch }; });
+                    for (const wchar_t ch : lastLetter)
+                    {
+                        if (L'ㄱ' <= ch && ch <= L'ㅣ')
+                        {
+                            imm_simulator.AddLetter(ch);
+                        }
+                    }
+
+                    // NOTE: We don't skip the remaining letters since that can be a trigger, too
+                    // ex - matches: '가'(full composite) -> '다', '나' -> '라' / input: '가나' / replace should be: '다라'
+                }
+                else
+                {
+                    fakeInputs.reserve(backspaceCount + replace.size());
+                    std::fill_n(std::back_inserter(fakeInputs), backspaceCount, FakeInput{ .type = FakeInput::EType::BACKSPACE });
+                    std::ranges::transform(replace, std::back_inserter(fakeInputs),
+                        [](const wchar_t& ch) { return FakeInput{ FakeInput::EType::LETTER, ch }; });
+                }
+                send_fake_inputs(fakeInputs, false);
+
+                return true;
             }
 
             if (!didFindMatchingChild && agent != root)

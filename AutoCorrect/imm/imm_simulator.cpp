@@ -138,6 +138,16 @@ void ImmSimulator::ClearComposition()
 }
 
 
+void ImmSimulator::EmitAndClearCurrentComposite()
+{
+    const InputMessage messages[MAX_INPUT_COUNT] = { composeEmitResetComposition() };
+    if (messages[0].letter != 0)
+    {
+        multicast_input(messages, 1);
+    }
+}
+
+
 bool ImmSimulator::canCombineLetters(wchar_t a, wchar_t b)
 {
     if (a == 0 || b == 0)
@@ -311,18 +321,10 @@ wchar_t ImmSimulator::composeLetter() const
 }
 
 
-ImmSimulator simulator{};
-
-
 void setup_imm_simulator()
 {
 }
 
 void teardown_imm_simulator()
 {
-}
-
-void send_raw_input_to_imm_simulator(wchar_t letter)
-{
-    simulator.AddLetter(letter);
 }
