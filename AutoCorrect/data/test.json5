@@ -32,25 +32,18 @@
             replace: '니다'
         },
         {
-            triggers: ['스비낟', '스빈다'],
-            replace: '습니다'
-        },
-        {
-            trigger: 'ga가q구',
-            replace: 'ㅁㄴㅇㄹ',
-        },
-        {
-            trigger: '히히ab',
-            replace: 'qwer',
-        },
-        {
             trigger: '가나',
             replace: '다라',
             full_composite: true,
         },
         {
-            trigger: '마',
-            replace: '바',
-        }
+            trigger: '구누',
+            replace: '두루',
+            keep_composite: true,
+        },
+        {
+            trigger: '룬',
+            replace: '둔',
+        },
     ]
 }

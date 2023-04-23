@@ -80,6 +80,7 @@ struct Ending
     int replaceStringIndex = -1;
     unsigned int replaceStringLength = 0;
     unsigned int backspaceCount = 0;
+    bool keepComposite = false;  // Won't be true if the letter is not Korean or need full composite.
 };
 
 // The agents for tracking the current possible triggers.
@@ -237,7 +238,7 @@ void on_input(const InputMessage(&inputs)[MAX_INPUT_COUNT], int length, bool cle
                     continue;
                 }
 
-                const auto& [replaceStringIndex, replaceStringLength, backspaceCount] = endings.at(child.endingIndex);
+                const auto& [replaceStringIndex, replaceStringLength, backspaceCount, keepComposite] = endings.at(child.endingIndex);
                 const std::wstring_view replace{ replace_strings.data() + replaceStringIndex, replaceStringLength };
 
                 imm_simulator.ClearComposition();
@@ -255,12 +256,19 @@ void on_input(const InputMessage(&inputs)[MAX_INPUT_COUNT], int length, bool cle
                         // The length of the middle letters + the last letter's decomposition.
                         additionalBackspaceCount = std::max(length - i - 2, 0) +
                             static_cast<unsigned int>(lastLetterNormalized.size());
+                        for (const wchar_t ch : lastLetterNormalized)
+                        {
+                            if (L'ㄱ' <= ch && ch <= L'ㅣ')
+                            {
+                                imm_simulator.AddLetter(ch);
+                            }
+                        }
                     }
 
                     // Note that we're not using the backspaceCount from the ending,
                     // since the last letter of the replace string was decomposed to calculate the count (we don't want that here).
                     const unsigned int totalBackspaceCount = replaceStringLength + additionalBackspaceCount;
-                    fakeInputs.reserve(totalBackspaceCount + replace.size() + length - i - 2 + lastLetter.size());
+                    fakeInputs.reserve(totalBackspaceCount + replaceStringLength + length - i - 2 + lastLetter.size());
 
                     std::fill_n(std::back_inserter(fakeInputs), totalBackspaceCount, FakeInput{ .type = FakeInput::EType::BACKSPACE });
 
@@ -277,20 +285,32 @@ void on_input(const InputMessage(&inputs)[MAX_INPUT_COUNT], int length, bool cle
                     // Why decompose and send as a key? If the last letter was in the middle of composing, we need to keep the 'composing' state.
                     std::ranges::transform(lastLetter, std::back_inserter(fakeInputs),
                         [](const wchar_t& ch) { return FakeInput{ FakeInput::EType::KEY, ch }; });
-                    for (const wchar_t ch : lastLetter)
+
+                    // NOTE: We don't skip the remaining letters since that can be a trigger, too
+                    // ex - matches: '가'(full composite) -> '다', '나' -> '라' / input: '가나' / replace should be: '다라'
+                }
+                else if (keepComposite)
+                {
+                    const std::wstring lastLetterNormalized = normalize_hangeul(replace.substr(replaceStringLength - 1));
+                    const std::wstring lastLetter = hangeul_to_alphabet(lastLetterNormalized, false);
+
+                    fakeInputs.reserve(backspaceCount + replaceStringLength + lastLetter.size() - 1);
+                    std::fill_n(std::back_inserter(fakeInputs), backspaceCount, FakeInput{ .type = FakeInput::EType::BACKSPACE });
+                    std::ranges::transform(replace.substr(0, replaceStringLength - 1), std::back_inserter(fakeInputs),
+                        [](const wchar_t& ch) { return FakeInput{ FakeInput::EType::LETTER, ch }; });
+                    std::ranges::transform(lastLetter, std::back_inserter(fakeInputs),
+                        [](const wchar_t& ch) { return FakeInput{ FakeInput::EType::KEY, ch }; });
+                    for (const wchar_t ch : lastLetterNormalized)
                     {
                         if (L'ㄱ' <= ch && ch <= L'ㅣ')
                         {
                             imm_simulator.AddLetter(ch);
                         }
                     }
-
-                    // NOTE: We don't skip the remaining letters since that can be a trigger, too
-                    // ex - matches: '가'(full composite) -> '다', '나' -> '라' / input: '가나' / replace should be: '다라'
                 }
                 else
                 {
-                    fakeInputs.reserve(backspaceCount + replace.size());
+                    fakeInputs.reserve(backspaceCount + replaceStringLength);
                     std::fill_n(std::back_inserter(fakeInputs), backspaceCount, FakeInput{ .type = FakeInput::EType::BACKSPACE });
                     std::ranges::transform(replace, std::back_inserter(fakeInputs),
                         [](const wchar_t& ch) { return FakeInput{ FakeInput::EType::LETTER, ch }; });
@@ -355,7 +375,7 @@ void reconstruct_trigger_tree()
     struct EndingMetaData
     {
         std::wstring replace;
-        unsigned int backspaceCount = 0;
+        Ending tempEnding;
     };
 
     struct TempNode
@@ -398,7 +418,7 @@ void reconstruct_trigger_tree()
         std::vector<std::pair<const Match*, const std::wstring*>> triggersOverwritten;
         for (const Match& match : matches)
         {
-            const auto& [triggers, replace, isCaseSensitive, doNeedFullComposite] = match;
+            const auto& [triggers, replace, isCaseSensitive, doNeedFullComposite, doKeepComposite] = match;
             for (const auto& trigger : triggers)
             {
                 TempNode* node = &root;
@@ -430,19 +450,19 @@ void reconstruct_trigger_tree()
                 // The 'ending node'
                 const wchar_t lastLetter = trigger.back();
                 auto backspaceCount = static_cast<unsigned int>(trigger.size());
-                const bool isKorean = 
+                const bool isLastLetterKorean = 
                     (L'가' <= lastLetter && lastLetter <= L'힣') ||
                     (L'ㄱ' <= lastLetter && lastLetter <= L'ㅣ');
                 // If the last letter is Korean, it's probably composed with more than 2 letters.
                 // The backspace count should be adjusted accordingly.
-                if (isKorean)
+                if (isLastLetterKorean)
                 {
                     backspaceCount += static_cast<int>(normalize_hangeul(std::wstring_view{ &lastLetter, 1 }).size()) - 1;
                 }
                 STOP
 
                 // Since finding a match resets all the agents, we cannot advance further anyway. Therefore overwriting is fine.
-                Letter letter{ lastLetter, isCaseSensitive && is_cased_alpha(lastLetter), isKorean && doNeedFullComposite };
+                Letter letter{ lastLetter, isCaseSensitive && is_cased_alpha(lastLetter), isLastLetterKorean && doNeedFullComposite };
                 if (node->children.contains(letter))
                 {
                     TempNode& duplicate = node->children.at(letter);
@@ -452,32 +472,32 @@ void reconstruct_trigger_tree()
                         triggersOverwritten.emplace_back(&match, &trigger);
                         continue;
                     }
-                    else
+
+                    // Its children will be non-reachable, mark them as overwritten.
+                    std::queue<TempNode*> nodes;
+                    nodes.push(&duplicate);
+                    while (!nodes.empty())
                     {
-                        // Its children will be non-reachable, mark them as overwritten.
-                        std::queue<TempNode*> nodes;
-                        nodes.push(&duplicate);
-                        while (!nodes.empty())
+                        TempNode* childNode = nodes.front();
+                        nodes.pop();
+                        if (childNode->children.empty())
                         {
-                            TempNode* childNode = nodes.front();
-                            nodes.pop();
-                            if (childNode->children.empty())
-                            {
-                                triggersOverwritten.emplace_back(childNode->match, childNode->trigger);
-                            }
-                            else
-                            {
-                                for (auto& child : childNode->children | std::views::values)
-                                {
-                                    nodes.push(&child);
-                                    STOP
-                                }
-                            }
-                            STOP
+                            triggersOverwritten.emplace_back(childNode->match, childNode->trigger);
                         }
+                        else
+                        {
+                            for (auto& child : childNode->children | std::views::values)
+                            {
+                                nodes.push(&child);
+                                STOP
+                            }
+                        }
+                        STOP
                     }
                 }
-                node->children[letter] = { .endingMetaData = { replace, backspaceCount } };
+
+                Ending ending{ .backspaceCount = backspaceCount, .keepComposite = doKeepComposite && isLastLetterKorean && !doNeedFullComposite };
+                node->children[letter] = TempNode{ .endingMetaData = EndingMetaData{ .replace = replace, .tempEnding = ending } };
                 STOP
             }
             STOP
@@ -526,7 +546,10 @@ void reconstruct_trigger_tree()
                     replaceStringIndex = static_cast<int>(result);
                 }
 
-                endings.emplace_back(replaceStringIndex, static_cast<int>(node->endingMetaData.replace.size()), node->endingMetaData.backspaceCount);
+                Ending ending = node->endingMetaData.tempEnding;
+                ending.replaceStringIndex = replaceStringIndex;
+                ending.replaceStringLength = static_cast<int>(node->endingMetaData.replace.size());
+                endings.emplace_back(ending);
                 STOP
             }
 

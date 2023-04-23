@@ -25,10 +25,11 @@ struct MatchForParse
     bool propagate_case = false;
     EUppercaseStyle uppercase_style = EUppercaseStyle::first_letter;
     bool full_composite = false;
+    bool keep_composite = false;
 
     operator Match() const;
 
-    JSON5_MEMBERS(triggers, trigger, replace, word, case_sensitive, propagate_case, uppercase_style, full_composite)
+    JSON5_MEMBERS(triggers, trigger, replace, word, case_sensitive, propagate_case, uppercase_style, full_composite, keep_composite)
 };
 
 JSON5_ENUM(MatchForParse::EUppercaseStyle, first_letter, capitalize_words)
