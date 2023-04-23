@@ -110,6 +110,90 @@ std::atomic<bool> is_trigger_tree_outdated = true;
 std::atomic<bool> is_constructing_trigger_tree = false;
 
 
+void replace_string(const Ending& ending, const InputMessage(&inputs)[MAX_INPUT_COUNT], int inputLength, int inputIndex, bool doNeedFullComposite)
+{
+    const auto& [replaceStringIndex, replaceStringLength, backspaceCount, keepComposite] = ending;
+    const std::wstring_view replace{ replace_strings.data() + replaceStringIndex, replaceStringLength };
+
+    imm_simulator.ClearComposition();
+
+    std::vector<FakeInput> fakeInputs;
+    if (doNeedFullComposite)
+    {
+        unsigned int additionalBackspaceCount = 0;
+        std::wstring lastLetter = { inputs[inputLength - 1].letter };
+        // Is the current letter's composition finished by adding more letters
+        if (inputIndex + 1 < inputLength)
+        {
+            const std::wstring lastLetterNormalized = normalize_hangeul(lastLetter);
+            lastLetter = hangeul_to_alphabet(lastLetterNormalized, false);
+            // The length of the middle letters + the last letter's decomposition.
+            additionalBackspaceCount = std::max(inputLength - inputIndex - 2, 0) +
+                static_cast<unsigned int>(lastLetterNormalized.size());
+            for (const wchar_t ch : lastLetterNormalized)
+            {
+                if (L'ㄱ' <= ch && ch <= L'ㅣ')
+                {
+                    imm_simulator.AddLetter(ch);
+                }
+            }
+        }
+
+        // Note that we're not using the backspaceCount from the ending,
+        // since the last letter of the replace string was decomposed to calculate the count (we don't want that here).
+        const unsigned int totalBackspaceCount = replaceStringLength + additionalBackspaceCount;
+        fakeInputs.reserve(totalBackspaceCount + replaceStringLength + inputLength - inputIndex - 2 + lastLetter.size());
+
+        std::fill_n(std::back_inserter(fakeInputs), totalBackspaceCount, FakeInput{ .type = FakeInput::EType::BACKSPACE });
+
+        // The replace string first
+        std::ranges::transform(replace, std::back_inserter(fakeInputs),
+            [](const wchar_t& ch) { return FakeInput{ FakeInput::EType::LETTER, ch }; });
+        // Then the middle letters
+        // Not using std::transform to avoid begin(i + 1) > end(length - 1)
+        for (int j = inputIndex + 1; j < inputLength - 1; j++)
+        {
+            fakeInputs.emplace_back(FakeInput::EType::LETTER, inputs[j].letter);
+        }
+        // Then the last letter's decomposition.
+        // Why decompose and send as a key? If the last letter was in the middle of composing, we need to keep the 'composing' state.
+        std::ranges::transform(lastLetter, std::back_inserter(fakeInputs),
+            [](const wchar_t& ch) { return FakeInput{ FakeInput::EType::KEY, ch }; });
+
+        // NOTE: We don't skip the remaining letters since that can be a trigger, too
+        // ex - matches: '가'(full composite) -> '다', '나' -> '라' / input: '가나' / replace should be: '다라'
+    }
+    else if (keepComposite)
+    {
+        const std::wstring lastLetterNormalized = normalize_hangeul(replace.substr(replaceStringLength - 1));
+        const std::wstring lastLetter = hangeul_to_alphabet(lastLetterNormalized, false);
+
+        fakeInputs.reserve(backspaceCount + replaceStringLength + lastLetter.size() - 1);
+        std::fill_n(std::back_inserter(fakeInputs), backspaceCount, FakeInput{ .type = FakeInput::EType::BACKSPACE });
+        std::ranges::transform(replace.substr(0, replaceStringLength - 1), std::back_inserter(fakeInputs),
+            [](const wchar_t& ch) { return FakeInput{ FakeInput::EType::LETTER, ch }; });
+        std::ranges::transform(lastLetter, std::back_inserter(fakeInputs),
+            [](const wchar_t& ch) { return FakeInput{ FakeInput::EType::KEY, ch }; });
+        for (const wchar_t ch : lastLetterNormalized)
+        {
+            if (L'ㄱ' <= ch && ch <= L'ㅣ')
+            {
+                imm_simulator.AddLetter(ch);
+            }
+        }
+    }
+    else
+    {
+        fakeInputs.reserve(backspaceCount + replaceStringLength);
+        std::fill_n(std::back_inserter(fakeInputs), backspaceCount, FakeInput{ .type = FakeInput::EType::BACKSPACE });
+        std::ranges::transform(replace, std::back_inserter(fakeInputs),
+            [](const wchar_t& ch) { return FakeInput{ FakeInput::EType::LETTER, ch }; });
+    }
+
+    send_fake_inputs(fakeInputs, false);
+}
+
+
 void on_input(const InputMessage(&inputs)[MAX_INPUT_COUNT], int length, bool clearAllAgents)
 {
     constexpr int MAX_BACKSPACE_COUNT = 5;
@@ -183,6 +267,59 @@ void on_input(const InputMessage(&inputs)[MAX_INPUT_COUNT], int length, bool cle
         return;
     }
 
+    // returns true if an ending was found
+    const auto lambdaAdvanceAgent = [length, inputs](const Agent& agent, wchar_t inputLetter, bool isBeingComposed, int inputIndex)
+    {
+        if (is_trigger_tree_outdated.load())
+        {
+            // Pretend a trigger was found so that the invalid agents are cleared & short-circuit the remaining checks.
+            return true;
+        }
+
+        const Node& node = *agent.node;
+        // TODO: Maybe use binary search(std::equal_range)? Should modify the spaceship operator too, then.
+
+        bool didFindMatchingChild = false;
+        for (int childIndex = node.childStartIndex; childIndex < node.childStartIndex + node.childLength; childIndex++)
+        {
+            const Node& child = tree.at(childIndex);
+            if (child.letter != inputLetter)
+            {
+                continue;
+            }
+
+            if (child.endingIndex < 0)
+            {
+                // If the letter is being composed, only check for the triggers, don't advance the agents.
+                // ex - Typing '갃' should match '가' in the middle of the composition.
+                // But we should not advance the agents since doing so would fail to match any Korean letters which are composed more than 1 letter.
+                if (!isBeingComposed)
+                {
+                    nextIterationAgents.emplace_back(&child, agent.strokeStartIndex - 1);
+                    didFindMatchingChild = true;
+                }
+                // NOTE: multiple matches can happen(ex - case-sensitive one and non- one), hence not breaking
+                continue;
+            }
+
+            const bool doNeedFullComposite = child.letter.doNeedFullComposite;
+            if (doNeedFullComposite && isBeingComposed)
+            {
+                continue;
+            }
+
+            replace_string(endings.at(child.endingIndex), inputs, length, inputIndex, doNeedFullComposite);
+
+            return true;
+        }
+
+        if (!didFindMatchingChild && agent != root)
+        {
+            deadAgents.emplace_back(agent);
+        }
+        return false;
+    };
+
     for (int i = 0; i < length; i++)
     {
         const auto [inputLetter, isBeingComposed] = inputs[i];
@@ -196,140 +333,9 @@ void on_input(const InputMessage(&inputs)[MAX_INPUT_COUNT], int length, bool cle
             agent.strokeStartIndex--;
         }
 
-
-        // returns true if an ending was found
-        const auto lambdaAdvanceAgent = [inputLetter, isBeingComposed, i, length, inputs](const Agent& agent)
-        {
-            if (is_trigger_tree_outdated.load())
-            {
-                // Pretend a trigger was found so that the invalid agents are cleared & short-circuit the remaining checks.
-                return true;
-            }
-
-            const Node& node = *agent.node;
-            // TODO: Maybe use binary search(std::equal_range)? Should modify the spaceship operator too, then.
-
-            bool didFindMatchingChild = false;
-            for (int childIndex = node.childStartIndex; childIndex < node.childStartIndex + node.childLength; childIndex++)
-            {
-                const Node& child = tree.at(childIndex);
-                if (child.letter != inputLetter)
-                {
-                    continue;
-                }
-
-                if (child.endingIndex < 0)
-                {
-                    // If the letter is being composed, only check for the triggers, don't advance the agents.
-                    // ex - Typing '갃' should match '가' in the middle of the composition.
-                    // But we should not advance the agents since doing so would fail to match any Korean letters which are composed more than 1 letter.
-                    if (!isBeingComposed)
-                    {
-                        nextIterationAgents.emplace_back(&child, agent.strokeStartIndex - 1);
-                        didFindMatchingChild = true;
-                    }
-                    // NOTE: multiple matches can happen(ex - case-sensitive one and non- one), hence not breaking
-                    continue;
-                }
-                
-                const bool doNeedFullComposite = child.letter.doNeedFullComposite;
-                if (doNeedFullComposite && isBeingComposed)
-                {
-                    continue;
-                }
-
-                const auto& [replaceStringIndex, replaceStringLength, backspaceCount, keepComposite] = endings.at(child.endingIndex);
-                const std::wstring_view replace{ replace_strings.data() + replaceStringIndex, replaceStringLength };
-
-                imm_simulator.ClearComposition();
-
-                std::vector<FakeInput> fakeInputs;
-                if (doNeedFullComposite)
-                {
-                    unsigned int additionalBackspaceCount = 0;
-                    std::wstring lastLetter = { inputs[length - 1].letter };
-                    // Is the current letter's composition finished by adding more letters
-                    if (i + 1 < length)
-                    {
-                        const std::wstring lastLetterNormalized = normalize_hangeul(lastLetter);
-                        lastLetter = hangeul_to_alphabet(lastLetterNormalized, false);
-                        // The length of the middle letters + the last letter's decomposition.
-                        additionalBackspaceCount = std::max(length - i - 2, 0) +
-                            static_cast<unsigned int>(lastLetterNormalized.size());
-                        for (const wchar_t ch : lastLetterNormalized)
-                        {
-                            if (L'ㄱ' <= ch && ch <= L'ㅣ')
-                            {
-                                imm_simulator.AddLetter(ch);
-                            }
-                        }
-                    }
-
-                    // Note that we're not using the backspaceCount from the ending,
-                    // since the last letter of the replace string was decomposed to calculate the count (we don't want that here).
-                    const unsigned int totalBackspaceCount = replaceStringLength + additionalBackspaceCount;
-                    fakeInputs.reserve(totalBackspaceCount + replaceStringLength + length - i - 2 + lastLetter.size());
-
-                    std::fill_n(std::back_inserter(fakeInputs), totalBackspaceCount, FakeInput{ .type = FakeInput::EType::BACKSPACE });
-
-                    // The replace string first
-                    std::ranges::transform(replace, std::back_inserter(fakeInputs),
-                        [](const wchar_t& ch) { return FakeInput{ FakeInput::EType::LETTER, ch }; });
-                    // Then the middle letters
-                    // Not using std::transform to avoid begin(i + 1) > end(length - 1)
-                    for (int j = i + 1; j < length - 1; j++)
-                    {
-                        fakeInputs.emplace_back(FakeInput::EType::LETTER, inputs[j].letter);
-                    }
-                    // Then the last letter's decomposition.
-                    // Why decompose and send as a key? If the last letter was in the middle of composing, we need to keep the 'composing' state.
-                    std::ranges::transform(lastLetter, std::back_inserter(fakeInputs),
-                        [](const wchar_t& ch) { return FakeInput{ FakeInput::EType::KEY, ch }; });
-
-                    // NOTE: We don't skip the remaining letters since that can be a trigger, too
-                    // ex - matches: '가'(full composite) -> '다', '나' -> '라' / input: '가나' / replace should be: '다라'
-                }
-                else if (keepComposite)
-                {
-                    const std::wstring lastLetterNormalized = normalize_hangeul(replace.substr(replaceStringLength - 1));
-                    const std::wstring lastLetter = hangeul_to_alphabet(lastLetterNormalized, false);
-
-                    fakeInputs.reserve(backspaceCount + replaceStringLength + lastLetter.size() - 1);
-                    std::fill_n(std::back_inserter(fakeInputs), backspaceCount, FakeInput{ .type = FakeInput::EType::BACKSPACE });
-                    std::ranges::transform(replace.substr(0, replaceStringLength - 1), std::back_inserter(fakeInputs),
-                        [](const wchar_t& ch) { return FakeInput{ FakeInput::EType::LETTER, ch }; });
-                    std::ranges::transform(lastLetter, std::back_inserter(fakeInputs),
-                        [](const wchar_t& ch) { return FakeInput{ FakeInput::EType::KEY, ch }; });
-                    for (const wchar_t ch : lastLetterNormalized)
-                    {
-                        if (L'ㄱ' <= ch && ch <= L'ㅣ')
-                        {
-                            imm_simulator.AddLetter(ch);
-                        }
-                    }
-                }
-                else
-                {
-                    fakeInputs.reserve(backspaceCount + replaceStringLength);
-                    std::fill_n(std::back_inserter(fakeInputs), backspaceCount, FakeInput{ .type = FakeInput::EType::BACKSPACE });
-                    std::ranges::transform(replace, std::back_inserter(fakeInputs),
-                        [](const wchar_t& ch) { return FakeInput{ FakeInput::EType::LETTER, ch }; });
-                }
-                send_fake_inputs(fakeInputs, false);
-
-                return true;
-            }
-
-            if (!didFindMatchingChild && agent != root)
-            {
-                deadAgents.emplace_back(agent);
-            }
-            return false;
-        };
-
         // Check for triggers in the root node first.
-        const bool isTriggerFound = lambdaAdvanceAgent(root) ||
-            std::ranges::any_of(agents, [lambdaAdvanceAgent](const Agent& agent) { return lambdaAdvanceAgent(agent); });
+        const bool isTriggerFound = lambdaAdvanceAgent(root, inputLetter, isBeingComposed, i) ||
+            std::ranges::any_of(agents, [=](const Agent& agent) { return lambdaAdvanceAgent(agent, inputLetter, isBeingComposed, i); });
 
         if (isTriggerFound)
         {
