@@ -401,6 +401,8 @@ void reconstruct_trigger_tree()
     is_trigger_tree_outdated.store(true);
     is_constructing_trigger_tree.store(true);
 
+    g_console_logger.Log("Trigger tree construction started");
+
     trigger_tree_constructor_thread = std::jthread{ [](const std::stop_token& stopToken)
     {
 #define STOP if (stopToken.stop_requested()) { return; }
@@ -577,6 +579,8 @@ void reconstruct_trigger_tree()
 
         tree_height = height;
         is_constructing_trigger_tree.store(false);
+
+        g_console_logger.Log("Trigger tree construction finished");
 
 #undef STOP
     } };

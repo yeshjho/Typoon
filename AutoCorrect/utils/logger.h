@@ -11,6 +11,18 @@
 namespace _impl
 {
 template<typename T>
+concept CanConstructWStringWith = requires(T t)
+{
+    std::wstring{ t };
+};
+
+template<typename T>
+concept CanConvertibleToWString = requires(T t)
+{
+    std::to_wstring(t);
+};
+
+template<typename T>
 concept CanConstructStringWith = requires(T t)
 {
     std::string{ t };
@@ -23,18 +35,28 @@ concept CanConvertibleToString = requires(T t)
 };
 
 template<typename T>
-concept CanBeString = CanConstructStringWith<T> || CanConvertibleToString<T>;
+concept CanBeString = CanConstructWStringWith<T> || CanConvertibleToWString<T> || CanConstructStringWith<T> || CanConvertibleToString<T>;
 
 template<CanBeString T>
-std::string to_string(const T& t)
+std::wstring to_wstring(const T& t)
 {
-    if constexpr (CanConstructStringWith<T>)
+    if constexpr (CanConstructWStringWith<T>)
     {
-        return std::string{ t };
+        return std::wstring{ t };
+    }
+    else if constexpr (CanConvertibleToWString<T>)
+    {
+        return std::to_wstring(t);
+    }
+    else if constexpr (CanConstructStringWith<T>)
+    {
+        std::string s{ t };
+        return std::wstring{ s.begin(), s.end() };
     }
     else if constexpr (CanConvertibleToString<T>)
     {
-        return std::to_string(t);
+        std::string s = std::to_string(t);
+        return std::wstring{ s.begin(), s.end() };
     }
     else
     {
@@ -83,7 +105,7 @@ constexpr struct LogLevelMax : LogLevel {} MAX{ LogLevel::ELogLevel::MAX };
 class Logger
 {
 public:
-    Logger(std::ostream& stream, LogLevel minLogLevel = ELogLevel::ERROR);
+    Logger(std::wostream& stream, LogLevel minLogLevel = ELogLevel::ERROR);
     ~Logger();
 
     Logger(const Logger& other) = delete;
@@ -91,7 +113,7 @@ public:
     Logger& operator=(const Logger& other) = delete;
     Logger& operator=(Logger&& other) noexcept = delete;
 
-    void Log(const std::string& string, LogLevel logLevel = ELogLevel::INFO);
+    void Log(const std::wstring& string, LogLevel logLevel = ELogLevel::INFO);
 
     template<_impl::CanBeString T>
     void Log(const T& t, LogLevel logLevel = ELogLevel::INFO);
@@ -100,7 +122,7 @@ public:
     void Log(LogLevel logLevel, const T& t, const Ts& ...ts);
 
 #ifndef _DEBUG
-    void Log(const std::string&, ELogLevel::LogLevelDebug) {}
+    void Log(const std::wstring&, ELogLevel::LogLevelDebug) {}
 
     template<_impl::CanBeString T>
     void Log(const T&, ELogLevel::LogLevelDebug) {}
@@ -113,11 +135,11 @@ public:
 private:
     LogLevel mMinLogLevel;
 
-    std::ostream& mStream;
+    std::wostream& mStream;
 
     std::jthread mWriterThread;
 
-    std::queue<std::string> mLogQueue;
+    std::queue<std::wstring> mLogQueue;
     std::mutex mLogQueueMutex;
     std::condition_variable mLogQueueConditionVariable;
 };
@@ -131,7 +153,7 @@ void Logger::Log(const T& t, LogLevel logLevel)
         return;
     }
 
-    Log(_impl::to_string(t), logLevel);
+    Log(_impl::to_wstring(t), logLevel);
 }
 
 template<_impl::CanBeString T, _impl::CanBeString ...Ts>
@@ -142,8 +164,7 @@ void Logger::Log(LogLevel logLevel, const T& t, const Ts& ...ts)
         return;
     }
 
-    Log((_impl::to_string(t) + ... + (" " + _impl::to_string(ts))), logLevel);
+    Log((_impl::to_wstring(t) + ... + (L" " + _impl::to_wstring(ts))), logLevel);
 }
 
-
-inline Logger g_console_logger{ std::cout, ELogLevel::DEBUG };
+inline Logger g_console_logger{ std::wcout, ELogLevel::DEBUG };

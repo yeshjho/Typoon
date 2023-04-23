@@ -1,5 +1,7 @@
 #include "imm_simulator.h"
 
+#include "../utils/logger.h"
+
 
 void ImmSimulator::AddLetter(wchar_t letter)
 {
@@ -27,6 +29,8 @@ void ImmSimulator::AddLetter(wchar_t letter)
         }
         // We don't need to multicast the input at all if a letter is successfully removed from the composition,
         // since the after-backspace-composition has already been cast for trigger checking before the backspace.
+
+        g_console_logger.Log(ELogLevel::DEBUG, "Composite:", composeLetter());
         return;
     }
 
@@ -39,6 +43,8 @@ void ImmSimulator::AddLetter(wchar_t letter)
         lambdaAddMessage(composeEmitResetComposition());
         lambdaAddMessage({ letter, false });
         multicast_input(messages, messageLength);
+
+        g_console_logger.Log(ELogLevel::DEBUG, "Composite:", composeLetter());
         return;
     }
 
@@ -90,6 +96,8 @@ void ImmSimulator::AddLetter(wchar_t letter)
     
     lambdaAddMessage({ composeLetter(), true });
     multicast_input(messages, messageLength);
+
+    g_console_logger.Log(ELogLevel::DEBUG, "Composite:", composeLetter());
 }
 
 
@@ -117,9 +125,11 @@ bool ImmSimulator::RemoveLetter()
     }
     else
     {
+        g_console_logger.Log(ELogLevel::DEBUG, "Composite:", composeLetter());
         return false;
     }
 
+    g_console_logger.Log(ELogLevel::DEBUG, "Composite:", composeLetter());
     return true;
 }
 
@@ -134,6 +144,10 @@ InputMessage ImmSimulator::composeEmitResetComposition()
 
 void ImmSimulator::ClearComposition()
 {
+    if (composeLetter() != 0)
+    {
+        g_console_logger.Log(ELogLevel::DEBUG, "Reset Composite");
+    }
     mComposition = {};
 }
 

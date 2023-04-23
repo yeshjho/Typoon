@@ -19,6 +19,7 @@ std::vector<MatchForParse> parse_matches(const std::filesystem::path& file)
         error != json5::error::none)
     {
         g_console_logger.Log(ELogLevel::ERROR, "Matches file", file.string(), "is invalid.");
+        // TODO: Detailed error
     }
     return matches.matches;
 }

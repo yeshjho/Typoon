@@ -5,7 +5,7 @@
 #include <fstream>
 
 
-Logger::Logger(std::ostream& stream, LogLevel minLogLevel)
+Logger::Logger(std::wostream& stream, LogLevel minLogLevel)
     : mMinLogLevel(minLogLevel)
     , mStream(stream)
     , mWriterThread([this](const std::stop_token& stopToken)
@@ -21,7 +21,7 @@ Logger::Logger(std::ostream& stream, LogLevel minLogLevel)
                 break;
             }
 
-            std::string line;
+            std::wstring line;
             line = std::move(mLogQueue.front());
             mLogQueue.pop();
 
@@ -30,7 +30,9 @@ Logger::Logger(std::ostream& stream, LogLevel minLogLevel)
             mStream << line << std::endl;
         }
     })
-{}
+{
+    mStream.imbue(std::locale{ "" });
+}
 
 Logger::~Logger()
 {
@@ -43,14 +45,14 @@ Logger::~Logger()
         mLogQueue.pop();
     }
 
-    if (auto& fstream = dynamic_cast<std::ofstream&>(mStream))
+    if (auto& fstream = dynamic_cast<std::wofstream&>(mStream))
     {
         fstream.close();
     }
 }
 
 
-void Logger::Log(const std::string& string, LogLevel logLevel)
+void Logger::Log(const std::wstring& string, LogLevel logLevel)
 {
     using namespace std::chrono;
 
@@ -64,11 +66,11 @@ void Logger::Log(const std::string& string, LogLevel logLevel)
         return;
     }
 
-    static const std::string logLevelStrings[] = { "", "[DEBUG] ", "[INFO] ", "[WARNING] ", "[ERROR] ", "[FATAL] " };
+    static const std::wstring logLevelStrings[] = { L"", L"[DEBUG] ", L"[INFO] ", L"[WARNING] ", L"[ERROR] ", L"[FATAL] " };
     static const auto tz = current_zone();
 
     const auto now = zoned_time{ tz, system_clock::now() };
-    std::string line = std::format("{0:%Y-%m-%d %H:%M:%S} ", now) + logLevelStrings[static_cast<int>(logLevel.logLevel)] + string;
+    std::wstring line = std::format(L"{0:%Y-%m-%d %H:%M:%S} ", now) + logLevelStrings[static_cast<int>(logLevel.logLevel)] + string;
 
     {
         std::scoped_lock lock{ mLogQueueMutex };
