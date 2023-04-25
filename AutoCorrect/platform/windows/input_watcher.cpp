@@ -87,11 +87,11 @@ LRESULT CALLBACK input_proc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
         if (const bool isLowerAlphabet = 'a' <= character && character <= 'z', isUpperAlphabet = 'A' <= character && character <= 'Z';
             isLowerAlphabet || isUpperAlphabet)
         {
-            // is Hangul on
-            if (const HWND defaultImeWindow = ImmGetDefaultIMEWnd(foregroundWindow);
-                SendMessage(defaultImeWindow, WM_IME_CONTROL, 0x0005/*IMC_GETOPENSTATUS*/, 0))
-                // keyboardState[VK_HANGUL] doesn't work since it only stores the state of the last key pressed, not the current state(toggled), unlike VK_CAPITAL.
-                // Maybe should check the keyboard layout?
+            const HWND defaultImeWindow = ImmGetDefaultIMEWnd(foregroundWindow);
+            is_hangeul_on = static_cast<bool>(SendMessage(defaultImeWindow, WM_IME_CONTROL, 0x0005/*IMC_GETOPENSTATUS*/, 0));
+            // keyboardState[VK_HANGUL] doesn't work since it only stores the state of the last key pressed, not the current state(toggled), unlike VK_CAPITAL.
+            // Maybe should check the keyboard layout?
+            if (is_hangeul_on)
             {
                 if (keyboardState[VK_CAPITAL] & 0x1)
                 {

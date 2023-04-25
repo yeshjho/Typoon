@@ -9,6 +9,7 @@ struct FakeInput
         LETTER,
         BACKSPACE,
         KEY,
+        TOGGLE_HANGEUL,
     };
 
     EType type = EType::LETTER;

@@ -16,7 +16,7 @@ struct Match
     std::wstring replace;
     //bool isWord;  // TODO
     bool isCaseSensitive;
-    //bool doPropagateCase;  // TODO
+    bool doPropagateCase;
     //EUppercaseStyle uppercaseStyle;  // TODO
     bool doNeedFullComposite;
     bool doKeepComposite;

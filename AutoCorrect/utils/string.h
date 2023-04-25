@@ -14,3 +14,13 @@ std::wstring normalize_hangeul(std::wstring_view str);
 std::wstring alphabet_to_hangeul(std::wstring_view str);
 
 std::wstring hangeul_to_alphabet(std::wstring_view normalizedStr, bool isCapsLockOn);
+
+constexpr bool is_korean(wchar_t c);
+
+
+constexpr bool is_korean(wchar_t c)
+{
+    return
+        (L'가' <= c && c <= L'힣') ||
+        (L'ㄱ' <= c && c <= L'ㅣ');
+}

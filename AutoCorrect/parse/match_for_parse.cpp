@@ -8,6 +8,7 @@ MatchForParse::operator Match() const
     Match match{
         .replace = to_u16_string(replace),
         .isCaseSensitive = case_sensitive,
+        .doPropagateCase = propagate_case,
         .doNeedFullComposite = full_composite,
         .doKeepComposite = keep_composite,
     };

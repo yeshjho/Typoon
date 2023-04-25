@@ -74,6 +74,19 @@ void send_fake_inputs(const std::vector<FakeInput>& inputs, bool isCapsLockOn)
             break;
         }
 
+        case FakeInput::EType::TOGGLE_HANGEUL:
+        {
+            INPUT windowsInput = {};
+            windowsInput.type = INPUT_KEYBOARD;
+            windowsInput.ki.wVk = VK_HANGEUL;
+            windowsInput.ki.dwExtraInfo = FAKE_INPUT_EXTRA_INFO_CONSTANT;
+            windowsInputs.emplace_back(windowsInput);
+
+            windowsInput.ki.dwFlags = KEYEVENTF_KEYUP;
+            windowsInputs.emplace_back(windowsInput);
+            break;
+        }
+
         default:
             std::unreachable();
         }

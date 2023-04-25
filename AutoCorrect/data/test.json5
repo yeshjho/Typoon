@@ -32,13 +32,13 @@
             replace: '니다'
         },
         {
-            trigger: '가나',
-            replace: '다라',
+            trigger: '가나다',
+            replace: 'r라',
             full_composite: true,
         },
         {
-            trigger: '구누',
-            replace: '두루',
+            trigger: 'wwww',
+            replace: '두z루',
             keep_composite: true,
         },
         {
