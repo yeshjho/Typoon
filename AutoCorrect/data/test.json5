@@ -11,7 +11,7 @@
             word: true
         },
         {
-            trigger: 'tbh',
+            trigger: ';tbh',
             replace: 'to be honest',
             word: true,
             propagate_case: true,

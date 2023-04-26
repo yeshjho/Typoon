@@ -112,20 +112,45 @@ std::atomic<bool> is_trigger_tree_outdated = true;
 std::atomic<bool> is_constructing_trigger_tree = false;
 
 
-void replace_string(const Ending& ending, const Agent& agent, const InputMessage(&inputs)[MAX_INPUT_COUNT], int inputLength, int inputIndex, bool doNeedFullComposite)
+void replace_string(const Ending& ending, const Agent& agent, std::wstring_view stroke, const InputMessage(&inputs)[MAX_INPUT_COUNT], int inputLength, int inputIndex, bool doNeedFullComposite)
 {
     const auto& [replaceStringIndex, replaceStringLength, backspaceCount, propagateCase, keepComposite] = ending;
-    const std::wstring_view replace{ replace_strings.data() + replaceStringIndex, replaceStringLength };
+    const std::wstring_view originalReplaceString{ replace_strings.data() + replaceStringIndex, replaceStringLength };
+    std::wstring replaceString{ originalReplaceString };
 
     imm_simulator.ClearComposition();
+    
+    const auto triggerStroke = stroke.substr(agent.strokeStartIndex);
+    if (propagateCase)
+    {
+        const auto triggerFirstCasedLetter = std::ranges::find_if(triggerStroke, [](wchar_t c) { return is_cased_alpha(c); });
+        if (std::iswupper(*triggerFirstCasedLetter))
+        {
+            if (std::ranges::any_of(triggerFirstCasedLetter, triggerStroke.end(), [](wchar_t c) { return is_cased_alpha(c) && std::iswlower(c); }))
+            {
+                // If there is a lowercase letter in the stroke, only the first cased letter is capitalized.
+                if (const auto it = std::ranges::find_if(originalReplaceString, [](wchar_t c) { return is_cased_alpha(c); });
+                    it != originalReplaceString.end())
+                {
+                    replaceString.at(it - originalReplaceString.begin()) = std::towupper(*it);
+                }
+            }
+            else
+            {
+                // Otherwise, capitalize all the letters.
+                std::ranges::transform(replaceString, replaceString.begin(), std::towupper);
+            }
+        }
+    }
 
+    const std::wstring_view replace{ replaceString };
     std::vector<FakeInput> fakeInputs;
     if (doNeedFullComposite)
     {
         unsigned int additionalBackspaceCount = std::max(inputLength - inputIndex - 2, 0) + 1;
         const wchar_t lastLetter = inputs[inputLength - 1].letter;
         const bool isLastLetterKorean = is_korean(lastLetter);
-        std::wstring lastLetterString = { lastLetter };
+        std::wstring lastLetterString{ lastLetter };
         // Is the current letter's composition finished by adding more letters
         if (isLastLetterKorean && inputIndex + 1 < inputLength)
         {
@@ -320,7 +345,7 @@ void on_input(const InputMessage(&inputs)[MAX_INPUT_COUNT], int length, bool cle
                 continue;
             }
 
-            replace_string(endings.at(child.endingIndex), nextAgent, inputs, length, inputIndex, doNeedFullComposite);
+            replace_string(endings.at(child.endingIndex), nextAgent, stroke, inputs, length, inputIndex, doNeedFullComposite);
 
             return true;
         }
@@ -524,7 +549,7 @@ void reconstruct_trigger_tree()
                 Ending ending{
                     .backspaceCount = backspaceCount,
                     // TODO: Abstract the extra conditions of the options and warn the user if ignored
-                    .propagateCase = doPropagateCase && is_cased_alpha(trigger.front()),
+                    .propagateCase = doPropagateCase && !isCaseSensitive && std::ranges::any_of(trigger, [](wchar_t c) { return is_cased_alpha(c); }),
                     .keepComposite = doKeepComposite && is_korean(replace.back()) && !doNeedFullComposite,
                 };
                 node->children[letter] = TempNode{ .endingMetaData = EndingMetaData{ .replace = replace, .tempEnding = ending } };
