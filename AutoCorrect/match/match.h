@@ -17,7 +17,7 @@ struct Match
     //bool isWord;  // TODO
     bool isCaseSensitive;
     bool doPropagateCase;
-    //EUppercaseStyle uppercaseStyle;  // TODO
+    EUppercaseStyle uppercaseStyle;
     bool doNeedFullComposite;
     bool doKeepComposite;
 };

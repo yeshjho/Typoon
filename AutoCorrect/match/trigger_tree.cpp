@@ -47,7 +47,7 @@ struct Letter
     }
 
     // NOTE: We don't need partial ordering, since we're already saying that case insensitive and same-if-lowered `Letter`s are equal.
-    auto operator<=>(const Letter& other) const
+    std::strong_ordering operator<=>(const Letter& other) const
     {
         if (std::towlower(letter) == std::towlower(other.letter))
         {
@@ -55,7 +55,7 @@ struct Letter
             return other.isCaseSensitive <=> isCaseSensitive;
         }
 
-        if (const auto comp = letter <=> other.letter;
+        if (const std::strong_ordering comp = letter <=> other.letter;
             comp != std::strong_ordering::equal)
         {
             return comp;
@@ -82,6 +82,7 @@ struct Ending
     unsigned int replaceStringLength = 0;
     unsigned int backspaceCount = 0;
     bool propagateCase = false;  // Won't be true if the first letter is not cased.
+    Match::EUppercaseStyle uppercaseStyle = Match::EUppercaseStyle::FIRST_LETTER;  // Only used if `propagateCase` is true.
     bool keepComposite = false;  // Won't be true if the letter is not Korean or need full composite.
 };
 
@@ -114,13 +115,13 @@ std::atomic<bool> is_constructing_trigger_tree = false;
 
 void replace_string(const Ending& ending, const Agent& agent, std::wstring_view stroke, const InputMessage(&inputs)[MAX_INPUT_COUNT], int inputLength, int inputIndex, bool doNeedFullComposite)
 {
-    const auto& [replaceStringIndex, replaceStringLength, backspaceCount, propagateCase, keepComposite] = ending;
+    const auto& [replaceStringIndex, replaceStringLength, backspaceCount, propagateCase, uppercaseStyle, keepComposite] = ending;
     const std::wstring_view originalReplaceString{ replace_strings.data() + replaceStringIndex, replaceStringLength };
     std::wstring replaceString{ originalReplaceString };
 
     imm_simulator.ClearComposition();
     
-    const auto triggerStroke = stroke.substr(agent.strokeStartIndex);
+    const std::wstring_view triggerStroke = stroke.substr(agent.strokeStartIndex);
     if (propagateCase)
     {
         const auto triggerFirstCasedLetter = std::ranges::find_if(triggerStroke, [](wchar_t c) { return is_cased_alpha(c); });
@@ -132,7 +133,33 @@ void replace_string(const Ending& ending, const Agent& agent, std::wstring_view 
                 if (const auto it = std::ranges::find_if(originalReplaceString, [](wchar_t c) { return is_cased_alpha(c); });
                     it != originalReplaceString.end())
                 {
-                    replaceString.at(it - originalReplaceString.begin()) = std::towupper(*it);
+                    switch (uppercaseStyle)
+                    {
+                    case Match::EUppercaseStyle::FIRST_LETTER:
+                        replaceString.at(it - originalReplaceString.begin()) = std::towupper(*it);
+                        break;
+
+                    case Match::EUppercaseStyle::WORDS:
+                    {
+                        bool shouldBeUpper = true;
+                        for (wchar_t& c : replaceString)
+                        {
+                            if (shouldBeUpper && is_cased_alpha(c))
+                            {
+                                c = std::towupper(c);
+                                shouldBeUpper = false;
+                            }
+                            else if (!std::iswalnum(c))
+                            {
+                                shouldBeUpper = true;
+                            }
+                        }
+                        break;
+                    }
+
+                    default:
+                        std::unreachable();
+                    }
                 }
             }
             else
@@ -458,7 +485,7 @@ void reconstruct_trigger_tree()
 #define STOP if (stopToken.stop_requested()) { return; }
 
         STOP
-        auto&& matchesParsed = parse_matches(match_file);
+        std::vector<MatchForParse>&& matchesParsed = parse_matches(match_file);
         STOP
         std::vector<Match> matches;
         matches.reserve(matchesParsed.size());
@@ -470,7 +497,7 @@ void reconstruct_trigger_tree()
         std::vector<std::pair<const Match*, const std::wstring*>> triggersOverwritten;
         for (const Match& match : matches)
         {
-            const auto& [triggers, replace, isCaseSensitive, doPropagateCase, doNeedFullComposite, doKeepComposite] = match;
+            const auto& [triggers, replace, isCaseSensitive, doPropagateCase, uppercaseStyle, doNeedFullComposite, doKeepComposite] = match;
             for (const auto& trigger : triggers)
             {
                 TempNode* node = &root;
@@ -536,7 +563,7 @@ void reconstruct_trigger_tree()
                         }
                         else
                         {
-                            for (auto& child : childNode->children | std::views::values)
+                            for (TempNode& child : childNode->children | std::views::values)
                             {
                                 nodes.push(&child);
                                 STOP
@@ -550,6 +577,7 @@ void reconstruct_trigger_tree()
                     .backspaceCount = backspaceCount,
                     // TODO: Abstract the extra conditions of the options and warn the user if ignored
                     .propagateCase = doPropagateCase && !isCaseSensitive && std::ranges::any_of(trigger, [](wchar_t c) { return is_cased_alpha(c); }),
+                    .uppercaseStyle = uppercaseStyle,
                     .keepComposite = doKeepComposite && is_korean(replace.back()) && !doNeedFullComposite,
                 };
                 node->children[letter] = TempNode{ .endingMetaData = EndingMetaData{ .replace = replace, .tempEnding = ending } };

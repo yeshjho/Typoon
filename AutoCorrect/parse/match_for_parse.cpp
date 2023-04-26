@@ -9,6 +9,7 @@ MatchForParse::operator Match() const
         .replace = to_u16_string(replace),
         .isCaseSensitive = case_sensitive,
         .doPropagateCase = propagate_case,
+        .uppercaseStyle = static_cast<Match::EUppercaseStyle>(uppercase_style),
         .doNeedFullComposite = full_composite,
         .doKeepComposite = keep_composite,
     };
