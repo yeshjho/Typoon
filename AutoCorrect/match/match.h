@@ -14,8 +14,8 @@ struct Match
     
     std::vector<std::wstring> triggers;
     std::wstring replace;
-    //bool isWord;  // TODO
     bool isCaseSensitive;
+    bool isWord;
     bool doPropagateCase;
     EUppercaseStyle uppercaseStyle;
     bool doNeedFullComposite;

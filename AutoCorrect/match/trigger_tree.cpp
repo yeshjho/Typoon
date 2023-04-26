@@ -15,12 +15,25 @@
 
 struct Letter
 {
+    // These constants uses the unassigned block of the Unicode. (0x0870 ~ 0x089F)
+    /// Constants for special triggers
+    static constexpr wchar_t NON_WORD_LETTER = 0x0870;
+
+    /// Constants for special replacements
+    static constexpr wchar_t LAST_INPUT_LETTER = 0x089F;
+
+
     wchar_t letter;
     bool isCaseSensitive;  // Won't be true if `letter` is not cased.
     bool doNeedFullComposite;  // Won't be true if `letter` is not Korean or not an ending.
 
     bool operator==(wchar_t ch) const
     {
+        if (letter == NON_WORD_LETTER)
+        {
+            return !std::iswalnum(ch);
+        }
+
         if (isCaseSensitive || !is_cased_alpha(ch))
         {
             return letter == ch;
@@ -120,6 +133,14 @@ void replace_string(const Ending& ending, const Agent& agent, std::wstring_view 
     std::wstring replaceString{ originalReplaceString };
 
     imm_simulator.ClearComposition();
+
+    for (wchar_t& c : replaceString)
+    {
+        if (c == Letter::LAST_INPUT_LETTER)
+        {
+            c = inputs[inputIndex].letter;
+        }
+    }
     
     const std::wstring_view triggerStroke = stroke.substr(agent.strokeStartIndex);
     if (propagateCase)
@@ -459,15 +480,16 @@ void reconstruct_trigger_tree()
     {
         /// These are used for recording duplicates
         const Match* match = nullptr;
-        const std::wstring* trigger = nullptr;
+        const std::wstring* originalTrigger = nullptr;
+        std::wstring trigger;
 
         /// This is used in the second iteration
         int parentIndex = -1;
         const Letter* letter = nullptr;
         unsigned int height = 0;
 
-        std::map<Letter, TempNode> children;  // empty == ending
-        EndingMetaData endingMetaData;  // only valid if children is empty
+        std::map<Letter, TempNode> children{};  // empty == ending
+        EndingMetaData endingMetaData{};  // only valid if children is empty
     };
 
     trigger_tree_constructor_thread.request_stop();
@@ -497,9 +519,21 @@ void reconstruct_trigger_tree()
         std::vector<std::pair<const Match*, const std::wstring*>> triggersOverwritten;
         for (const Match& match : matches)
         {
-            const auto& [triggers, replace, isCaseSensitive, doPropagateCase, uppercaseStyle, doNeedFullComposite, doKeepComposite] = match;
-            for (const auto& trigger : triggers)
+            const auto& [triggers, originalReplace, isCaseSensitive, isWord, doPropagateCase, uppercaseStyle, doNeedFullComposite, doKeepComposite] = match;
+            for (const auto& originalTrigger : triggers)
             {
+                std::wstring triggerStr{ originalTrigger };
+                std::wstring replaceStr{ originalReplace };
+
+                if (isWord)
+                {
+                    triggerStr.push_back(Letter::NON_WORD_LETTER);
+                    replaceStr.push_back(Letter::LAST_INPUT_LETTER);
+                }
+
+                const std::wstring_view trigger = triggerStr;
+                const std::wstring_view replace = replaceStr;
+
                 TempNode* node = &root;
 
                 bool isTriggerOverwritten = false;
@@ -509,12 +543,12 @@ void reconstruct_trigger_tree()
                     const wchar_t ch = *triggerIt;
                     auto [it, isNew] = node->children.try_emplace(
                         Letter{ ch, isCaseSensitive && is_cased_alpha(ch), false }, 
-                        TempNode{ &match, &trigger });
+                        TempNode{ &match, &originalTrigger, std::wstring{ trigger } });
                     // Same case with the last letter overwriting, but in a reverse order.
                     // The letters from here are not reachable anyway, so discard them altogether.
                     if (!isNew && it->second.children.empty())
                     {
-                        triggersOverwritten.emplace_back(&match, &trigger);
+                        triggersOverwritten.emplace_back(&match, &originalTrigger);
                         isTriggerOverwritten = true;
                         break;
                     }
@@ -539,14 +573,15 @@ void reconstruct_trigger_tree()
                 STOP
 
                 // Since finding a match resets all the agents, we cannot advance further anyway. Therefore overwriting is fine.
-                Letter letter{ triggerLastLetter, isCaseSensitive && is_cased_alpha(triggerLastLetter), isTriggerLastLetterKorean && doNeedFullComposite };
+                const bool needFullComposite = doNeedFullComposite && isTriggerLastLetterKorean && !isWord;
+                Letter letter{ triggerLastLetter, isCaseSensitive && is_cased_alpha(triggerLastLetter), needFullComposite };
                 if (node->children.contains(letter))
                 {
                     TempNode& duplicate = node->children.at(letter);
                     if (duplicate.children.empty())
                     {
                         // If there is already an ending node, keep the existing one.
-                        triggersOverwritten.emplace_back(&match, &trigger);
+                        triggersOverwritten.emplace_back(&match, &originalTrigger);
                         continue;
                     }
 
@@ -559,7 +594,7 @@ void reconstruct_trigger_tree()
                         nodes.pop();
                         if (childNode->children.empty())
                         {
-                            triggersOverwritten.emplace_back(childNode->match, childNode->trigger);
+                            triggersOverwritten.emplace_back(childNode->match, childNode->originalTrigger);
                         }
                         else
                         {
@@ -578,9 +613,9 @@ void reconstruct_trigger_tree()
                     // TODO: Abstract the extra conditions of the options and warn the user if ignored
                     .propagateCase = doPropagateCase && !isCaseSensitive && std::ranges::any_of(trigger, [](wchar_t c) { return is_cased_alpha(c); }),
                     .uppercaseStyle = uppercaseStyle,
-                    .keepComposite = doKeepComposite && is_korean(replace.back()) && !doNeedFullComposite,
+                    .keepComposite = doKeepComposite && is_korean(replace.back()) && !needFullComposite,
                 };
-                node->children[letter] = TempNode{ .endingMetaData = EndingMetaData{ .replace = replace, .tempEnding = ending } };
+                node->children[letter] = TempNode{ .endingMetaData = EndingMetaData{ .replace = std::wstring{ replace }, .tempEnding = ending } };
                 STOP
             }
             STOP
