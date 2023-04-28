@@ -195,12 +195,12 @@ void replace_string(const Ending& ending, const Agent& agent, std::wstring_view 
     std::vector<FakeInput> fakeInputs;
     if (doNeedFullComposite)
     {
-        unsigned int additionalBackspaceCount = std::max(inputLength - inputIndex - 2, 0) + 1;
         const wchar_t lastLetter = inputs[inputLength - 1].letter;
         const bool isLastLetterKorean = is_korean(lastLetter);
+        const bool didCompositionEndByAddingLetters = inputIndex + 1 < inputLength;
+        unsigned int additionalBackspaceCount = std::max(inputLength - inputIndex - 2, 0) + static_cast<unsigned int>(didCompositionEndByAddingLetters);
         std::wstring lastLetterString{ lastLetter };
-        // Is the current letter's composition finished by adding more letters
-        if (isLastLetterKorean && inputIndex + 1 < inputLength)
+        if (isLastLetterKorean && didCompositionEndByAddingLetters)
         {
             const std::wstring lastLetterNormalized = normalize_hangeul(lastLetterString);
             lastLetterString = hangeul_to_alphabet(lastLetterNormalized, false);
@@ -216,7 +216,12 @@ void replace_string(const Ending& ending, const Agent& agent, std::wstring_view 
         // Note that we're not using the backspaceCount from the ending,
         // since the last letter of the replace string was decomposed to calculate the count (we don't want that here).
         const unsigned int totalBackspaceCount = tree_height - agent.strokeStartIndex + additionalBackspaceCount;
-        fakeInputs.reserve(totalBackspaceCount + replaceStringLength + inputLength - inputIndex - 2 + static_cast<int>(shouldToggleHangeul) + lastLetterString.size());
+        fakeInputs.reserve(
+            totalBackspaceCount + 
+            replaceStringLength + 
+            inputLength - inputIndex - 2 + 
+            static_cast<int>(shouldToggleHangeul) + 
+            (didCompositionEndByAddingLetters ? lastLetterString.size() : size_t{ 0 }));
 
         std::fill_n(std::back_inserter(fakeInputs), totalBackspaceCount, FakeInput{ .type = FakeInput::EType::BACKSPACE });
 
@@ -237,8 +242,12 @@ void replace_string(const Ending& ending, const Agent& agent, std::wstring_view 
             fakeInputs.emplace_back(FakeInput::EType::TOGGLE_HANGEUL);
             is_hangeul_on = true;
         }
-        std::ranges::transform(lastLetterString, std::back_inserter(fakeInputs),
-            [](const wchar_t& ch) { return FakeInput{ FakeInput::EType::KEY, ch }; });
+        if (didCompositionEndByAddingLetters)
+        {
+            std::ranges::transform(lastLetterString, std::back_inserter(fakeInputs),
+                [type = isLastLetterKorean ? FakeInput::EType::KEY : FakeInput::EType::LETTER](const wchar_t& ch)
+                { return FakeInput{ type, ch }; });
+        }
 
         // NOTE: We don't skip the remaining letters since that can be a trigger, too
         // ex - matches: '가'(full composite) -> '다', '나' -> '라' / input: '가나' / replace should be: '다라'
