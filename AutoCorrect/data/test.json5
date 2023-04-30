@@ -45,5 +45,10 @@
             trigger: '룬',
             replace: '둔',
         },
+
+        {
+            trigger: ';sti',
+            replace: 'static_cast<int>(|_|)'
+        },
     ]
 }

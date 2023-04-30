@@ -94,6 +94,7 @@ struct Ending
     int replaceStringIndex = -1;
     unsigned int replaceStringLength = 0;
     unsigned int backspaceCount = 0;
+    unsigned int cursorMoveCount = 0;
     bool propagateCase = false;  // Won't be true if the first letter is not cased.
     Match::EUppercaseStyle uppercaseStyle = Match::EUppercaseStyle::FIRST_LETTER;  // Only used if `propagateCase` is true.
     bool keepComposite = false;  // Won't be true if the letter is not Korean or need full composite.
@@ -128,9 +129,11 @@ std::atomic<bool> is_constructing_trigger_tree = false;
 
 void replace_string(const Ending& ending, const Agent& agent, std::wstring_view stroke, const InputMessage(&inputs)[MAX_INPUT_COUNT], int inputLength, int inputIndex, bool doNeedFullComposite)
 {
-    const auto& [replaceStringIndex, replaceStringLength, backspaceCount, propagateCase, uppercaseStyle, keepComposite] = ending;
+    const auto& [replaceStringIndex, replaceStringLength, backspaceCount, cursorMoveCount, propagateCase, uppercaseStyle, keepComposite] = ending;
     const std::wstring_view originalReplaceString{ replace_strings.data() + replaceStringIndex, replaceStringLength };
     std::wstring replaceString{ originalReplaceString };
+
+    unsigned int additionalCursorMoveCount = 0;
 
     imm_simulator.ClearComposition();
 
@@ -223,7 +226,7 @@ void replace_string(const Ending& ending, const Agent& agent, std::wstring_view 
             static_cast<int>(shouldToggleHangeul) + 
             (didCompositionEndByAddingLetters ? lastLetterString.size() : size_t{ 0 }));
 
-        std::fill_n(std::back_inserter(fakeInputs), totalBackspaceCount, FakeInput{ .type = FakeInput::EType::BACKSPACE });
+        std::fill_n(std::back_inserter(fakeInputs), totalBackspaceCount, FakeInput{ FakeInput::EType::KEY, FakeInput::BACKSPACE_KEY });
 
         // The replace string first
         std::ranges::transform(replace, std::back_inserter(fakeInputs),
@@ -239,14 +242,19 @@ void replace_string(const Ending& ending, const Agent& agent, std::wstring_view 
         // Why decompose and send as a key? If the last letter was in the middle of composing, we need to keep the 'composing' state.
         if (shouldToggleHangeul)
         {
-            fakeInputs.emplace_back(FakeInput::EType::TOGGLE_HANGEUL);
+            fakeInputs.emplace_back(FakeInput::EType::KEY, FakeInput::TOGGLE_HANGEUL_KEY);
             is_hangeul_on = true;
         }
         if (didCompositionEndByAddingLetters)
         {
             std::ranges::transform(lastLetterString, std::back_inserter(fakeInputs),
-                [type = isLastLetterKorean ? FakeInput::EType::KEY : FakeInput::EType::LETTER](const wchar_t& ch)
+                [type = isLastLetterKorean ? FakeInput::EType::LETTER_AS_KEY : FakeInput::EType::LETTER](const wchar_t& ch)
                 { return FakeInput{ type, ch }; });
+        }
+
+        if (didCompositionEndByAddingLetters && cursorMoveCount > 0)
+        {
+            additionalCursorMoveCount += inputLength - inputIndex - 1;
         }
 
         // NOTE: We don't skip the remaining letters since that can be a trigger, too
@@ -258,16 +266,16 @@ void replace_string(const Ending& ending, const Agent& agent, std::wstring_view 
         const std::wstring lastLetter = hangeul_to_alphabet(lastLetterNormalized, false);
 
         fakeInputs.reserve(backspaceCount + replaceStringLength + static_cast<int>(!is_hangeul_on) + lastLetter.size() - 1);
-        std::fill_n(std::back_inserter(fakeInputs), backspaceCount, FakeInput{ .type = FakeInput::EType::BACKSPACE });
+        std::fill_n(std::back_inserter(fakeInputs), backspaceCount, FakeInput{ FakeInput::EType::KEY, FakeInput::BACKSPACE_KEY });
         std::ranges::transform(replace.substr(0, replaceStringLength - 1), std::back_inserter(fakeInputs),
             [](const wchar_t& ch) { return FakeInput{ FakeInput::EType::LETTER, ch }; });
         if (!is_hangeul_on)
         {
-            fakeInputs.emplace_back(FakeInput::EType::TOGGLE_HANGEUL);
+            fakeInputs.emplace_back(FakeInput::EType::KEY, FakeInput::TOGGLE_HANGEUL_KEY);
             is_hangeul_on = true;
         }
         std::ranges::transform(lastLetter, std::back_inserter(fakeInputs),
-            [](const wchar_t& ch) { return FakeInput{ FakeInput::EType::KEY, ch }; });
+            [](const wchar_t& ch) { return FakeInput{ FakeInput::EType::LETTER_AS_KEY, ch }; });
         for (const wchar_t ch : lastLetterNormalized)
         {
             imm_simulator.AddLetter(ch);
@@ -276,10 +284,12 @@ void replace_string(const Ending& ending, const Agent& agent, std::wstring_view 
     else
     {
         fakeInputs.reserve(backspaceCount + replaceStringLength);
-        std::fill_n(std::back_inserter(fakeInputs), backspaceCount, FakeInput{ .type = FakeInput::EType::BACKSPACE });
+        std::fill_n(std::back_inserter(fakeInputs), backspaceCount, FakeInput{ FakeInput::EType::KEY, FakeInput::BACKSPACE_KEY });
         std::ranges::transform(replace, std::back_inserter(fakeInputs),
             [](const wchar_t& ch) { return FakeInput{ FakeInput::EType::LETTER, ch }; });
     }
+
+    std::fill_n(std::back_inserter(fakeInputs), cursorMoveCount + additionalCursorMoveCount, FakeInput{ FakeInput::EType::KEY, FakeInput::LEFT_ARROW_KEY });
 
     send_fake_inputs(fakeInputs, false);
 }
@@ -479,6 +489,8 @@ std::jthread trigger_tree_constructor_thread;
 
 void reconstruct_trigger_tree()
 {
+    constexpr wchar_t CURSOR_PLACEHOLDER[] = L"|_|";
+
     struct EndingMetaData
     {
         std::wstring replace;
@@ -538,6 +550,14 @@ void reconstruct_trigger_tree()
                 {
                     triggerStr.push_back(Letter::NON_WORD_LETTER);
                     replaceStr.push_back(Letter::LAST_INPUT_LETTER);
+                }
+
+                unsigned int cursorMoveCount = 0;
+                if (const size_t cursorIndex = originalReplace.find(CURSOR_PLACEHOLDER);
+                    cursorIndex != std::wstring::npos)
+                {
+                    replaceStr.erase(cursorIndex, 3);
+                    cursorMoveCount = static_cast<unsigned int>(replaceStr.size() - cursorIndex);
                 }
 
                 const std::wstring_view trigger = triggerStr;
@@ -619,10 +639,11 @@ void reconstruct_trigger_tree()
 
                 Ending ending{
                     .backspaceCount = backspaceCount,
+                    .cursorMoveCount = cursorMoveCount,
                     // TODO: Abstract the extra conditions of the options and warn the user if ignored
                     .propagateCase = doPropagateCase && !isCaseSensitive && std::ranges::any_of(trigger, [](wchar_t c) { return is_cased_alpha(c); }),
                     .uppercaseStyle = uppercaseStyle,
-                    .keepComposite = doKeepComposite && is_korean(replace.back()) && !needFullComposite,
+                    .keepComposite = doKeepComposite && is_korean(replace.back()) && !needFullComposite && cursorMoveCount == 0,
                 };
                 node->children[letter] = TempNode{ .endingMetaData = EndingMetaData{ .replace = std::wstring{ replace }, .tempEnding = ending } };
                 STOP

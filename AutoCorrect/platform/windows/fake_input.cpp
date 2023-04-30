@@ -7,6 +7,10 @@
 #include "../../utils/logger.h"
 #include "../../utils/string.h"
 
+const wchar_t FakeInput::BACKSPACE_KEY = VK_BACK;
+const wchar_t FakeInput::TOGGLE_HANGEUL_KEY = VK_HANGUL;
+const wchar_t FakeInput::LEFT_ARROW_KEY = VK_LEFT;
+
 
 void send_fake_inputs(const std::vector<FakeInput>& inputs, bool isCapsLockOn)
 {
@@ -31,20 +35,7 @@ void send_fake_inputs(const std::vector<FakeInput>& inputs, bool isCapsLockOn)
             break;
         }
 
-        case FakeInput::EType::BACKSPACE:
-        {
-            INPUT windowsInput = {};
-            windowsInput.type = INPUT_KEYBOARD;
-            windowsInput.ki.wVk = VK_BACK;
-            windowsInput.ki.dwExtraInfo = FAKE_INPUT_EXTRA_INFO_CONSTANT;
-            windowsInputs.emplace_back(windowsInput);
-
-            windowsInput.ki.dwFlags = KEYEVENTF_KEYUP;
-            windowsInputs.emplace_back(windowsInput);
-            break;
-        }
-
-        case FakeInput::EType::KEY:
+        case FakeInput::EType::LETTER_AS_KEY:
         {
             INPUT shiftInput = {};
             shiftInput.type = INPUT_KEYBOARD;
@@ -74,11 +65,11 @@ void send_fake_inputs(const std::vector<FakeInput>& inputs, bool isCapsLockOn)
             break;
         }
 
-        case FakeInput::EType::TOGGLE_HANGEUL:
+        case FakeInput::EType::KEY:
         {
             INPUT windowsInput = {};
             windowsInput.type = INPUT_KEYBOARD;
-            windowsInput.ki.wVk = VK_HANGEUL;
+            windowsInput.ki.wVk = letter;
             windowsInput.ki.dwExtraInfo = FAKE_INPUT_EXTRA_INFO_CONSTANT;
             windowsInputs.emplace_back(windowsInput);
 
@@ -91,15 +82,19 @@ void send_fake_inputs(const std::vector<FakeInput>& inputs, bool isCapsLockOn)
             std::unreachable();
         }
     }
-
-    for (const auto& windowsInput : windowsInputs)
-    {
-        g_console_logger.Log(ELogLevel::DEBUG, "Sending", windowsInput.ki.wVk, windowsInput.ki.wScan);
-    }
     
     if (const UINT uSent = SendInput(static_cast<UINT>(windowsInputs.size()), windowsInputs.data(), sizeof(INPUT));
         uSent != windowsInputs.size()) [[unlikely]]
     {
         g_console_logger.Log(ELogLevel::ERROR, "Sending inputs failed:", std::system_category().message(static_cast<int>(GetLastError())));
+    }
+
+    for (const auto& windowsInput : windowsInputs)
+    {
+        if (windowsInput.ki.dwFlags & KEYEVENTF_KEYUP)
+        {
+            continue;
+        }
+        g_console_logger.Log(ELogLevel::DEBUG, "Sent", windowsInput.ki.wVk, windowsInput.ki.wScan);
     }
 }

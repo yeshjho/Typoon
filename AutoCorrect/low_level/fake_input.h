@@ -7,13 +7,16 @@ struct FakeInput
     enum class EType
     {
         LETTER,
-        BACKSPACE,
+        LETTER_AS_KEY,
         KEY,
-        TOGGLE_HANGEUL,
     };
 
     EType type = EType::LETTER;
     wchar_t letter = 0;
+
+    static const wchar_t BACKSPACE_KEY;
+    static const wchar_t TOGGLE_HANGEUL_KEY;
+    static const wchar_t LEFT_ARROW_KEY;
 };
 
 
