@@ -48,6 +48,9 @@
     <ClCompile Include="platform\windows\main.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="platform\windows\filesystem.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="utils\logger.h">
@@ -81,6 +84,9 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="imm\imm_simulator.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="low_level\filesystem.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

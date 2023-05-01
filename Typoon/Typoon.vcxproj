@@ -25,6 +25,7 @@
     <ClCompile Include="parse\match_for_parse.cpp" />
     <ClCompile Include="parse\parse.cpp" />
     <ClCompile Include="platform\windows\fake_input.cpp" />
+    <ClCompile Include="platform\windows\filesystem.cpp" />
     <ClCompile Include="platform\windows\file_change_watcher.cpp" />
     <ClCompile Include="platform\windows\input_watcher.cpp" />
     <ClCompile Include="platform\windows\main.cpp" />
@@ -35,6 +36,7 @@
     <ClInclude Include="imm\imm_simulator.h" />
     <ClInclude Include="input_multicast\input_multicast.h" />
     <ClInclude Include="low_level\fake_input.h" />
+    <ClInclude Include="low_level\filesystem.h" />
     <ClInclude Include="low_level\file_change_watcher.h" />
     <ClInclude Include="low_level\input_watcher.h" />
     <ClInclude Include="match\match.h" />
@@ -51,8 +53,9 @@
     <VCProjectVersion>16.0</VCProjectVersion>
     <Keyword>Win32Proj</Keyword>
     <ProjectGuid>{fbe00d02-c176-4799-966e-943bf0007381}</ProjectGuid>
-    <RootNamespace>AutoCorrect</RootNamespace>
+    <RootNamespace>Typoon</RootNamespace>
     <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
+    <ProjectName>Typoon</ProjectName>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
