@@ -5,6 +5,8 @@
 struct Config
 {
     std::filesystem::path matchFilePath;
+    int maxBackspaceCount;
+    std::wstring cursorPlaceholder;
 };
 
 

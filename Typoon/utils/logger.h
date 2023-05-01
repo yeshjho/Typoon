@@ -1,4 +1,5 @@
 #pragma once
+#include <filesystem>
 #include <iostream>
 #include <mutex>
 #include <string>
@@ -105,13 +106,16 @@ constexpr struct LogLevelMax : LogLevel {} MAX{ LogLevel::ELogLevel::MAX };
 class Logger
 {
 public:
-    Logger(std::wostream& stream, LogLevel minLogLevel = ELogLevel::ERROR);
+    Logger(LogLevel minLogLevel = ELogLevel::ERROR);
     ~Logger();
 
     Logger(const Logger& other) = delete;
     Logger(Logger&& other) noexcept = delete;
     Logger& operator=(const Logger& other) = delete;
     Logger& operator=(Logger&& other) noexcept = delete;
+
+    void AddOutput(std::wostream& stream);
+    void AddOutput(const std::filesystem::path& filePath);
 
     void Log(const std::wstring& string, LogLevel logLevel = ELogLevel::INFO);
 
@@ -135,7 +139,8 @@ public:
 private:
     LogLevel mMinLogLevel;
 
-    std::wostream& mStream;
+    std::vector<std::wostream*> mStreams;
+    std::vector<bool> mIsStreamOwned;
 
     std::jthread mWriterThread;
 
@@ -167,4 +172,8 @@ void Logger::Log(LogLevel logLevel, const T& t, const Ts& ...ts)
     Log((_impl::to_wstring(t) + ... + (L" " + _impl::to_wstring(ts))), logLevel);
 }
 
-inline Logger g_console_logger{ std::wcout, ELogLevel::DEBUG };
+#ifdef _DEBUG
+inline Logger logger{ ELogLevel::DEBUG };
+#else
+inline Logger logger{ ELogLevel::INFO };
+#endif

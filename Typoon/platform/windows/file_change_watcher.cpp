@@ -11,7 +11,7 @@ void start_file_change_watcher(std::filesystem::path path, std::function<void()>
 {
     if (file_change_watcher_thread.joinable()) [[unlikely]]
     {
-        g_console_logger.Log("File change watcher is already running.", ELogLevel::WARNING);
+        logger.Log("File change watcher is already running.", ELogLevel::WARNING);
         return;
     }
 
@@ -20,7 +20,7 @@ void start_file_change_watcher(std::filesystem::path path, std::function<void()>
         const HANDLE dir = CreateFile(path.c_str(), GENERIC_READ, FILE_SHARE_READ, nullptr, OPEN_EXISTING, FILE_FLAG_BACKUP_SEMANTICS, nullptr);
         if (dir == INVALID_HANDLE_VALUE) [[unlikely]]
         {
-            g_console_logger.Log(ELogLevel::ERROR, "Failed to watch path:", path.string(), std::system_category().message(static_cast<int>(GetLastError())));
+            logger.Log(ELogLevel::ERROR, "Failed to watch path:", path.string(), std::system_category().message(static_cast<int>(GetLastError())));
             return -1;
         }
 
@@ -37,7 +37,7 @@ void start_file_change_watcher(std::filesystem::path path, std::function<void()>
             if (!ReadDirectoryChangesW(dir, buffer, sizeof(buffer), true, FILE_NOTIFY_CHANGE_LAST_WRITE | FILE_NOTIFY_CHANGE_CREATION, 
                                        &bytesReturned, nullptr, nullptr)) [[unlikely]]
             {
-                g_console_logger.Log(ELogLevel::ERROR, "File change watcher error:", std::system_category().message(static_cast<int>(GetLastError())));
+                logger.Log(ELogLevel::ERROR, "File change watcher error:", std::system_category().message(static_cast<int>(GetLastError())));
                 continue;
             }
             

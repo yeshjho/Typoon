@@ -5,9 +5,8 @@
 #include <fstream>
 
 
-Logger::Logger(std::wostream& stream, LogLevel minLogLevel)
+Logger::Logger(LogLevel minLogLevel)
     : mMinLogLevel(minLogLevel)
-    , mStream(stream)
     , mWriterThread([this](const std::stop_token& stopToken)
     {
         while (true)
@@ -26,12 +25,14 @@ Logger::Logger(std::wostream& stream, LogLevel minLogLevel)
             mLogQueue.pop();
 
             queueLock.unlock();
-            
-            mStream << line << std::endl;
+
+            for (std::wostream* stream : mStreams)
+            {
+                *stream << line << std::endl;
+            }
         }
     })
 {
-    mStream.imbue(std::locale{ "" });
 }
 
 Logger::~Logger()
@@ -41,14 +42,42 @@ Logger::~Logger()
     std::scoped_lock queueLock{ mLogQueueMutex };
     while (!mLogQueue.empty())
     {
-        mStream << mLogQueue.front() << std::endl;
+        for (std::wostream* stream : mStreams)
+        {
+            *stream << mLogQueue.front() << std::endl;
+        }
         mLogQueue.pop();
     }
 
-    if (auto& fstream = dynamic_cast<std::wofstream&>(mStream))
+    for (const auto pair : std::views::zip(mStreams, mIsStreamOwned))
     {
-        fstream.close();
+        const auto [stream, isOwned] = pair;
+        stream->flush();
+        if (auto* fstream = dynamic_cast<std::wofstream*>(stream))
+        {
+            fstream->close();
+        }
+        if (isOwned)
+        {
+            delete stream;
+        }
     }
+}
+
+
+void Logger::AddOutput(std::wostream& stream)
+{
+    mStreams.emplace_back(&stream);
+    mStreams.back()->imbue(std::locale{ "" });
+    mIsStreamOwned.push_back(false);
+}
+
+
+void Logger::AddOutput(const std::filesystem::path& filePath)
+{
+    mStreams.emplace_back(new std::wofstream{ filePath, std::ios::app });
+    mStreams.back()->imbue(std::locale{ "" });
+    mIsStreamOwned.push_back(true);
 }
 
 

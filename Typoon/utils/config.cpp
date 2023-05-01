@@ -35,15 +35,17 @@ value write(writer& w, const std::filesystem::path& in)
 struct ConfigForParse
 {
     std::filesystem::path match_file_path = "match/matches.json5";
+    int max_backspace_count = 5;
+    std::string cursor_placeholder = "|_|";
 
     operator Config() const &&
     {
-        return { match_file_path };
+        return { match_file_path, max_backspace_count, { cursor_placeholder.begin(), cursor_placeholder.end() } };
     }
 };
 
 
-JSON5_CLASS(ConfigForParse, match_file_path)
+JSON5_CLASS(ConfigForParse, match_file_path, max_backspace_count, cursor_placeholder)
 
 Config config;
 
@@ -63,7 +65,7 @@ void read_config_file(const std::filesystem::path& filePath)
         if (const json5::error err = json5::from_file(filePath.generic_string(), configForParse);
             err != json5::error::none)
         {
-            g_console_logger.Log(ELogLevel::FATAL, "Failed to read the config file");
+            logger.Log(ELogLevel::FATAL, "Failed to read the config file");
             std::exit(-1);
         }
     }

@@ -26,7 +26,7 @@ LRESULT CALLBACK input_proc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
     if (GetRawInputData(reinterpret_cast<HRAWINPUT>(lParam), RID_INPUT, &inputData, &size, sizeof(RAWINPUTHEADER))
         == static_cast<UINT>(-1))
     {
-        g_console_logger.Log(ELogLevel::ERROR, "GetRawInputData failed:", std::system_category().message(static_cast<int>(GetLastError())));
+        logger.Log(ELogLevel::ERROR, "GetRawInputData failed:", std::system_category().message(static_cast<int>(GetLastError())));
         return 0;
     }
 
@@ -151,7 +151,7 @@ void start_input_watcher(const std::any& data)
     static bool didStart = false;
     if (didStart)
     {
-        g_console_logger.Log("Input watcher is already running.", ELogLevel::WARNING);
+        logger.Log("Input watcher is already running.", ELogLevel::WARNING);
         return;
     }
     didStart = true;
@@ -160,7 +160,7 @@ void start_input_watcher(const std::any& data)
 
     if (!SetWindowLongPtr(hWnd, GWLP_WNDPROC, reinterpret_cast<LONG_PTR>(input_proc)))
     {
-        g_console_logger.Log(ELogLevel::FATAL, "SetWindowLongPtr failed:", std::system_category().message(static_cast<int>(GetLastError())));
+        logger.Log(ELogLevel::FATAL, "SetWindowLongPtr failed:", std::system_category().message(static_cast<int>(GetLastError())));
         std::exit(-1);  // It's fatal anyway, thread safety
     }
 
@@ -178,7 +178,7 @@ void start_input_watcher(const std::any& data)
 
     if (!RegisterRawInputDevices(rid, static_cast<UINT>(std::size(rid)), sizeof(rid[0])))
     {
-        g_console_logger.Log(ELogLevel::FATAL, "RegisterRawInputDevices failed:", std::system_category().message(static_cast<int>(GetLastError())));
+        logger.Log(ELogLevel::FATAL, "RegisterRawInputDevices failed:", std::system_category().message(static_cast<int>(GetLastError())));
         std::exit(-1);  // It's fatal anyway, thread safety is not needed.
     }
 }

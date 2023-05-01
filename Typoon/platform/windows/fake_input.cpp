@@ -86,7 +86,7 @@ void send_fake_inputs(const std::vector<FakeInput>& inputs, bool isCapsLockOn)
     if (const UINT uSent = SendInput(static_cast<UINT>(windowsInputs.size()), windowsInputs.data(), sizeof(INPUT));
         uSent != windowsInputs.size()) [[unlikely]]
     {
-        g_console_logger.Log(ELogLevel::ERROR, "Sending inputs failed:", std::system_category().message(static_cast<int>(GetLastError())));
+        logger.Log(ELogLevel::ERROR, "Sending inputs failed:", std::system_category().message(static_cast<int>(GetLastError())));
     }
 
     for (const auto& windowsInput : windowsInputs)
@@ -95,6 +95,6 @@ void send_fake_inputs(const std::vector<FakeInput>& inputs, bool isCapsLockOn)
         {
             continue;
         }
-        g_console_logger.Log(ELogLevel::DEBUG, "Sent", windowsInput.ki.wVk, windowsInput.ki.wScan);
+        logger.Log(ELogLevel::DEBUG, "Sent", windowsInput.ki.wVk, windowsInput.ki.wScan);
     }
 }

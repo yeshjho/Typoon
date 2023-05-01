@@ -9,6 +9,7 @@
 #include "../low_level/fake_input.h"
 #include "../low_level/input_watcher.h"
 #include "../parse/parse.h"
+#include "../utils/config.h"
 #include "../utils/logger.h"
 #include "../utils/string.h"
 
@@ -297,8 +298,6 @@ void replace_string(const Ending& ending, const Agent& agent, std::wstring_view 
 
 void on_input(const InputMessage(&inputs)[MAX_INPUT_COUNT], int length, bool clearAllAgents)
 {
-    constexpr int MAX_BACKSPACE_COUNT = 5;
-
     static std::vector<Agent> agents{};
     static std::vector<Agent> nextIterationAgents{};
     static std::deque<DeadAgent> deadAgents{};
@@ -334,7 +333,7 @@ void on_input(const InputMessage(&inputs)[MAX_INPUT_COUNT], int length, bool cle
 
     for (int i = 0; i < length; i++)
     {
-        g_console_logger.Log(ELogLevel::DEBUG, "input:", inputs[i].letter, static_cast<int>(inputs[i].isBeingComposed));
+        logger.Log(ELogLevel::DEBUG, "input:", inputs[i].letter, static_cast<int>(inputs[i].isBeingComposed));
     }
 
     if (length >= 0 && inputs[0].letter == L'\b')
@@ -456,7 +455,7 @@ void on_input(const InputMessage(&inputs)[MAX_INPUT_COUNT], int length, bool cle
 
         if (!isBeingComposed)
         {
-            std::erase_if(deadAgents, [](DeadAgent& deadAgent) { return ++deadAgent.backspacesNeeded >= MAX_BACKSPACE_COUNT; });
+            std::erase_if(deadAgents, [](DeadAgent& deadAgent) { return ++deadAgent.backspacesNeeded >= get_config().maxBackspaceCount; });
         }
 
         if (!isBeingComposed || isTriggerFound)
@@ -473,7 +472,7 @@ void setup_trigger_tree(std::filesystem::path matchFile)
     static bool didSetup = false;
     if (didSetup)
     {
-        g_console_logger.Log("Trigger tree is already running.", ELogLevel::WARNING);
+        logger.Log("Trigger tree is already running.", ELogLevel::WARNING);
         return;
     }
     didSetup = true;
@@ -489,8 +488,6 @@ std::jthread trigger_tree_constructor_thread;
 
 void reconstruct_trigger_tree()
 {
-    constexpr wchar_t CURSOR_PLACEHOLDER[] = L"|_|";
-
     struct EndingMetaData
     {
         std::wstring replace;
@@ -521,7 +518,7 @@ void reconstruct_trigger_tree()
     is_trigger_tree_outdated.store(true);
     is_constructing_trigger_tree.store(true);
 
-    g_console_logger.Log("Trigger tree construction started");
+    logger.Log("Trigger tree construction started");
 
     trigger_tree_constructor_thread = std::jthread{ [](const std::stop_token& stopToken)
     {
@@ -553,7 +550,7 @@ void reconstruct_trigger_tree()
                 }
 
                 unsigned int cursorMoveCount = 0;
-                if (const size_t cursorIndex = originalReplace.find(CURSOR_PLACEHOLDER);
+                if (const size_t cursorIndex = originalReplace.find(get_config().cursorPlaceholder);
                     cursorIndex != std::wstring::npos)
                 {
                     replaceStr.erase(cursorIndex, 3);
@@ -726,7 +723,7 @@ void reconstruct_trigger_tree()
         tree_height = height;
         is_constructing_trigger_tree.store(false);
 
-        g_console_logger.Log("Trigger tree construction finished");
+        logger.Log("Trigger tree construction finished");
 
 #undef STOP
     } };

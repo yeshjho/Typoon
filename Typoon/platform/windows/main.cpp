@@ -18,7 +18,15 @@ LRESULT dummy_wnd_proc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
 
 int wWinMain(HINSTANCE hInstance, [[maybe_unused]] HINSTANCE hPrevInstance, [[maybe_unused]] LPWSTR cmdLine, [[maybe_unused]] int cmdShow)
 {
-    MSG msg;
+#ifdef _DEBUG
+    AllocConsole();
+    FILE* fDummy;
+    freopen_s(&fDummy, "CONOUT$", "w", stdout);
+    freopen_s(&fDummy, "CONOUT$", "w", stderr);
+    logger.AddOutput(std::wcout);
+#endif
+    logger.AddOutput(get_log_file_path());
+    logger.Log("Program Started");
 
     constexpr WCHAR windowClassName[] = L"TypoonWorker";
 
@@ -30,33 +38,28 @@ int wWinMain(HINSTANCE hInstance, [[maybe_unused]] HINSTANCE hPrevInstance, [[ma
     windowClass.lpszClassName = windowClassName;
     if (!RegisterClassExW(&windowClass))
     {
-        g_console_logger.Log(ELogLevel::FATAL, "RegisterClassExW failed:", std::system_category().message(static_cast<int>(GetLastError())));
+        logger.Log(ELogLevel::FATAL, "RegisterClassExW failed:", std::system_category().message(static_cast<int>(GetLastError())));
         return -1;
     }
 
     const HWND window = CreateWindow(windowClassName, L"Typoon Worker Process", WS_OVERLAPPEDWINDOW, 0, 0, 0, 0, nullptr, nullptr, hInstance, nullptr);
     if (!window)
     {
-        g_console_logger.Log(ELogLevel::FATAL, "CreateWindow failed:", std::system_category().message(static_cast<int>(GetLastError())));
+        logger.Log(ELogLevel::FATAL, "CreateWindow failed:", std::system_category().message(static_cast<int>(GetLastError())));
         return -1;
     }
 
-#ifdef _DEBUG
-    AllocConsole();
-    FILE* fDummy;
-    freopen_s(&fDummy, "CONOUT$", "w", stdout);
-    freopen_s(&fDummy, "CONOUT$", "w", stderr);
-#endif
-
     start_input_watcher(window);
     read_config_file(get_app_data_path() / "config.json5");
-    start_file_change_watcher(get_config().matchFilePath.parent_path(), []()
+    start_file_change_watcher(get_app_data_path(), []()
         {
+            read_config_file(get_app_data_path() / "config.json5");
             reconstruct_trigger_tree();
         });
     setup_imm_simulator();
     setup_trigger_tree(get_config().matchFilePath);
 
+    MSG msg;
     while (GetMessage(&msg, nullptr, 0, 0))
     {
         TranslateMessage(&msg);
