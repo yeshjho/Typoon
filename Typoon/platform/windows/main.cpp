@@ -6,6 +6,7 @@
 
 #include "../../imm/imm_simulator.h"
 #include "../../match/trigger_tree.h"
+#include "../../utils/config.h"
 #include "../../utils/logger.h"
 
 
@@ -48,12 +49,13 @@ int wWinMain(HINSTANCE hInstance, [[maybe_unused]] HINSTANCE hPrevInstance, [[ma
 #endif
 
     start_input_watcher(window);
-    start_file_change_watcher(get_app_data_path(), []()
+    read_config_file(get_app_data_path() / "config.json5");
+    start_file_change_watcher(get_config().matchFilePath.parent_path(), []()
         {
             reconstruct_trigger_tree();
         });
     setup_imm_simulator();
-    setup_trigger_tree(get_app_data_path() / "test.json5");
+    setup_trigger_tree(get_config().matchFilePath);
 
     while (GetMessage(&msg, nullptr, 0, 0))
     {

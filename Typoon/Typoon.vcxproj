@@ -29,6 +29,7 @@
     <ClCompile Include="platform\windows\file_change_watcher.cpp" />
     <ClCompile Include="platform\windows\input_watcher.cpp" />
     <ClCompile Include="platform\windows\main.cpp" />
+    <ClCompile Include="utils\config.cpp" />
     <ClCompile Include="utils\logger.cpp" />
     <ClCompile Include="utils\string.cpp" />
   </ItemGroup>
@@ -43,6 +44,7 @@
     <ClInclude Include="match\trigger_tree.h" />
     <ClInclude Include="parse\match_for_parse.h" />
     <ClInclude Include="parse\parse.h" />
+    <ClInclude Include="utils\config.h" />
     <ClInclude Include="utils\logger.h" />
     <ClInclude Include="utils\string.h" />
   </ItemGroup>

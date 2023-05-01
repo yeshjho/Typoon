@@ -322,7 +322,7 @@ void on_input(const InputMessage(&inputs)[MAX_INPUT_COUNT], int length, bool cle
         stroke.clear();
         agents.reserve(tree_height);
         nextIterationAgents.reserve(tree_height);
-        stroke.resize(tree_height, 0);
+        stroke.resize(std::max(tree_height, 1U), 0);
         root = { &tree.front(), static_cast<int>(tree_height) };
     }
 
