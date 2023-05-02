@@ -5,6 +5,8 @@ VisualStudioVersion = 17.2.32602.215
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Typoon", "Typoon\Typoon.vcxproj", "{FBE00D02-C176-4799-966E-943BF0007381}"
 EndProject
+Project("{930C7802-8A8C-48F9-8165-68863BCCD9DD}") = "WindowsInstaller", "WindowsInstaller\WindowsInstaller.wixproj", "{C1486937-F3DE-4CB2-BE59-57CF687CD5AA}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|x64 = Debug|x64
@@ -21,6 +23,14 @@ Global
 		{FBE00D02-C176-4799-966E-943BF0007381}.Release|x64.Build.0 = Release|x64
 		{FBE00D02-C176-4799-966E-943BF0007381}.Release|x86.ActiveCfg = Release|Win32
 		{FBE00D02-C176-4799-966E-943BF0007381}.Release|x86.Build.0 = Release|Win32
+		{C1486937-F3DE-4CB2-BE59-57CF687CD5AA}.Debug|x64.ActiveCfg = Debug|x86
+		{C1486937-F3DE-4CB2-BE59-57CF687CD5AA}.Debug|x64.Build.0 = Debug|x86
+		{C1486937-F3DE-4CB2-BE59-57CF687CD5AA}.Debug|x86.ActiveCfg = Debug|x86
+		{C1486937-F3DE-4CB2-BE59-57CF687CD5AA}.Debug|x86.Build.0 = Debug|x86
+		{C1486937-F3DE-4CB2-BE59-57CF687CD5AA}.Release|x64.ActiveCfg = Release|x86
+		{C1486937-F3DE-4CB2-BE59-57CF687CD5AA}.Release|x64.Build.0 = Release|x86
+		{C1486937-F3DE-4CB2-BE59-57CF687CD5AA}.Release|x86.ActiveCfg = Release|x86
+		{C1486937-F3DE-4CB2-BE59-57CF687CD5AA}.Release|x86.Build.0 = Release|x86
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

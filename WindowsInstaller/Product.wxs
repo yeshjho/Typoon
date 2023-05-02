@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Wix xmlns="http://schemas.microsoft.com/wix/2006/wi">
+    <Product Id="*" Name="Typoon" Language="1033" Version="1.0.0" Manufacturer="Joonho Hwang" UpgradeCode="eefadce2-887c-4f86-b767-59c8c5e6a710">
+        <Package InstallerVersion="200" Compressed="yes" InstallScope="perMachine" Comments="Typoon  Copyright (C) 2023  Joonho Hwang"/>
+
+        <MajorUpgrade DowngradeErrorMessage="A newer version of Typoon is already installed." />
+        <MediaTemplate EmbedCab="yes"/>
+
+        <Feature Id="ProductFeature" Title="Typoon" Level="1">
+            <ComponentGroupRef Id="ProductComponents" />
+        </Feature>
+    </Product>
+
+    <Fragment>
+        <Directory Id="TARGETDIR" Name="SourceDir">
+            <Directory Id="StartupFolder" SourceName="StartupFolder" />
+            <Directory Id="ProgramFilesFolder">
+                <Directory Id="INSTALLFOLDER" Name="Typoon" />
+            </Directory>
+        </Directory>
+    </Fragment>
+
+    <Fragment>
+        <ComponentGroup Id="ProductComponents" Directory="INSTALLFOLDER">
+            <Component Id="ProductComponent">
+                <File Id="MainExeFile" Source="../x64/Release/Typoon.exe" KeyPath="yes">
+                    <Shortcut Id="StartupShortcut" Directory="StartupFolder" Name="Typoon" Advertise="yes" />
+                </File>
+            </Component>
+        </ComponentGroup>
+    </Fragment>
+</Wix>
