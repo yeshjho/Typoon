@@ -48,9 +48,6 @@
     <ClInclude Include="utils\logger.h" />
     <ClInclude Include="utils\string.h" />
   </ItemGroup>
-  <ItemGroup>
-    <Text Include="TODO.txt" />
-  </ItemGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>16.0</VCProjectVersion>
     <Keyword>Win32Proj</Keyword>
