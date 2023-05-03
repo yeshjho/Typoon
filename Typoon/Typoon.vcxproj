@@ -36,9 +36,16 @@
     <ClInclude Include="match\trigger_tree.h" />
     <ClInclude Include="parse\match_for_parse.h" />
     <ClInclude Include="parse\parse.h" />
+    <ClInclude Include="resource.h" />
     <ClInclude Include="utils\config.h" />
     <ClInclude Include="utils\logger.h" />
     <ClInclude Include="utils\string.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <ResourceCompile Include="Typoon.rc" />
+  </ItemGroup>
+  <ItemGroup>
+    <Image Include="..\icon.ico" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>16.0</VCProjectVersion>
