@@ -7,55 +7,91 @@
 
 std::jthread file_change_watcher_thread;
 
-void start_file_change_watcher(std::filesystem::path path, std::function<void()> onChanged)
+
+FileChangeWatcher::FileChangeWatcher(std::function<void()> onChanged)
 {
-    if (file_change_watcher_thread.joinable()) [[unlikely]]
+    mEvents.emplace_back(CreateEvent(nullptr, false, false, nullptr));  // "Kill" event
+    mThread = std::jthread{
+        [this, onChanged = std::move(onChanged)](const std::stop_token& stopToken)
+        {
+            while (true)
+            {
+                if (stopToken.stop_requested())
+                {
+                    return;
+                }
+
+                const DWORD result = WaitForMultipleObjectsEx(static_cast<DWORD>(mEvents.size()), mEvents.data(), false, INFINITE, true);
+                if (result == WAIT_FAILED)
+                {
+                    logger.Log(ELogLevel::ERROR, "WaitForMultipleObjectsEx error:", GetLastError(), std::system_category().message(static_cast<int>(GetLastError())));
+                    return;
+                }
+
+                if (result != WAIT_OBJECT_0)  // not a "kill" signal
+                {
+                    onChanged();
+                    readDirectoryChanges(static_cast<int>(result - WAIT_OBJECT_0 - 1));
+                }
+            }
+        }
+    };
+}
+
+
+FileChangeWatcher::~FileChangeWatcher()
+{
+    mThread.request_stop();
+    SetEvent(mOverlappeds.front());
+    if (mThread.joinable())
     {
-        logger.Log("File change watcher is already running.", ELogLevel::WARNING);
+        mThread.join();
+    }
+
+    for (const HANDLE file : mDirectories)
+    {
+        CloseHandle(file);
+    }
+    for (const HANDLE handle : mEvents)
+    {
+        CloseHandle(handle);
+    }
+    for (const void* overlappedPtr : mOverlappeds)
+    {
+        const auto* overlapped = static_cast<const OVERLAPPED*>(overlappedPtr);
+        delete overlapped;
+    }
+}
+
+
+void FileChangeWatcher::AddWatchingFile(const std::filesystem::path& path)
+{
+    const HANDLE dir = CreateFile(path.c_str(), GENERIC_READ, FILE_SHARE_READ, nullptr,
+        OPEN_EXISTING, FILE_FLAG_BACKUP_SEMANTICS | FILE_FLAG_OVERLAPPED, nullptr);
+    if (dir == INVALID_HANDLE_VALUE) [[unlikely]]
+    {
+        logger.Log(ELogLevel::ERROR, "CreateFile error:", path.string(), std::system_category().message(static_cast<int>(GetLastError())));
+        return;
+    }
+    mDirectories.emplace_back(dir);
+
+    const auto overlapped = new OVERLAPPED{};
+    overlapped->hEvent = CreateEvent(nullptr, false, false, nullptr);
+    mEvents.emplace_back(overlapped->hEvent);
+    mOverlappeds.emplace_back(overlapped);
+
+    readDirectoryChanges(static_cast<int>(mDirectories.size() - 1));
+}
+
+
+void FileChangeWatcher::readDirectoryChanges(int index) const
+{
+    if (!ReadDirectoryChangesW(mDirectories.at(index), nullptr, 0, true, FILE_NOTIFY_CHANGE_LAST_WRITE, nullptr,
+        static_cast<OVERLAPPED*>(mOverlappeds.at(index)), nullptr))
+    {
+        logger.Log(ELogLevel::ERROR, "ReadDirectoryChangesW error:", std::system_category().message(static_cast<int>(GetLastError())));
         return;
     }
 
-    file_change_watcher_thread = std::jthread{ [path = std::move(path), onChanged = std::move(onChanged)](const std::stop_token& stopToken)
-    {
-        const HANDLE dir = CreateFile(path.c_str(), GENERIC_READ, FILE_SHARE_READ, nullptr, OPEN_EXISTING, FILE_FLAG_BACKUP_SEMANTICS, nullptr);
-        if (dir == INVALID_HANDLE_VALUE) [[unlikely]]
-        {
-            logger.Log(ELogLevel::ERROR, "Failed to watch path:", path.string(), std::system_category().message(static_cast<int>(GetLastError())));
-            return -1;
-        }
-
-        unsigned char buffer[1024] = { 0, };
-        DWORD bytesReturned;
-        while (true)
-        {
-            if (stopToken.stop_requested()) [[unlikely]]
-            {
-                break;
-            }
-
-            // TODO: This blocks, so stopToken is meaningless. Should use an async method.
-            if (!ReadDirectoryChangesW(dir, buffer, sizeof(buffer), true, FILE_NOTIFY_CHANGE_LAST_WRITE | FILE_NOTIFY_CHANGE_CREATION, 
-                                       &bytesReturned, nullptr, nullptr)) [[unlikely]]
-            {
-                logger.Log(ELogLevel::ERROR, "File change watcher error:", std::system_category().message(static_cast<int>(GetLastError())));
-                continue;
-            }
-            
-            if (bytesReturned > 0) [[likely]]
-            {
-                onChanged();
-            }
-        }
-
-        return 0;
-    } };
-}
-
-void end_file_change_watcher()
-{
-    file_change_watcher_thread.request_stop();
-    if (file_change_watcher_thread.joinable())
-    {
-        file_change_watcher_thread.join();
-    }
+    SetEvent(mEvents.front());  // Send kill signal to reflect the change
 }

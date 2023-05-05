@@ -11,13 +11,14 @@
 #include "../../low_level/fake_input.h"
 #include "../../utils/logger.h"
 #include "../../utils/string.h"
+#include "wnd_proc.h"
 
 
-LRESULT CALLBACK input_proc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
+std::optional<LRESULT> input_proc([[maybe_unused]] HWND hWnd, UINT msg, [[maybe_unused]] WPARAM wParam, LPARAM lParam)
 {
     if (msg != WM_INPUT)
     {
-        return DefWindowProc(hWnd, msg, wParam, lParam);
+        return std::nullopt;
     }
 
     // Will be always in the background, no need to check the wParam.
@@ -156,14 +157,9 @@ void start_input_watcher(const std::any& data)
     }
     didStart = true;
 
+    wnd_proc_functions.emplace_back(input_proc);
+
     const HWND hWnd = std::any_cast<HWND>(data);
-
-    if (!SetWindowLongPtr(hWnd, GWLP_WNDPROC, reinterpret_cast<LONG_PTR>(input_proc)))
-    {
-        logger.Log(ELogLevel::FATAL, "SetWindowLongPtr failed:", std::system_category().message(static_cast<int>(GetLastError())));
-        std::exit(-1);  // It's fatal anyway, thread safety
-    }
-
     RAWINPUTDEVICE rid[2];
 
     rid[0].usUsagePage = HID_USAGE_PAGE_GENERIC;
@@ -182,6 +178,7 @@ void start_input_watcher(const std::any& data)
         std::exit(-1);  // It's fatal anyway, thread safety is not needed.
     }
 }
+
 
 void end_input_watcher()
 {

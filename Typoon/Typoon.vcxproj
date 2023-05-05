@@ -13,6 +13,7 @@
   <ItemGroup>
     <ClCompile Include="imm\imm_simulator.cpp" />
     <ClCompile Include="input_multicast\input_multicast.cpp" />
+    <ClCompile Include="platform\windows\tray_icon.cpp" />
     <ClCompile Include="match\trigger_tree.cpp" />
     <ClCompile Include="parse\match_for_parse.cpp" />
     <ClCompile Include="parse\parse.cpp" />
@@ -21,6 +22,7 @@
     <ClCompile Include="platform\windows\file_change_watcher.cpp" />
     <ClCompile Include="platform\windows\input_watcher.cpp" />
     <ClCompile Include="platform\windows\main.cpp" />
+    <ClCompile Include="platform\windows\wnd_proc.cpp" />
     <ClCompile Include="utils\config.cpp" />
     <ClCompile Include="utils\logger.cpp" />
     <ClCompile Include="utils\string.cpp" />
@@ -32,10 +34,12 @@
     <ClInclude Include="low_level\filesystem.h" />
     <ClInclude Include="low_level\file_change_watcher.h" />
     <ClInclude Include="low_level\input_watcher.h" />
+    <ClInclude Include="low_level\tray_icon.h" />
     <ClInclude Include="match\match.h" />
     <ClInclude Include="match\trigger_tree.h" />
     <ClInclude Include="parse\match_for_parse.h" />
     <ClInclude Include="parse\parse.h" />
+    <ClInclude Include="platform\windows\wnd_proc.h" />
     <ClInclude Include="resource.h" />
     <ClInclude Include="utils\config.h" />
     <ClInclude Include="utils\logger.h" />

@@ -3,17 +3,14 @@
 #include "../../low_level/input_watcher.h"
 #include "../../low_level/file_change_watcher.h"
 #include "../../low_level/filesystem.h"
+#include "../../low_level/tray_icon.h"
 
 #include "../../imm/imm_simulator.h"
 #include "../../match/trigger_tree.h"
 #include "../../utils/config.h"
 #include "../../utils/logger.h"
 
-
-LRESULT dummy_wnd_proc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
-{
-    return DefWindowProc(hWnd, msg, wParam, lParam);
-}
+#include "wnd_proc.h"
 
 
 int wWinMain(HINSTANCE hInstance, [[maybe_unused]] HINSTANCE hPrevInstance, [[maybe_unused]] LPWSTR cmdLine, [[maybe_unused]] int cmdShow)
@@ -32,8 +29,7 @@ int wWinMain(HINSTANCE hInstance, [[maybe_unused]] HINSTANCE hPrevInstance, [[ma
 
     WNDCLASSEX windowClass = {};
     windowClass.cbSize = sizeof(WNDCLASSEX);
-    windowClass.lpfnWndProc = dummy_wnd_proc;  // CreateWindow calls wndProc, so setting to a dummy.
-                                               // Will be replaced in the input watcher.
+    windowClass.lpfnWndProc = main_wnd_proc;
     windowClass.hInstance = hInstance;
     windowClass.lpszClassName = windowClassName;
     if (!RegisterClassExW(&windowClass))
@@ -49,13 +45,17 @@ int wWinMain(HINSTANCE hInstance, [[maybe_unused]] HINSTANCE hPrevInstance, [[ma
         return -1;
     }
 
+    show_tray_icon(std::make_tuple(hInstance, window));
+
     start_input_watcher(window);
-    read_config_file(get_app_data_path() / "config.json5");
-    start_file_change_watcher(get_app_data_path(), []()
+    read_config_file(get_config_file_path());
+    FileChangeWatcher configChangeWatcher{ []()
         {
-            read_config_file(get_app_data_path() / "config.json5");
+            read_config_file(get_config_file_path());
             reconstruct_trigger_tree();
-        });
+        }
+    };
+    configChangeWatcher.AddWatchingFile(get_app_data_path());
     setup_imm_simulator();
     setup_trigger_tree(get_config().matchFilePath);
 
@@ -67,8 +67,15 @@ int wWinMain(HINSTANCE hInstance, [[maybe_unused]] HINSTANCE hPrevInstance, [[ma
     }
 
     end_input_watcher();
-    end_file_change_watcher();
     teardown_imm_simulator();
+    teardown_trigger_tree();
 
-    return static_cast<int>(msg.wParam);
+    remove_tray_icon(window);
+
+#ifdef _DEBUG
+    fclose(fDummy);
+    FreeConsole();
+#endif
+
+    ExitProcess(static_cast<int>(msg.wParam));
 }
