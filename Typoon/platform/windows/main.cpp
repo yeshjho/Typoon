@@ -48,10 +48,10 @@ int wWinMain(HINSTANCE hInstance, [[maybe_unused]] HINSTANCE hPrevInstance, [[ma
     show_tray_icon(std::make_tuple(hInstance, window));
 
     start_input_watcher(window);
-    read_config_file(get_app_data_path() / "config.json5");
+    read_config_file(get_config_file_path());
     FileChangeWatcher configChangeWatcher{ []()
         {
-            read_config_file(get_app_data_path() / "config.json5");
+            read_config_file(get_config_file_path());
             reconstruct_trigger_tree();
         }
     };

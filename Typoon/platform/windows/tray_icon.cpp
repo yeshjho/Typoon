@@ -2,14 +2,18 @@
 
 #include <Windows.h>
 
+#include "../../low_level/filesystem.h"
 #include "../../resource.h"
+#include "../../utils/config.h"
 #include "../../utils/logger.h"
 #include "wnd_proc.h"
 
 
 constexpr UINT WM_TRAY_ICON = WM_USER + 1;
 
-constexpr int IDM_EXIT = 100;
+constexpr int IDM_OPEN_CONFIG = 100;
+constexpr int IDM_OPEN_MATCH = 101;
+constexpr int IDM_EXIT = 1000;
 
 
 std::optional<LRESULT> tray_icon_proc(HWND hWnd, UINT msg, [[maybe_unused]] WPARAM wParam, LPARAM lParam)
@@ -23,6 +27,14 @@ std::optional<LRESULT> tray_icon_proc(HWND hWnd, UINT msg, [[maybe_unused]] WPAR
     {
         switch (LOWORD(wParam))
         {
+        case IDM_OPEN_CONFIG:
+            ShellExecute(nullptr, nullptr, get_config_file_path().c_str(), nullptr, nullptr, SW_SHOW);
+            break;
+
+        case IDM_OPEN_MATCH:
+            ShellExecute(nullptr, nullptr, get_config().matchFilePath.c_str(), nullptr, nullptr, SW_SHOW);
+            break;
+
         case IDM_EXIT:
             DestroyWindow(hWnd);
             break;
@@ -43,7 +55,13 @@ std::optional<LRESULT> tray_icon_proc(HWND hWnd, UINT msg, [[maybe_unused]] WPAR
         SetForegroundWindow(hWnd);
 
         const HMENU menu = CreatePopupMenu();
-        InsertMenu(menu, 0, MF_BYPOSITION | MF_STRING, IDM_EXIT, L"Exit");
+
+        unsigned int index = 0;
+        InsertMenu(menu, index++, MF_BYPOSITION | MF_STRING, IDM_OPEN_CONFIG, L"Open Config");
+        InsertMenu(menu, index++, MF_BYPOSITION | MF_STRING, IDM_OPEN_MATCH, L"Open Match");
+        InsertMenu(menu, index++, MF_BYPOSITION | MF_MENUBARBREAK, 0, nullptr);
+        InsertMenu(menu, index++, MF_BYPOSITION | MF_STRING, IDM_EXIT, L"Exit");
+
         const UINT flags = TPM_RIGHTBUTTON | (GetSystemMetrics(SM_MENUDROPALIGNMENT) ? TPM_RIGHTALIGN : TPM_LEFTALIGN);
         TrackPopupMenuEx(menu, flags, LOWORD(wParam), HIWORD(wParam), hWnd, nullptr);
         DestroyMenu(menu);
