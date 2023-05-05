@@ -49,11 +49,13 @@ int wWinMain(HINSTANCE hInstance, [[maybe_unused]] HINSTANCE hPrevInstance, [[ma
 
     start_input_watcher(window);
     read_config_file(get_app_data_path() / "config.json5");
-    start_file_change_watcher(get_app_data_path(), []()
+    FileChangeWatcher configChangeWatcher{ []()
         {
             read_config_file(get_app_data_path() / "config.json5");
             reconstruct_trigger_tree();
-        });
+        }
+    };
+    configChangeWatcher.AddWatchingFile(get_app_data_path());
     setup_imm_simulator();
     setup_trigger_tree(get_config().matchFilePath);
 
@@ -65,8 +67,8 @@ int wWinMain(HINSTANCE hInstance, [[maybe_unused]] HINSTANCE hPrevInstance, [[ma
     }
 
     end_input_watcher();
-    end_file_change_watcher();
     teardown_imm_simulator();
+    teardown_trigger_tree();
 
     remove_tray_icon(window);
 
@@ -75,5 +77,5 @@ int wWinMain(HINSTANCE hInstance, [[maybe_unused]] HINSTANCE hPrevInstance, [[ma
     FreeConsole();
 #endif
 
-    return static_cast<int>(msg.wParam);
+    ExitProcess(static_cast<int>(msg.wParam));
 }
