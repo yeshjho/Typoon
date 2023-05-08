@@ -5,7 +5,9 @@
 #include <json5/json5_reflect.hpp>
 
 #include "../low_level/filesystem.h"
+#include "../low_level/tray_icon.h"
 #include "logger.h"
+#include "string.h"
 
 
 namespace json5::detail
@@ -38,14 +40,21 @@ struct ConfigForParse
     int max_backspace_count = 5;
     std::string cursor_placeholder = "|_|";
 
+    bool notify_match_load = true;
+
     operator Config() const &&
     {
-        return { match_file_path, max_backspace_count, { cursor_placeholder.begin(), cursor_placeholder.end() } };
+        return {
+            match_file_path,
+            max_backspace_count,
+            { cursor_placeholder.begin(), cursor_placeholder.end() },
+            notify_match_load,
+        };
     }
 };
 
 
-JSON5_CLASS(ConfigForParse, match_file_path, max_backspace_count, cursor_placeholder)
+JSON5_CLASS(ConfigForParse, match_file_path, max_backspace_count, cursor_placeholder, notify_match_load)
 
 Config config;
 
@@ -65,8 +74,10 @@ void read_config_file(const std::filesystem::path& filePath)
         if (const json5::error err = json5::from_file(filePath.generic_string(), configForParse);
             err != json5::error::none)
         {
-            logger.Log(ELogLevel::FATAL, "Failed to read the config file");
-            std::exit(-1);
+            const std::wstring errorString = json5_error_to_string(err);
+            logger.Log(ELogLevel::ERROR, "Failed to read the config file:", errorString);
+            show_notification(L"Config File Parse Error", errorString);
+            return;
         }
     }
 

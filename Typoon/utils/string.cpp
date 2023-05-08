@@ -3,6 +3,7 @@
 #include <cwctype>
 
 #include <uni-algo/conv.h>
+#include <json5/json5_base.hpp>
 
 #include "logger.h"
 
@@ -135,6 +136,25 @@ std::wstring hangeul_to_alphabet(std::wstring_view normalizedStr, bool isCapsLoc
             result += character;
         }
     }
+
+    return result;
+}
+
+
+std::wstring json5_error_to_string(const json5::error& err)
+{
+    std::wstring result;
+    result.reserve(50);
+
+    std::string errorType{ json5::error::type_string[err.type] };
+
+    result += std::wstring{ errorType.begin(), errorType.end() };
+    result += L"\n";
+
+    result += L"Line: ";
+    result += std::to_wstring(err.line);
+    result += L", Column: ";
+    result += std::to_wstring(err.column);
 
     return result;
 }
