@@ -70,7 +70,7 @@ int wWinMain(HINSTANCE hInstance, [[maybe_unused]] HINSTANCE hPrevInstance, [[ma
     teardown_imm_simulator();
     teardown_trigger_tree();
 
-    remove_tray_icon(window);
+    remove_tray_icon();
 
 #ifdef _DEBUG
     fclose(fDummy);

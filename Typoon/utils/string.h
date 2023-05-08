@@ -2,6 +2,12 @@
 #include <string>
 
 
+namespace json5
+{
+struct error;
+}
+
+
 // Whether the character is alphabetic and has a case.
 bool is_cased_alpha(wchar_t c);
 
@@ -16,6 +22,8 @@ std::wstring alphabet_to_hangeul(std::wstring_view str);
 std::wstring hangeul_to_alphabet(std::wstring_view normalizedStr, bool isCapsLockOn);
 
 constexpr bool is_korean(wchar_t c);
+
+std::wstring json5_error_to_string(const json5::error& err);
 
 
 constexpr bool is_korean(wchar_t c)

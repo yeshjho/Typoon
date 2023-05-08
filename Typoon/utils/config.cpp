@@ -5,7 +5,9 @@
 #include <json5/json5_reflect.hpp>
 
 #include "../low_level/filesystem.h"
+#include "../low_level/tray_icon.h"
 #include "logger.h"
+#include "string.h"
 
 
 namespace json5::detail
@@ -65,8 +67,10 @@ void read_config_file(const std::filesystem::path& filePath)
         if (const json5::error err = json5::from_file(filePath.generic_string(), configForParse);
             err != json5::error::none)
         {
-            logger.Log(ELogLevel::FATAL, "Failed to read the config file");
-            std::exit(-1);
+            const std::wstring errorString = json5_error_to_string(err);
+            logger.Log(ELogLevel::ERROR, "Failed to read the config file:", errorString);
+            show_notification(L"Config File Parse Error", errorString);
+            return;
         }
     }
 
