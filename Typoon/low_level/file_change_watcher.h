@@ -14,7 +14,7 @@ public:
     FileChangeWatcher& operator=(const FileChangeWatcher& other) = delete;
     FileChangeWatcher& operator=(FileChangeWatcher&& other) noexcept = delete;
 
-    void AddWatchingDirectory(const std::filesystem::path& path);
+    void AddWatchingFile(const std::filesystem::path& filePath);
 
 private:
     void readDirectoryChanges(int index) const;
@@ -23,7 +23,9 @@ private:
 private:
     std::jthread mThread;
 
+    std::vector<std::wstring> mFileNames;
     std::vector<void*> mDirectories;
     std::vector<void*> mEvents;
+    std::vector<void*> mBuffers;
     std::vector<void*> mOverlappeds;
 };

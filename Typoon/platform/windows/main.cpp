@@ -61,7 +61,7 @@ int wWinMain(HINSTANCE hInstance, [[maybe_unused]] HINSTANCE hPrevInstance, [[ma
             }
         }
     };
-    configChangeWatcher.AddWatchingDirectory(get_app_data_path());
+    configChangeWatcher.AddWatchingFile(get_config_file_path());
 
     FileChangeWatcher matchChangeWatcher{
         []()
@@ -69,7 +69,7 @@ int wWinMain(HINSTANCE hInstance, [[maybe_unused]] HINSTANCE hPrevInstance, [[ma
             reconstruct_trigger_tree();
         }
     };
-    matchChangeWatcher.AddWatchingDirectory(get_config().matchFilePath.parent_path());
+    matchChangeWatcher.AddWatchingFile(get_config().matchFilePath);
 
     turn_on(window);
 

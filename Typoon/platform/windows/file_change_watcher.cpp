@@ -27,11 +27,30 @@ FileChangeWatcher::FileChangeWatcher(std::function<void()> onChanged)
                     logger.Log(ELogLevel::ERROR, "WaitForMultipleObjectsEx error:", GetLastError(), std::system_category().message(static_cast<int>(GetLastError())));
                     return;
                 }
-
+                
                 if (result != WAIT_OBJECT_0)  // not a "kill" signal
                 {
-                    onChanged();
-                    readDirectoryChanges(static_cast<int>(result - WAIT_OBJECT_0 - 1));
+                    const int directoryIndex = static_cast<int>(result - WAIT_OBJECT_0 - 1);
+                    const std::wstring& targetFileName = mFileNames.at(directoryIndex);
+
+                    const auto* info = static_cast<FILE_NOTIFY_INFORMATION*>(mBuffers.at(directoryIndex));
+                    while (true)
+                    {
+                        const std::wstring_view fileName{ info->FileName, info->FileNameLength / sizeof(WCHAR) };
+                        if (fileName == targetFileName)
+                        {
+                            onChanged();
+                            break;
+                        }
+
+                        if (info->NextEntryOffset <= 0)
+                        {
+                            break;
+                        }
+                        info = reinterpret_cast<const FILE_NOTIFY_INFORMATION*>(reinterpret_cast<const char*>(info) + info->NextEntryOffset);
+                    }
+
+                    readDirectoryChanges(directoryIndex);
                 }
             }
         }
@@ -56,6 +75,11 @@ FileChangeWatcher::~FileChangeWatcher()
     {
         CloseHandle(handle);
     }
+    for (const void* bufferPtr : mBuffers)
+    {
+        const auto* buffer = static_cast<const char*>(bufferPtr);
+        delete[] buffer;
+    }
     for (const void* overlappedPtr : mOverlappeds)
     {
         const auto* overlapped = static_cast<const OVERLAPPED*>(overlappedPtr);
@@ -64,20 +88,22 @@ FileChangeWatcher::~FileChangeWatcher()
 }
 
 
-void FileChangeWatcher::AddWatchingDirectory(const std::filesystem::path& path)
+void FileChangeWatcher::AddWatchingFile(const std::filesystem::path& filePath)
 {
-    const HANDLE dir = CreateFile(path.c_str(), GENERIC_READ, FILE_SHARE_READ, nullptr,
+    const HANDLE dir = CreateFile(filePath.parent_path().c_str(), GENERIC_READ, FILE_SHARE_READ, nullptr,
         OPEN_EXISTING, FILE_FLAG_BACKUP_SEMANTICS | FILE_FLAG_OVERLAPPED, nullptr);
     if (dir == INVALID_HANDLE_VALUE) [[unlikely]]
     {
-        logger.Log(ELogLevel::ERROR, "CreateFile error:", path.string(), std::system_category().message(static_cast<int>(GetLastError())));
+        logger.Log(ELogLevel::ERROR, "CreateFile error:", filePath.string(), std::system_category().message(static_cast<int>(GetLastError())));
         return;
     }
+    mFileNames.emplace_back(filePath.filename().wstring());
     mDirectories.emplace_back(dir);
 
     const auto overlapped = new OVERLAPPED{};
     overlapped->hEvent = CreateEvent(nullptr, false, false, nullptr);
     mEvents.emplace_back(overlapped->hEvent);
+    mBuffers.emplace_back(new char[512]);
     mOverlappeds.emplace_back(overlapped);
 
     readDirectoryChanges(static_cast<int>(mDirectories.size() - 1));
@@ -86,7 +112,7 @@ void FileChangeWatcher::AddWatchingDirectory(const std::filesystem::path& path)
 
 void FileChangeWatcher::readDirectoryChanges(int index) const
 {
-    if (!ReadDirectoryChangesW(mDirectories.at(index), nullptr, 0, false, FILE_NOTIFY_CHANGE_LAST_WRITE, nullptr,
+    if (!ReadDirectoryChangesW(mDirectories.at(index), mBuffers.at(index), 512, false, FILE_NOTIFY_CHANGE_LAST_WRITE, nullptr,
         static_cast<OVERLAPPED*>(mOverlappeds.at(index)), nullptr))
     {
         logger.Log(ELogLevel::ERROR, "ReadDirectoryChangesW error:", std::system_category().message(static_cast<int>(GetLastError())));
