@@ -37,7 +37,20 @@ std::optional<LRESULT> input_proc([[maybe_unused]] HWND hWnd, UINT msg, [[maybe_
     {
         const RAWKEYBOARD& keyboardData = inputData.data.keyboard;
 
-        if (keyboardData.Message != WM_KEYDOWN || keyboardData.ExtraInformation == FAKE_INPUT_EXTRA_INFO_CONSTANT)
+        if (keyboardData.ExtraInformation == FAKE_INPUT_EXTRA_INFO_CONSTANT)
+        {
+            break;
+        }
+
+        if (keyboardData.Message == WM_SYSKEYUP)
+        {
+            // Alt + Other key
+            imm_simulator.ClearComposition();
+            multicast_input({}, 0, true);
+            break;
+        }
+
+        if (keyboardData.Message != WM_KEYDOWN)
         {
             break;
         }
