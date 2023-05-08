@@ -7,7 +7,7 @@
 #include "../low_level/filesystem.h"
 #include "../low_level/tray_icon.h"
 #include "logger.h"
-#include "string.h"
+#include "./string.h"
 
 
 namespace json5::detail

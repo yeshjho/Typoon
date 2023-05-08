@@ -1,11 +1,10 @@
 #include <Windows.h>
 
-#include "../../low_level/input_watcher.h"
 #include "../../low_level/file_change_watcher.h"
 #include "../../low_level/filesystem.h"
 #include "../../low_level/tray_icon.h"
 
-#include "../../imm/imm_simulator.h"
+#include "../../common/common.h"
 #include "../../match/trigger_tree.h"
 #include "../../utils/config.h"
 #include "../../utils/logger.h"
@@ -47,17 +46,16 @@ int wWinMain(HINSTANCE hInstance, [[maybe_unused]] HINSTANCE hPrevInstance, [[ma
 
     show_tray_icon(std::make_tuple(hInstance, window));
 
-    start_input_watcher(window);
     read_config_file(get_config_file_path());
-    FileChangeWatcher configChangeWatcher{ []()
+    FileChangeWatcher configChangeWatcher{
+        []()
         {
             read_config_file(get_config_file_path());
             reconstruct_trigger_tree();
         }
     };
     configChangeWatcher.AddWatchingFile(get_app_data_path());
-    setup_imm_simulator();
-    setup_trigger_tree(get_config().matchFilePath);
+    turn_on(window);
 
     MSG msg;
     while (GetMessage(&msg, nullptr, 0, 0))
@@ -66,10 +64,7 @@ int wWinMain(HINSTANCE hInstance, [[maybe_unused]] HINSTANCE hPrevInstance, [[ma
         DispatchMessage(&msg);
     }
 
-    end_input_watcher();
-    teardown_imm_simulator();
-    teardown_trigger_tree();
-
+    turn_off();
     remove_tray_icon();
 
 #ifdef _DEBUG

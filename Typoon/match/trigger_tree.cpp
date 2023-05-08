@@ -470,18 +470,18 @@ void on_input(const InputMessage(&inputs)[MAX_INPUT_COUNT], int length, bool cle
 
 void setup_trigger_tree(std::filesystem::path matchFile)
 {
-    static bool didSetup = false;
-    if (didSetup)
-    {
-        logger.Log("Trigger tree is already running.", ELogLevel::WARNING);
-        return;
-    }
-    didSetup = true;
-    
     match_file = std::move(matchFile);
     reconstruct_trigger_tree();
 
-    register_input_listener(on_input);
+    input_listeners.emplace_back("trigger_tree", on_input);
+}
+
+
+void teardown_trigger_tree()
+{
+    on_input({}, 0, true);
+
+    std::erase_if(input_listeners, [](const std::pair<std::string, InputListener>& pair) { return pair.first == "trigger_tree"; });
 }
 
 
@@ -511,11 +511,7 @@ void reconstruct_trigger_tree()
         EndingMetaData endingMetaData{};  // only valid if children is empty
     };
 
-    trigger_tree_constructor_thread.request_stop();
-    if (trigger_tree_constructor_thread.joinable())
-    {
-        trigger_tree_constructor_thread.join();
-    }
+    halt_trigger_tree_construction();
     is_trigger_tree_outdated.store(true);
     is_constructing_trigger_tree.store(true);
 
@@ -734,7 +730,7 @@ void reconstruct_trigger_tree()
     } };
 }
 
-void teardown_trigger_tree()
+void halt_trigger_tree_construction()
 {
     trigger_tree_constructor_thread.request_stop();
     if (trigger_tree_constructor_thread.joinable())

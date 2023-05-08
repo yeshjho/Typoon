@@ -3,5 +3,6 @@
 
 
 void setup_trigger_tree(std::filesystem::path matchFile);
-void reconstruct_trigger_tree();
 void teardown_trigger_tree();
+void reconstruct_trigger_tree();
+void halt_trigger_tree_construction();

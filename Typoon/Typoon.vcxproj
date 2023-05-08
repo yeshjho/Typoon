@@ -13,6 +13,7 @@
   <ItemGroup>
     <ClCompile Include="imm\imm_simulator.cpp" />
     <ClCompile Include="input_multicast\input_multicast.cpp" />
+    <ClCompile Include="platform\windows\common.cpp" />
     <ClCompile Include="platform\windows\tray_icon.cpp" />
     <ClCompile Include="match\trigger_tree.cpp" />
     <ClCompile Include="parse\match_for_parse.cpp" />
@@ -28,6 +29,7 @@
     <ClCompile Include="utils\string.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="common\common.h" />
     <ClInclude Include="imm\imm_simulator.h" />
     <ClInclude Include="input_multicast\input_multicast.h" />
     <ClInclude Include="low_level\fake_input.h" />

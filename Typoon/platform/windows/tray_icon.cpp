@@ -2,6 +2,7 @@
 
 #include <Windows.h>
 
+#include "../../common/common.h"
 #include "../../low_level/filesystem.h"
 #include "../../resource.h"
 #include "../../utils/config.h"
@@ -11,10 +12,13 @@
 
 constexpr UINT WM_TRAY_ICON = WM_USER + 1;
 
+constexpr int IDM_TOGGLE_ON_OFF = 1;
 constexpr int IDM_OPEN_CONFIG = 100;
 constexpr int IDM_OPEN_MATCH = 101;
 constexpr int IDM_EXIT = 1000;
 
+
+HWND hwnd;
 
 std::optional<LRESULT> tray_icon_proc(HWND hWnd, UINT msg, [[maybe_unused]] WPARAM wParam, LPARAM lParam)
 {
@@ -27,6 +31,10 @@ std::optional<LRESULT> tray_icon_proc(HWND hWnd, UINT msg, [[maybe_unused]] WPAR
     {
         switch (LOWORD(wParam))
         {
+        case IDM_TOGGLE_ON_OFF:
+            is_turned_on() ? turn_off() : turn_on(hwnd);
+            break;
+
         case IDM_OPEN_CONFIG:
             ShellExecute(nullptr, nullptr, get_config_file_path().c_str(), nullptr, nullptr, SW_SHOW);
             break;
@@ -57,6 +65,7 @@ std::optional<LRESULT> tray_icon_proc(HWND hWnd, UINT msg, [[maybe_unused]] WPAR
         const HMENU menu = CreatePopupMenu();
 
         unsigned int index = 0;
+        InsertMenu(menu, index++, MF_BYPOSITION | MF_STRING, IDM_TOGGLE_ON_OFF, is_turned_on() ? L"Turn Off" : L"Turn On");
         InsertMenu(menu, index++, MF_BYPOSITION | MF_STRING, IDM_OPEN_CONFIG, L"Open Config");
         InsertMenu(menu, index++, MF_BYPOSITION | MF_STRING, IDM_OPEN_MATCH, L"Open Match");
         InsertMenu(menu, index++, MF_BYPOSITION | MF_MENUBARBREAK, 0, nullptr);
@@ -76,8 +85,6 @@ std::optional<LRESULT> tray_icon_proc(HWND hWnd, UINT msg, [[maybe_unused]] WPAR
     return 0;
 }
 
-
-HWND hwnd;
 
 void show_tray_icon(const std::any& data)
 {
@@ -107,7 +114,7 @@ void show_tray_icon(const std::any& data)
         return;
     }
 
-    wnd_proc_functions.emplace_back(tray_icon_proc);
+    wnd_proc_functions.emplace_back("tray", tray_icon_proc);
 }
 
 
@@ -118,6 +125,8 @@ void remove_tray_icon()
     iconData.hWnd = hwnd;
 
     Shell_NotifyIconW(NIM_DELETE, &iconData);
+
+    std::erase_if(wnd_proc_functions, [](const std::pair<std::string, WndProcFunc>& pair) { return pair.first == "tray"; });
 }
 
 

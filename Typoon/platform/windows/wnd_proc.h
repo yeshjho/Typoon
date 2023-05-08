@@ -3,9 +3,10 @@
 #include <vector>
 
 #include <ObjectArray.h>
+#include <string>
 
 
 using WndProcFunc = std::optional<LRESULT>(*)(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
-inline std::vector<WndProcFunc> wnd_proc_functions;  // NOTE: This is not thread-safe, push only in the main thread.
+inline std::vector<std::pair<std::string, WndProcFunc>> wnd_proc_functions;  // NOTE: This is not thread-safe, modify only in the main thread.
 
 LRESULT main_wnd_proc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);

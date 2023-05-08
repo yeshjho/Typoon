@@ -1,18 +1,12 @@
 #include "input_multicast.h"
 
+#include <ranges>
 
-std::vector<std::function<void(const InputMessage(&inputs)[MAX_INPUT_COUNT], int length, bool clearAllAgents)>> listeners;
 
 void multicast_input(const InputMessage(&inputs)[MAX_INPUT_COUNT], int length, bool clearAllAgents)
 {
-    for (auto& listener : listeners)
+    for (auto& listener : input_listeners | std::views::values)
     {
         listener(inputs, length, clearAllAgents);
     }
-}
-
-
-void register_input_listener(std::function<void(const InputMessage(&inputs)[MAX_INPUT_COUNT], int length, bool clearAllAgents)> listener)
-{
-    listeners.emplace_back(std::move(listener));
 }

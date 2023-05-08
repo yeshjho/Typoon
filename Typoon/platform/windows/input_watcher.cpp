@@ -149,15 +149,7 @@ std::optional<LRESULT> input_proc([[maybe_unused]] HWND hWnd, UINT msg, [[maybe_
 
 void start_input_watcher(const std::any& data)
 {
-    static bool didStart = false;
-    if (didStart)
-    {
-        logger.Log("Input watcher is already running.", ELogLevel::WARNING);
-        return;
-    }
-    didStart = true;
-
-    wnd_proc_functions.emplace_back(input_proc);
+    wnd_proc_functions.emplace_back("input", input_proc);
 
     const HWND hWnd = std::any_cast<HWND>(data);
     RAWINPUTDEVICE rid[2];
@@ -182,5 +174,6 @@ void start_input_watcher(const std::any& data)
 
 void end_input_watcher()
 {
+    std::erase_if(wnd_proc_functions, [](const std::pair<std::string, WndProcFunc>& pair) { return pair.first == "input"; });
 }
 

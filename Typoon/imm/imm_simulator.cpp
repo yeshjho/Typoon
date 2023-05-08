@@ -341,4 +341,5 @@ void setup_imm_simulator()
 
 void teardown_imm_simulator()
 {
+    imm_simulator.ClearComposition();
 }

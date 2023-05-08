@@ -1,5 +1,7 @@
 #include "wnd_proc.h"
 
+#include <ranges>
+
 
 LRESULT main_wnd_proc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
 {
@@ -9,7 +11,7 @@ LRESULT main_wnd_proc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
         return 0;
     }
 
-    for (const WndProcFunc function : wnd_proc_functions)
+    for (const WndProcFunc function : std::views::values(wnd_proc_functions))
     {
         if (const std::optional<LRESULT> result = function(hWnd, msg, wParam, lParam))
         {
