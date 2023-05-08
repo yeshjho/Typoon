@@ -9,6 +9,7 @@ struct Config
     std::wstring cursorPlaceholder;
 
     bool notifyMatchLoad;
+    bool notifyOnOff;
 };
 
 

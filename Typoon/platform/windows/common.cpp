@@ -3,6 +3,7 @@
 #include <ObjectArray.h>
 
 #include "../../low_level/input_watcher.h"
+#include "../../low_level/tray_icon.h"
 
 #include "../../imm/imm_simulator.h"
 #include "../../match/trigger_tree.h"
@@ -23,6 +24,11 @@ void turn_on(const std::any& data)
     setup_trigger_tree(get_config().matchFilePath);
 
     is_on = true;
+
+    if (get_config().notifyOnOff)
+    {
+        show_notification(L"Typoon", L"Typoon is on");
+    }
 }
 
 
@@ -39,6 +45,11 @@ void turn_off()
     teardown_imm_simulator();
 
     is_on = false;
+
+    if (get_config().notifyOnOff)
+    {
+        show_notification(L"Typoon", L"Typoon is off");
+    }
 }
 
 

@@ -41,6 +41,7 @@ struct ConfigForParse
     std::string cursor_placeholder = "|_|";
 
     bool notify_match_load = true;
+    bool notify_on_off = false;
 
     operator Config() const &&
     {
@@ -49,12 +50,13 @@ struct ConfigForParse
             max_backspace_count,
             { cursor_placeholder.begin(), cursor_placeholder.end() },
             notify_match_load,
+            notify_on_off,
         };
     }
 };
 
 
-JSON5_CLASS(ConfigForParse, match_file_path, max_backspace_count, cursor_placeholder, notify_match_load)
+JSON5_CLASS(ConfigForParse, match_file_path, max_backspace_count, cursor_placeholder, notify_match_load, notify_on_off)
 
 Config config;
 
