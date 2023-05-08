@@ -725,7 +725,10 @@ void reconstruct_trigger_tree()
         is_constructing_trigger_tree.store(false);
 
         logger.Log("Trigger tree construction finished");
-        show_notification(L"Match File Load Complete!", L"The match file is parsed and ready to go", true);
+        if (get_config().notifyMatchLoad)
+        {
+            show_notification(L"Match File Load Complete!", L"The match file is parsed and ready to go", true);
+        }
 
 #undef STOP
     } };
