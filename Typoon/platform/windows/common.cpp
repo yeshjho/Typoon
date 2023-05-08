@@ -25,6 +25,7 @@ void turn_on(const std::any& data)
 
     is_on = true;
 
+    set_icon_on(true);
     if (get_config().notifyOnOff)
     {
         show_notification(L"Typoon", L"Typoon is on");
@@ -46,6 +47,7 @@ void turn_off()
 
     is_on = false;
 
+    set_icon_on(false);
     if (get_config().notifyOnOff)
     {
         show_notification(L"Typoon", L"Typoon is off");

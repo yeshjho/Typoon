@@ -86,20 +86,26 @@ std::optional<LRESULT> tray_icon_proc(HWND hWnd, UINT msg, [[maybe_unused]] WPAR
 }
 
 
+HICON on_icon;
+HICON off_icon;
+
+
 void show_tray_icon(const std::any& data)
 {
     const auto [hInstance, hWnd] = std::any_cast<std::tuple<HINSTANCE, HWND>>(data);
     hwnd = hWnd;
 
-    const HANDLE icon = LoadImage(hInstance, MAKEINTRESOURCE(IDI_TYPOON_ICON), IMAGE_ICON, 
-        GetSystemMetrics(SM_CXSMICON), GetSystemMetrics(SM_CYSMICON), LR_DEFAULTCOLOR);
+    on_icon = static_cast<HICON>(LoadImage(hInstance, MAKEINTRESOURCE(IDI_TYPOON_ICON), IMAGE_ICON,
+        GetSystemMetrics(SM_CXSMICON), GetSystemMetrics(SM_CYSMICON), LR_DEFAULTCOLOR));
+    off_icon = static_cast<HICON>(LoadImage(hInstance, MAKEINTRESOURCE(IDI_TYPOON_OFF_ICON), IMAGE_ICON,
+        GetSystemMetrics(SM_CXSMICON), GetSystemMetrics(SM_CYSMICON), LR_DEFAULTCOLOR));
 
     NOTIFYICONDATAW iconData{};
     iconData.cbSize = sizeof(NOTIFYICONDATAW);
     iconData.hWnd = hWnd;
     iconData.uFlags = NIF_MESSAGE | NIF_ICON | NIF_TIP;
     iconData.uCallbackMessage = WM_TRAY_ICON;
-    iconData.hIcon = static_cast<HICON>(icon);
+    iconData.hIcon = on_icon;
     iconData.uVersion = NOTIFYICON_VERSION_4;
     std::ranges::copy(L"Typoon", iconData.szTip);
 
@@ -130,6 +136,21 @@ void remove_tray_icon()
 }
 
 
+void set_icon_on(bool isOn)
+{
+    NOTIFYICONDATAW iconData{};
+    iconData.cbSize = sizeof(NOTIFYICONDATAW);
+    iconData.hWnd = hwnd;
+    iconData.uFlags = NIF_ICON;
+    iconData.hIcon = isOn ? on_icon : off_icon;
+
+    if (!Shell_NotifyIconW(NIM_MODIFY, &iconData))
+    {
+        logger.Log(ELogLevel::ERROR, "Shell_NotifyIconW NIM_MODIFY - icon failed:", std::system_category().message(static_cast<int>(GetLastError())));
+    }
+}
+
+
 void show_notification(const std::wstring& title, const std::wstring& body, bool isRealtime)
 {
     NOTIFYICONDATAW iconData{};
@@ -142,6 +163,6 @@ void show_notification(const std::wstring& title, const std::wstring& body, bool
 
     if (!Shell_NotifyIconW(NIM_MODIFY, &iconData))
     {
-        logger.Log(ELogLevel::ERROR, "Shell_NotifyIconW NIM_MODIFY failed:", std::system_category().message(static_cast<int>(GetLastError())));
+        logger.Log(ELogLevel::ERROR, "Shell_NotifyIconW NIM_MODIFY - notification failed:", std::system_category().message(static_cast<int>(GetLastError())));
     }
 }
