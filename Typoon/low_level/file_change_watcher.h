@@ -14,7 +14,7 @@ public:
     FileChangeWatcher& operator=(const FileChangeWatcher& other) = delete;
     FileChangeWatcher& operator=(FileChangeWatcher&& other) noexcept = delete;
 
-    void AddWatchingFile(const std::filesystem::path& path);
+    void AddWatchingDirectory(const std::filesystem::path& path);
 
 private:
     void readDirectoryChanges(int index) const;

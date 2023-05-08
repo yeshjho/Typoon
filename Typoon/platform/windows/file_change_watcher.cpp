@@ -64,7 +64,7 @@ FileChangeWatcher::~FileChangeWatcher()
 }
 
 
-void FileChangeWatcher::AddWatchingFile(const std::filesystem::path& path)
+void FileChangeWatcher::AddWatchingDirectory(const std::filesystem::path& path)
 {
     const HANDLE dir = CreateFile(path.c_str(), GENERIC_READ, FILE_SHARE_READ, nullptr,
         OPEN_EXISTING, FILE_FLAG_BACKUP_SEMANTICS | FILE_FLAG_OVERLAPPED, nullptr);
@@ -86,7 +86,7 @@ void FileChangeWatcher::AddWatchingFile(const std::filesystem::path& path)
 
 void FileChangeWatcher::readDirectoryChanges(int index) const
 {
-    if (!ReadDirectoryChangesW(mDirectories.at(index), nullptr, 0, true, FILE_NOTIFY_CHANGE_LAST_WRITE, nullptr,
+    if (!ReadDirectoryChangesW(mDirectories.at(index), nullptr, 0, false, FILE_NOTIFY_CHANGE_LAST_WRITE, nullptr,
         static_cast<OVERLAPPED*>(mOverlappeds.at(index)), nullptr))
     {
         logger.Log(ELogLevel::ERROR, "ReadDirectoryChangesW error:", std::system_category().message(static_cast<int>(GetLastError())));

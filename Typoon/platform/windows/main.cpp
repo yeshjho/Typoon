@@ -48,13 +48,29 @@ int wWinMain(HINSTANCE hInstance, [[maybe_unused]] HINSTANCE hPrevInstance, [[ma
 
     read_config_file(get_config_file_path());
     FileChangeWatcher configChangeWatcher{
-        []()
+        [prevMatchFilePath = std::filesystem::path{}, prevCursorPlaceholder = std::wstring{}]() mutable
         {
             read_config_file(get_config_file_path());
+
+            if (const Config& config = get_config(); 
+                prevMatchFilePath != config.matchFilePath || prevCursorPlaceholder != config.cursorPlaceholder)
+            {
+                prevMatchFilePath = config.matchFilePath;
+                prevCursorPlaceholder = config.cursorPlaceholder;
+                reconstruct_trigger_tree();
+            }
+        }
+    };
+    configChangeWatcher.AddWatchingDirectory(get_app_data_path());
+
+    FileChangeWatcher matchChangeWatcher{
+        []()
+        {
             reconstruct_trigger_tree();
         }
     };
-    configChangeWatcher.AddWatchingFile(get_app_data_path());
+    matchChangeWatcher.AddWatchingDirectory(get_config().matchFilePath.parent_path());
+
     turn_on(window);
 
     MSG msg;
