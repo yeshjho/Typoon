@@ -42,7 +42,7 @@ struct ConfigForParse
 
     bool notify_match_load = true;
     bool notify_on_off = false;
-
+    
     operator Config() const &&
     {
         return {

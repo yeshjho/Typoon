@@ -250,6 +250,11 @@ void start_hot_key_watcher(const std::vector<std::tuple<EHotKeyType, EKey, EModi
 
     for (const auto& [type, key, modifiers] : hotKeys)
     {
+        if (key == EKey::INVALID)
+        {
+            continue;
+        }
+
         if (!RegisterHotKey(hot_key_hwnd, 0, get_modifier_code(modifiers), get_vkey_code(key)))
         {
             logger.Log(ELogLevel::ERROR, "RegisterHotKey failed:", std::system_category().message(static_cast<int>(GetLastError())));

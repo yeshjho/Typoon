@@ -7,6 +7,8 @@
 
 enum class [[nodiscard]] EKey
 {
+    INVALID = 0,
+
     A,
     B,
     C,

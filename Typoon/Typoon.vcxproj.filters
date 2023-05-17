@@ -33,10 +33,7 @@
     <ClCompile Include="utils\string.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="parse\match_for_parse.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="parse\parse.cpp">
+    <ClCompile Include="parse\parse_match.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="platform\windows\fake_input.cpp">
@@ -66,6 +63,9 @@
     <ClCompile Include="platform\windows\hotkey.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="parse\parse_keys.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="utils\logger.h">
@@ -89,10 +89,7 @@
     <ClInclude Include="utils\string.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="parse\match_for_parse.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="parse\parse.h">
+    <ClInclude Include="parse\parse_match.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="low_level\fake_input.h">
@@ -120,6 +117,9 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="low_level\hotkey.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="parse\parse_keys.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

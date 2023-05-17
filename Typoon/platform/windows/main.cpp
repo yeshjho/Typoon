@@ -2,6 +2,7 @@
 
 #include "../../low_level/file_change_watcher.h"
 #include "../../low_level/filesystem.h"
+#include "../../low_level/hotkey.h"
 #include "../../low_level/tray_icon.h"
 
 #include "../../common/common.h"
@@ -45,8 +46,11 @@ int wWinMain(HINSTANCE hInstance, [[maybe_unused]] HINSTANCE hPrevInstance, [[ma
     }
 
     show_tray_icon(std::make_tuple(hInstance, window));
+    start_hot_key_watcher({ { EHotKeyType::TOGGLE_ON_OFF, EKey::NUM_1, EModifierKey::CONTROL | EModifierKey::ALT } }, window);
 
     read_config_file(get_config_file_path());
+    setup_trigger_tree(get_config().matchFilePath);
+
     FileChangeWatcher configChangeWatcher{
         [prevMatchFilePath = std::filesystem::path{}, prevCursorPlaceholder = std::wstring{}]() mutable
         {
@@ -81,6 +85,9 @@ int wWinMain(HINSTANCE hInstance, [[maybe_unused]] HINSTANCE hPrevInstance, [[ma
     }
 
     turn_off();
+
+    teardown_trigger_tree();
+    end_hot_key_watcher();
     remove_tray_icon();
 
 #ifdef _DEBUG

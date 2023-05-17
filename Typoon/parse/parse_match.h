@@ -1,4 +1,5 @@
 #pragma once
+#include <filesystem>
 #include <string>
 #include <vector>
 
@@ -33,3 +34,6 @@ struct MatchForParse
 };
 
 JSON5_ENUM(MatchForParse::EUppercaseStyle, first_letter, capitalize_words)
+
+
+std::vector<MatchForParse> parse_matches(const std::filesystem::path& file);

@@ -21,7 +21,6 @@ void turn_on(const std::any& data)
 
     start_input_watcher(std::any_cast<HWND>(data));
     setup_imm_simulator();
-    setup_trigger_tree(get_config().matchFilePath);
 
     is_on = true;
 
@@ -42,7 +41,6 @@ void turn_off()
 
     halt_trigger_tree_construction();
     end_input_watcher();
-    teardown_trigger_tree();
     teardown_imm_simulator();
 
     is_on = false;

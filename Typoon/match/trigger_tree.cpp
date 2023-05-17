@@ -9,7 +9,7 @@
 #include "../low_level/fake_input.h"
 #include "../low_level/input_watcher.h"
 #include "../low_level/tray_icon.h"
-#include "../parse/parse.h"
+#include "../parse/parse_match.h"
 #include "../utils/config.h"
 #include "../utils/logger.h"
 #include "../utils/string.h"
