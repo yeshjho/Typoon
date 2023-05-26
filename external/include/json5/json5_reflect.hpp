@@ -361,21 +361,26 @@ inline error read_tuple( const json5::object_view &obj, const char *names, std::
 	auto iter = obj.find( name );
 	if ( iter != obj.end() )
 	{
-		if constexpr ( std::is_enum_v<Type> )
-		{
-			if constexpr ( enum_table<Type>() )
-			{
-				if ( auto err = read_enum( ( *iter ).second, out ) )
-					return err;
-			}
-			else
-			{
-				std::underlying_type_t<Type> temp;
-				if ( auto err = read( ( *iter ).second, temp ) )
-					return err;
+		//if constexpr ( std::is_enum_v<Type> )
+		//{
+		//	if constexpr ( enum_table<Type>() )
+		//	{
+		//		if ( auto err = read_enum( ( *iter ).second, out ) )
+		//			return err;
+		//	}
+		//	else
+		//	{
+		//		std::underlying_type_t<Type> temp;
+		//		if ( auto err = read( ( *iter ).second, temp ) )
+		//			return err;
 
-				out = Type( temp );
-			}
+		//		out = Type( temp );
+		//	}
+		//}
+		if constexpr (std::is_enum_v<Type> && enum_table<Type>())
+		{
+			if (auto err = read_enum((*iter).second, out))
+				return err;
 		}
 		else
 		{

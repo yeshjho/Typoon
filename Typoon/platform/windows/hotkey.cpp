@@ -7,7 +7,9 @@
 #include <iterator>
 
 #include "../../common/common.h"
+#include "../../utils/config.h"
 #include "../../utils/logger.h"
+#include "log.h"
 #include "wnd_proc.h"
 
 
@@ -206,7 +208,7 @@ int get_vkey_code(EKey key)
     case EKey::NUM_LOCK:
         return VK_NUMLOCK;
     default:
-        throw;
+        return VK_NONAME;
     }
 }
 
@@ -240,26 +242,9 @@ HWND hot_key_hwnd;
 std::vector<std::tuple<EHotKeyType, int, int>> hot_keys;
 
 
-void start_hot_key_watcher(const std::vector<std::tuple<EHotKeyType, EKey, EModifierKey>>& hotKeys, const std::any& data)
+void start_hot_key_watcher(const std::any& data)
 {
     hot_key_hwnd = std::any_cast<HWND>(data);
-    std::ranges::transform(hotKeys, std::back_inserter(hot_keys), [](const auto& tuple)
-        {
-            return std::make_tuple(std::get<0>(tuple), get_vkey_code(std::get<1>(tuple)), get_modifier_code(std::get<2>(tuple)));
-        });
-
-    for (const auto& [type, key, modifiers] : hotKeys)
-    {
-        if (key == EKey::INVALID)
-        {
-            continue;
-        }
-
-        if (!RegisterHotKey(hot_key_hwnd, 0, get_modifier_code(modifiers), get_vkey_code(key)))
-        {
-            logger.Log(ELogLevel::ERROR, "RegisterHotKey failed:", std::system_category().message(static_cast<int>(GetLastError())));
-        }
-    }
 
     wnd_proc_functions.emplace_back("hot_key", 
         []([[maybe_unused]] HWND hWnd, UINT msg, [[maybe_unused]] WPARAM wParam, LPARAM lParam) -> std::optional<LRESULT>
@@ -293,6 +278,39 @@ void start_hot_key_watcher(const std::vector<std::tuple<EHotKeyType, EKey, EModi
 
             return 0;
         });
+
+    reregister_hot_keys();
+}
+
+
+void reregister_hot_keys()
+{
+    while (UnregisterHotKey(hot_key_hwnd, 0))
+    {}
+
+    const auto [toggleOnOfKey, toggleOnOffModifier] = get_config().toggleOnOffHotkey;
+    std::vector<std::tuple<EHotKeyType, EKey, EModifierKey>> hotKeys{
+        { EHotKeyType::TOGGLE_ON_OFF, toggleOnOfKey, toggleOnOffModifier }
+    };
+
+    hot_keys.clear();
+    std::ranges::transform(hotKeys, std::back_inserter(hot_keys), [](const auto& tuple)
+        {
+            return std::make_tuple(std::get<0>(tuple), get_vkey_code(std::get<1>(tuple)), get_modifier_code(std::get<2>(tuple)));
+        });
+
+    for (const auto& [type, key, modifiers] : hotKeys)
+    {
+        if (key == EKey::INVALID)
+        {
+            continue;
+        }
+
+        if (!RegisterHotKey(hot_key_hwnd, 0, get_modifier_code(modifiers), get_vkey_code(key)))
+        {
+            log_last_error(L"Error registering hot key:");
+        }
+    }
 }
 
 

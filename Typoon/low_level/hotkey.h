@@ -141,7 +141,9 @@ enum class [[nodiscard]] EHotKeyType
 };
 
 
-void start_hot_key_watcher(const std::vector<std::tuple<EHotKeyType, EKey, EModifierKey>>& hotKeys, const std::any& data);
+void start_hot_key_watcher(const std::any& data);
+
+void reregister_hot_keys();
 
 void end_hot_key_watcher();
 
@@ -149,6 +151,12 @@ void end_hot_key_watcher();
 constexpr EModifierKey operator|(EModifierKey lhs, EModifierKey rhs)
 {
     return static_cast<EModifierKey>(static_cast<unsigned int>(lhs) | static_cast<unsigned int>(rhs));
+}
+
+constexpr EModifierKey& operator|=(EModifierKey& lhs, EModifierKey rhs)
+{
+    lhs = static_cast<EModifierKey>(static_cast<unsigned int>(lhs) | static_cast<unsigned int>(rhs));
+    return lhs;
 }
 
 constexpr EModifierKey operator&(EModifierKey lhs, EModifierKey rhs)

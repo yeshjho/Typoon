@@ -7,6 +7,7 @@
 #include "../../resource.h"
 #include "../../utils/config.h"
 #include "../../utils/logger.h"
+#include "log.h"
 #include "wnd_proc.h"
 
 
@@ -111,12 +112,12 @@ void show_tray_icon(const std::any& data)
 
     if (!Shell_NotifyIconW(NIM_ADD, &iconData))
     {
-        logger.Log(ELogLevel::ERROR, "Shell_NotifyIconW NIM_ADD failed:", std::system_category().message(static_cast<int>(GetLastError())));
+        log_last_error(L"Shell_NotifyIconW NIM_ADD failed:");
         return;
     }
     if (!Shell_NotifyIconW(NIM_SETVERSION, &iconData))
     {
-        logger.Log(ELogLevel::ERROR, "Shell_NotifyIconW NIM_SETVERSION failed:", std::system_category().message(static_cast<int>(GetLastError())));
+        log_last_error(L"Shell_NotifyIconW NIM_SETVERSION failed:");
         return;
     }
 
@@ -146,7 +147,7 @@ void set_icon_on(bool isOn)
 
     if (!Shell_NotifyIconW(NIM_MODIFY, &iconData))
     {
-        logger.Log(ELogLevel::ERROR, "Shell_NotifyIconW NIM_MODIFY - icon failed:", std::system_category().message(static_cast<int>(GetLastError())));
+        log_last_error(L"Shell_NotifyIconW NIM_MODIFY - icon failed:");
     }
 }
 
@@ -163,6 +164,6 @@ void show_notification(const std::wstring& title, const std::wstring& body, bool
 
     if (!Shell_NotifyIconW(NIM_MODIFY, &iconData))
     {
-        logger.Log(ELogLevel::ERROR, "Shell_NotifyIconW NIM_MODIFY - notification failed:", std::system_category().message(static_cast<int>(GetLastError())));
+        log_last_error(L"Shell_NotifyIconW NIM_MODIFY - notification failed:");
     }
 }

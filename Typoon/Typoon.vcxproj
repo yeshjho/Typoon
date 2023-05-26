@@ -16,6 +16,7 @@
     <ClCompile Include="parse\parse_keys.cpp" />
     <ClCompile Include="platform\windows\common.cpp" />
     <ClCompile Include="platform\windows\hotkey.cpp" />
+    <ClCompile Include="platform\windows\log.cpp" />
     <ClCompile Include="platform\windows\tray_icon.cpp" />
     <ClCompile Include="match\trigger_tree.cpp" />
     <ClCompile Include="parse\parse_match.cpp" />
@@ -43,6 +44,7 @@
     <ClInclude Include="match\trigger_tree.h" />
     <ClInclude Include="parse\parse_keys.h" />
     <ClInclude Include="parse\parse_match.h" />
+    <ClInclude Include="platform\windows\log.h" />
     <ClInclude Include="platform\windows\wnd_proc.h" />
     <ClInclude Include="resource.h" />
     <ClInclude Include="utils\config.h" />

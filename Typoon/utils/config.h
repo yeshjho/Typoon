@@ -1,6 +1,8 @@
 #pragma once
 #include <filesystem>
 
+#include "../low_level/hotkey.h"
+
 
 struct Config
 {
@@ -10,6 +12,8 @@ struct Config
 
     bool notifyMatchLoad;
     bool notifyOnOff;
+
+    std::pair<EKey, EModifierKey> toggleOnOffHotkey;
 };
 
 

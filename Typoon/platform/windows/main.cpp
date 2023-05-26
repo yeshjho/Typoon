@@ -10,8 +10,11 @@
 #include "../../utils/config.h"
 #include "../../utils/logger.h"
 
+#include "log.h"
 #include "wnd_proc.h"
 
+
+constexpr UINT CONFIG_CHANGED_MESSAGE = WM_USER + 123;
 
 int wWinMain(HINSTANCE hInstance, [[maybe_unused]] HINSTANCE hPrevInstance, [[maybe_unused]] LPWSTR cmdLine, [[maybe_unused]] int cmdShow)
 {
@@ -34,25 +37,25 @@ int wWinMain(HINSTANCE hInstance, [[maybe_unused]] HINSTANCE hPrevInstance, [[ma
     windowClass.lpszClassName = windowClassName;
     if (!RegisterClassExW(&windowClass))
     {
-        logger.Log(ELogLevel::FATAL, "RegisterClassExW failed:", std::system_category().message(static_cast<int>(GetLastError())));
+        log_last_error(L"RegisterClassExW failed");
         return -1;
     }
 
     const HWND window = CreateWindow(windowClassName, L"Typoon Worker Process", WS_OVERLAPPEDWINDOW, 0, 0, 0, 0, nullptr, nullptr, hInstance, nullptr);
     if (!window)
     {
-        logger.Log(ELogLevel::FATAL, "CreateWindow failed:", std::system_category().message(static_cast<int>(GetLastError())));
+        log_last_error(L"CreateWindow failed");
         return -1;
     }
 
     show_tray_icon(std::make_tuple(hInstance, window));
-    start_hot_key_watcher({ { EHotKeyType::TOGGLE_ON_OFF, EKey::NUM_1, EModifierKey::CONTROL | EModifierKey::ALT } }, window);
 
     read_config_file(get_config_file_path());
     setup_trigger_tree(get_config().matchFilePath);
+    start_hot_key_watcher(window);
 
     FileChangeWatcher configChangeWatcher{
-        [prevMatchFilePath = std::filesystem::path{}, prevCursorPlaceholder = std::wstring{}]() mutable
+        [window, prevMatchFilePath = std::filesystem::path{}, prevCursorPlaceholder = std::wstring{}]() mutable
         {
             read_config_file(get_config_file_path());
 
@@ -63,6 +66,8 @@ int wWinMain(HINSTANCE hInstance, [[maybe_unused]] HINSTANCE hPrevInstance, [[ma
                 prevCursorPlaceholder = config.cursorPlaceholder;
                 reconstruct_trigger_tree();
             }
+
+            PostMessage(window, CONFIG_CHANGED_MESSAGE, 0, 0);
         }
     };
     configChangeWatcher.AddWatchingFile(get_config_file_path());
@@ -80,6 +85,11 @@ int wWinMain(HINSTANCE hInstance, [[maybe_unused]] HINSTANCE hPrevInstance, [[ma
     MSG msg;
     while (GetMessage(&msg, nullptr, 0, 0))
     {
+        // Registering hot keys should happen in the same thread as the one that has created the window.
+        if (msg.message == CONFIG_CHANGED_MESSAGE)
+        {
+            reregister_hot_keys();
+        }
         TranslateMessage(&msg);
         DispatchMessage(&msg);
     }

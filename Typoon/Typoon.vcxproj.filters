@@ -66,6 +66,9 @@
     <ClCompile Include="parse\parse_keys.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="platform\windows\log.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="utils\logger.h">
@@ -120,6 +123,9 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="parse\parse_keys.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="platform\windows\log.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

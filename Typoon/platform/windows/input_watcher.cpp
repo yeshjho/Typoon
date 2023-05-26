@@ -11,6 +11,7 @@
 #include "../../low_level/fake_input.h"
 #include "../../utils/logger.h"
 #include "../../utils/string.h"
+#include "log.h"
 #include "wnd_proc.h"
 
 
@@ -27,7 +28,7 @@ std::optional<LRESULT> input_proc([[maybe_unused]] HWND hWnd, UINT msg, [[maybe_
     if (GetRawInputData(reinterpret_cast<HRAWINPUT>(lParam), RID_INPUT, &inputData, &size, sizeof(RAWINPUTHEADER))
         == static_cast<UINT>(-1))
     {
-        logger.Log(ELogLevel::ERROR, "GetRawInputData failed:", std::system_category().message(static_cast<int>(GetLastError())));
+        log_last_error(L"GetRawInputData failed:");
         return 0;
     }
 
@@ -179,8 +180,8 @@ void start_input_watcher(const std::any& data)
 
     if (!RegisterRawInputDevices(rid, static_cast<UINT>(std::size(rid)), sizeof(rid[0])))
     {
-        logger.Log(ELogLevel::FATAL, "RegisterRawInputDevices failed:", std::system_category().message(static_cast<int>(GetLastError())));
-        std::exit(-1);  // It's fatal anyway, thread safety is not needed.
+        log_last_error(L"RegisterRawInputDevices failed:");
+        ExitProcess(1);
     }
 }
 
