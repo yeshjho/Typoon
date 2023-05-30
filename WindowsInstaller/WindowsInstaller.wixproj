@@ -12,20 +12,41 @@
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|x86' ">
     <OutputPath>bin\$(Configuration)\</OutputPath>
     <IntermediateOutputPath>obj\$(Configuration)\</IntermediateOutputPath>
-    <DefineConstants>Debug</DefineConstants>
+    <DefineConstants>Debug;</DefineConstants>
+    <WixVariables>
+    </WixVariables>
+    <CompilerAdditionalOptions>-dVersionNumber="1.0.0"</CompilerAdditionalOptions>
+    <LinkerAdditionalOptions>-ext WixUIExtension</LinkerAdditionalOptions>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|x86' ">
     <OutputPath>bin\$(Configuration)\</OutputPath>
     <IntermediateOutputPath>obj\$(Configuration)\</IntermediateOutputPath>
     <Cultures>en-US;ko-KR,en</Cultures>
+    <DefineConstants>
+    </DefineConstants>
+    <WixVariables>
+    </WixVariables>
+    <CompilerAdditionalOptions>-dVersionNumber="1.0.0"</CompilerAdditionalOptions>
+    <LinkerAdditionalOptions>-ext WixUIExtension</LinkerAdditionalOptions>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|x64' ">
     <OutputPath>bin\$(Platform)\$(Configuration)\</OutputPath>
     <IntermediateOutputPath>obj\$(Platform)\$(Configuration)\</IntermediateOutputPath>
+    <DefineConstants>Debug;</DefineConstants>
+    <WixVariables>
+    </WixVariables>
+    <CompilerAdditionalOptions>-dVersionNumber="1.0.0"</CompilerAdditionalOptions>
+    <LinkerAdditionalOptions>-ext WixUIExtension</LinkerAdditionalOptions>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|x64' ">
     <OutputPath>bin\$(Platform)\$(Configuration)\</OutputPath>
     <IntermediateOutputPath>obj\$(Platform)\$(Configuration)\</IntermediateOutputPath>
+    <DefineConstants>
+    </DefineConstants>
+    <WixVariables>
+    </WixVariables>
+    <CompilerAdditionalOptions>-dVersionNumber="1.0.0"</CompilerAdditionalOptions>
+    <LinkerAdditionalOptions>-ext WixUIExtension</LinkerAdditionalOptions>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|x64' ">
     <DefineConstants>Debug</DefineConstants>
