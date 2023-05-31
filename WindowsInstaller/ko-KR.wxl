@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<WixLocalization Culture="ko-kr" Codepage="949" xmlns="http://schemas.microsoft.com/wix/2006/localization">
+    <String Id="Language">1042</String>
+    <String Id="NoDowngrade">더 최신 버전의 Typoon이 이미 설치돼 있습니다.</String>
+</WixLocalization>

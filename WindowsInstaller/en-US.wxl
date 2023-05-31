@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<WixLocalization Culture="en-us" xmlns="http://schemas.microsoft.com/wix/2006/localization">
+    <String Id="Language">1033</String>
+    <String Id="NoDowngrade">A newer version of Typoon is already installed.</String>
+</WixLocalization>

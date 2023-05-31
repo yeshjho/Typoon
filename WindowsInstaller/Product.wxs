@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Wix xmlns="http://schemas.microsoft.com/wix/2006/wi">
+    <Product Id="*" Name="Typoon" Language="!(loc.Language)" Version="$(var.VersionNumber)" Manufacturer="Joonho Hwang" UpgradeCode="eefadce2-887c-4f86-b767-59c8c5e6a710">
+        <Package InstallerVersion="400" Compressed="yes" InstallScope="perMachine" Comments="Typoon  Copyright (C) 2023  Joonho Hwang" Platform="x64" />
+
+        <MajorUpgrade DowngradeErrorMessage="!(loc.NoDowngrade)" AllowSameVersionUpgrades="yes" />
+        <MediaTemplate EmbedCab="yes"/>
+
+        <Feature Id="ProductFeature" Title="Typoon" Level="1">
+            <ComponentGroupRef Id="ProductComponents" />
+        </Feature>
+
+        <Icon Id="icon.exe" SourceFile="../icon.ico"/>
+        <Property Id="ARPPRODUCTICON" Value="icon.exe" />
+        <Property Id="ARPNOREPAIR" Value="yes" Secure="yes" />
+        <Property Id="ARPNOMODIFY" Value="yes" Secure="yes" />
+
+        <UI>
+            <UIRef Id="WixUI_FeatureTree" />
+
+            <!--Skip license dialog--> 
+            <Publish Dialog="WelcomeDlg"
+                     Control="Next"
+                     Event="NewDialog"
+                     Value="CustomizeDlg"
+                     Order="2">1</Publish>
+            <Publish Dialog="CustomizeDlg"
+                     Control="Back"
+                     Event="NewDialog"
+                     Value="WelcomeDlg"
+                     Order="2">1</Publish>
+        </UI>
+    </Product>
+
+    <Fragment>
+        <Directory Id="TARGETDIR" Name="SourceDir">
+            <Directory Id="StartupFolder" SourceName="StartupFolder" />
+            <Directory Id="ProgramFiles64Folder">
+                <Directory Id="INSTALLFOLDER" Name="Typoon" />
+            </Directory>
+        </Directory>
+    </Fragment>
+
+    <Fragment>
+        <ComponentGroup Id="ProductComponents" Directory="INSTALLFOLDER">
+            <Component Id="ProductComponent" Win64="yes">
+                <File Id="MainExeFile" Source="../x64/Release/Typoon.exe" KeyPath="yes">
+                    <Shortcut Id="StartupShortcut" Directory="StartupFolder" Name="Typoon" Advertise="yes" Icon="icon.exe" />
+                </File>
+            </Component>
+        </ComponentGroup>
+    </Fragment>
+</Wix>
