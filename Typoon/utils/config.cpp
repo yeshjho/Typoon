@@ -6,9 +6,9 @@
 
 #include "../low_level/filesystem.h"
 #include "../low_level/tray_icon.h"
+#include "../parse/parse_keys.h"
 #include "logger.h"
 #include "./string.h"
-
 
 namespace json5::detail
 {
@@ -43,6 +43,8 @@ struct ConfigForParse
     bool notify_match_load = true;
     bool notify_on_off = false;
 
+    HotKeyForParse hotkey_toggle_on_off = { .ctrl = true, .shift = true, .key = EKey::T };
+    
     operator Config() const &&
     {
         return {
@@ -51,12 +53,13 @@ struct ConfigForParse
             { cursor_placeholder.begin(), cursor_placeholder.end() },
             notify_match_load,
             notify_on_off,
+            { hotkey_toggle_on_off.key, get_combined_modifier(hotkey_toggle_on_off) }
         };
     }
 };
 
 
-JSON5_CLASS(ConfigForParse, match_file_path, max_backspace_count, cursor_placeholder, notify_match_load, notify_on_off)
+JSON5_CLASS(ConfigForParse, match_file_path, max_backspace_count, cursor_placeholder, notify_match_load, notify_on_off, hotkey_toggle_on_off)
 
 Config config;
 

@@ -3,6 +3,7 @@
 #include <ShlObj_core.h>
 
 #include "../../utils/logger.h"
+#include "log.h"
 
 
 const std::filesystem::path& get_app_data_path()
@@ -13,8 +14,8 @@ const std::filesystem::path& get_app_data_path()
             PWSTR path = nullptr;
             if (FAILED(SHGetKnownFolderPath(FOLDERID_RoamingAppData, KF_FLAG_CREATE, nullptr, &path)))
             {
-                logger.Log(ELogLevel::FATAL, "SHGetKnownFolderPath failed:", std::system_category().message(static_cast<int>(GetLastError())));
-                std::exit(-1);
+                log_last_error(L"SHGetKnownFolderPath failed:");
+                ExitProcess(1);
             }
 
             auto appPath = std::filesystem::path{ path } / "Typoon";

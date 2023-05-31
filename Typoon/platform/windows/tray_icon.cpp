@@ -7,6 +7,7 @@
 #include "../../resource.h"
 #include "../../utils/config.h"
 #include "../../utils/logger.h"
+#include "log.h"
 #include "wnd_proc.h"
 
 
@@ -18,7 +19,7 @@ constexpr int IDM_OPEN_MATCH = 101;
 constexpr int IDM_EXIT = 1000;
 
 
-HWND hwnd;
+HWND tray_icon_hwnd;
 
 std::optional<LRESULT> tray_icon_proc(HWND hWnd, UINT msg, [[maybe_unused]] WPARAM wParam, LPARAM lParam)
 {
@@ -32,7 +33,7 @@ std::optional<LRESULT> tray_icon_proc(HWND hWnd, UINT msg, [[maybe_unused]] WPAR
         switch (LOWORD(wParam))
         {
         case IDM_TOGGLE_ON_OFF:
-            is_turned_on() ? turn_off() : turn_on(hwnd);
+            is_turned_on() ? turn_off() : turn_on(tray_icon_hwnd);
             break;
 
         case IDM_OPEN_CONFIG:
@@ -93,7 +94,7 @@ HICON off_icon;
 void show_tray_icon(const std::any& data)
 {
     const auto [hInstance, hWnd] = std::any_cast<std::tuple<HINSTANCE, HWND>>(data);
-    hwnd = hWnd;
+    tray_icon_hwnd = hWnd;
 
     on_icon = static_cast<HICON>(LoadImage(hInstance, MAKEINTRESOURCE(IDI_TYPOON_ICON), IMAGE_ICON,
         GetSystemMetrics(SM_CXSMICON), GetSystemMetrics(SM_CYSMICON), LR_DEFAULTCOLOR));
@@ -111,12 +112,12 @@ void show_tray_icon(const std::any& data)
 
     if (!Shell_NotifyIconW(NIM_ADD, &iconData))
     {
-        logger.Log(ELogLevel::ERROR, "Shell_NotifyIconW NIM_ADD failed:", std::system_category().message(static_cast<int>(GetLastError())));
+        log_last_error(L"Shell_NotifyIconW NIM_ADD failed:");
         return;
     }
     if (!Shell_NotifyIconW(NIM_SETVERSION, &iconData))
     {
-        logger.Log(ELogLevel::ERROR, "Shell_NotifyIconW NIM_SETVERSION failed:", std::system_category().message(static_cast<int>(GetLastError())));
+        log_last_error(L"Shell_NotifyIconW NIM_SETVERSION failed:");
         return;
     }
 
@@ -128,7 +129,7 @@ void remove_tray_icon()
 {
     NOTIFYICONDATAW iconData{};
     iconData.cbSize = sizeof(NOTIFYICONDATAW);
-    iconData.hWnd = hwnd;
+    iconData.hWnd = tray_icon_hwnd;
 
     Shell_NotifyIconW(NIM_DELETE, &iconData);
 
@@ -140,13 +141,13 @@ void set_icon_on(bool isOn)
 {
     NOTIFYICONDATAW iconData{};
     iconData.cbSize = sizeof(NOTIFYICONDATAW);
-    iconData.hWnd = hwnd;
+    iconData.hWnd = tray_icon_hwnd;
     iconData.uFlags = NIF_ICON;
     iconData.hIcon = isOn ? on_icon : off_icon;
 
     if (!Shell_NotifyIconW(NIM_MODIFY, &iconData))
     {
-        logger.Log(ELogLevel::ERROR, "Shell_NotifyIconW NIM_MODIFY - icon failed:", std::system_category().message(static_cast<int>(GetLastError())));
+        log_last_error(L"Shell_NotifyIconW NIM_MODIFY - icon failed:");
     }
 }
 
@@ -155,7 +156,7 @@ void show_notification(const std::wstring& title, const std::wstring& body, bool
 {
     NOTIFYICONDATAW iconData{};
     iconData.cbSize = sizeof(NOTIFYICONDATAW);
-    iconData.hWnd = hwnd;
+    iconData.hWnd = tray_icon_hwnd;
     iconData.uFlags = NIF_INFO | (isRealtime ? NIF_REALTIME : 0);
     iconData.dwInfoFlags = NIIF_USER | NIIF_LARGE_ICON;
     std::ranges::copy(title, iconData.szInfoTitle);
@@ -163,6 +164,6 @@ void show_notification(const std::wstring& title, const std::wstring& body, bool
 
     if (!Shell_NotifyIconW(NIM_MODIFY, &iconData))
     {
-        logger.Log(ELogLevel::ERROR, "Shell_NotifyIconW NIM_MODIFY - notification failed:", std::system_category().message(static_cast<int>(GetLastError())));
+        log_last_error(L"Shell_NotifyIconW NIM_MODIFY - notification failed:");
     }
 }

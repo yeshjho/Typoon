@@ -6,6 +6,7 @@
 
 #include "../../utils/logger.h"
 #include "../../utils/string.h"
+#include "log.h"
 
 const wchar_t FakeInput::BACKSPACE_KEY = VK_BACK;
 const wchar_t FakeInput::TOGGLE_HANGEUL_KEY = VK_HANGUL;
@@ -86,7 +87,7 @@ void send_fake_inputs(const std::vector<FakeInput>& inputs, bool isCapsLockOn)
     if (const UINT uSent = SendInput(static_cast<UINT>(windowsInputs.size()), windowsInputs.data(), sizeof(INPUT));
         uSent != windowsInputs.size()) [[unlikely]]
     {
-        logger.Log(ELogLevel::ERROR, "Sending inputs failed:", std::system_category().message(static_cast<int>(GetLastError())));
+        log_last_error(L"Sending inputs failed:");
     }
 
     for (const auto& windowsInput : windowsInputs)

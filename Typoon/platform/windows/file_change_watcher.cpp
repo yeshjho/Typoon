@@ -3,6 +3,7 @@
 #include <Windows.h>
 
 #include "../../utils/logger.h"
+#include "log.h"
 
 
 std::jthread file_change_watcher_thread;
@@ -24,7 +25,7 @@ FileChangeWatcher::FileChangeWatcher(std::function<void()> onChanged)
                 const DWORD result = WaitForMultipleObjectsEx(static_cast<DWORD>(mEvents.size()), mEvents.data(), false, INFINITE, true);
                 if (result == WAIT_FAILED)
                 {
-                    logger.Log(ELogLevel::ERROR, "WaitForMultipleObjectsEx error:", GetLastError(), std::system_category().message(static_cast<int>(GetLastError())));
+                    log_last_error(L"WaitForMultipleObjectsEx error:");
                     return;
                 }
                 
@@ -94,7 +95,7 @@ void FileChangeWatcher::AddWatchingFile(const std::filesystem::path& filePath)
         OPEN_EXISTING, FILE_FLAG_BACKUP_SEMANTICS | FILE_FLAG_OVERLAPPED, nullptr);
     if (dir == INVALID_HANDLE_VALUE) [[unlikely]]
     {
-        logger.Log(ELogLevel::ERROR, "CreateFile error:", filePath.string(), std::system_category().message(static_cast<int>(GetLastError())));
+        log_last_error(L"CreateFile error:");
         return;
     }
     mFileNames.emplace_back(filePath.filename().wstring());
@@ -115,7 +116,7 @@ void FileChangeWatcher::readDirectoryChanges(int index) const
     if (!ReadDirectoryChangesW(mDirectories.at(index), mBuffers.at(index), 512, false, FILE_NOTIFY_CHANGE_LAST_WRITE, nullptr,
         static_cast<OVERLAPPED*>(mOverlappeds.at(index)), nullptr))
     {
-        logger.Log(ELogLevel::ERROR, "ReadDirectoryChangesW error:", std::system_category().message(static_cast<int>(GetLastError())));
+        log_last_error(L"ReadDirectoryChangesW error:");
         return;
     }
 
