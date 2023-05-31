@@ -10,6 +10,7 @@ struct Config
     int maxBackspaceCount;
     std::wstring cursorPlaceholder;
 
+    bool notifyConfigLoad;
     bool notifyMatchLoad;
     bool notifyOnOff;
 

@@ -23,6 +23,7 @@ private:
 private:
     std::jthread mThread;
 
+    std::vector<std::filesystem::path> mFullPaths;
     std::vector<std::wstring> mFileNames;
     std::vector<void*> mDirectories;
     std::vector<void*> mEvents;

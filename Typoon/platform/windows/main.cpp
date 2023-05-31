@@ -55,7 +55,7 @@ int wWinMain(HINSTANCE hInstance, [[maybe_unused]] HINSTANCE hPrevInstance, [[ma
     start_hot_key_watcher(window);
 
     FileChangeWatcher configChangeWatcher{
-        [window, prevMatchFilePath = std::filesystem::path{}, prevCursorPlaceholder = std::wstring{}]() mutable
+        [window, prevMatchFilePath = get_config().matchFilePath, prevCursorPlaceholder = get_config().cursorPlaceholder]() mutable
         {
             read_config_file(get_config_file_path());
 
@@ -68,6 +68,11 @@ int wWinMain(HINSTANCE hInstance, [[maybe_unused]] HINSTANCE hPrevInstance, [[ma
             }
 
             PostMessage(window, CONFIG_CHANGED_MESSAGE, 0, 0);
+
+            if (get_config().notifyConfigLoad)
+            {
+                show_notification(L"Config File Load Complete", L"The configurations are updated", true);
+            }
         }
     };
     configChangeWatcher.AddWatchingFile(get_config_file_path());

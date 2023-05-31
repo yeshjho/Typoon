@@ -1,5 +1,7 @@
 #include "../../low_level/file_change_watcher.h"
 
+#include <fstream>
+
 #include <Windows.h>
 
 #include "../../utils/logger.h"
@@ -40,7 +42,14 @@ FileChangeWatcher::FileChangeWatcher(std::function<void()> onChanged)
                         const std::wstring_view fileName{ info->FileName, info->FileNameLength / sizeof(WCHAR) };
                         if (fileName == targetFileName)
                         {
-                            onChanged();
+                            // The file change watcher gets triggered twice when the file is modified.
+                            // For the first trigger, it is possible that the file is locked by the program that modifies it.
+                            // So check if we can open the file before calling onChanged().
+                            std::wifstream configFile{ mFullPaths.at(directoryIndex), std::ios::binary | std::ios::ate};
+                            if (configFile.tellg() != 0)
+                            {
+                                onChanged();
+                            }
                             break;
                         }
 
@@ -98,6 +107,7 @@ void FileChangeWatcher::AddWatchingFile(const std::filesystem::path& filePath)
         log_last_error(L"CreateFile error:");
         return;
     }
+    mFullPaths.emplace_back(filePath);
     mFileNames.emplace_back(filePath.filename().wstring());
     mDirectories.emplace_back(dir);
 

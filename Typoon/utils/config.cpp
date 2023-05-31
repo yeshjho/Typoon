@@ -40,6 +40,7 @@ struct ConfigForParse
     int max_backspace_count = 5;
     std::string cursor_placeholder = "|_|";
 
+    bool notify_config_load = true;
     bool notify_match_load = true;
     bool notify_on_off = false;
 
@@ -51,6 +52,7 @@ struct ConfigForParse
             match_file_path,
             max_backspace_count,
             { cursor_placeholder.begin(), cursor_placeholder.end() },
+            notify_config_load,
             notify_match_load,
             notify_on_off,
             { hotkey_toggle_on_off.key, get_combined_modifier(hotkey_toggle_on_off) }
@@ -59,7 +61,7 @@ struct ConfigForParse
 };
 
 
-JSON5_CLASS(ConfigForParse, match_file_path, max_backspace_count, cursor_placeholder, notify_match_load, notify_on_off, hotkey_toggle_on_off)
+JSON5_CLASS(ConfigForParse, match_file_path, max_backspace_count, cursor_placeholder, notify_config_load, notify_match_load, notify_on_off, hotkey_toggle_on_off)
 
 Config config;
 
