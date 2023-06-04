@@ -34,9 +34,9 @@ FileChangeWatcher::FileChangeWatcher(std::function<void()> onChanged)
                 if (result != WAIT_OBJECT_0)  // not a "kill" signal
                 {
                     const int directoryIndex = static_cast<int>(result - WAIT_OBJECT_0 - 1);
-                    const std::wstring& targetFileName = mFileNames.at(directoryIndex);
+                    const std::wstring& targetFileName = mFiles.at(directoryIndex).fileName;
 
-                    const auto* info = static_cast<FILE_NOTIFY_INFORMATION*>(mBuffers.at(directoryIndex));
+                    const auto* info = static_cast<FILE_NOTIFY_INFORMATION*>(mFiles.at(directoryIndex).buffer);
                     while (true)
                     {
                         const std::wstring_view fileName{ info->FileName, info->FileNameLength / sizeof(WCHAR) };
@@ -45,7 +45,7 @@ FileChangeWatcher::FileChangeWatcher(std::function<void()> onChanged)
                             // The file change watcher gets triggered twice when the file is modified.
                             // For the first trigger, it is possible that the file is locked by the program that modifies it.
                             // So check if we can open the file before calling onChanged().
-                            std::wifstream configFile{ mFullPaths.at(directoryIndex), std::ios::binary | std::ios::ate};
+                            std::wifstream configFile{ mFiles.at(directoryIndex).fullPath, std::ios::binary | std::ios::ate};
                             if (configFile.tellg() != 0)
                             {
                                 onChanged();
@@ -71,29 +71,21 @@ FileChangeWatcher::FileChangeWatcher(std::function<void()> onChanged)
 FileChangeWatcher::~FileChangeWatcher()
 {
     mThread.request_stop();
-    SetEvent(mOverlappeds.front());
+    SetEvent(mFiles.front().overlapped);
     if (mThread.joinable())
     {
         mThread.join();
     }
 
-    for (const HANDLE file : mDirectories)
-    {
-        CloseHandle(file);
-    }
     for (const HANDLE handle : mEvents)
     {
         CloseHandle(handle);
     }
-    for (const void* bufferPtr : mBuffers)
+    for (const auto& [fullPath, fileName, directory, buffer, overlapped] : mFiles)
     {
-        const auto* buffer = static_cast<const char*>(bufferPtr);
-        delete[] buffer;
-    }
-    for (const void* overlappedPtr : mOverlappeds)
-    {
-        const auto* overlapped = static_cast<const OVERLAPPED*>(overlappedPtr);
-        delete overlapped;
+        CloseHandle(directory);
+        delete[] static_cast<const char*>(buffer);
+        delete static_cast<const OVERLAPPED*>(overlapped);
     }
 }
 
@@ -107,24 +99,21 @@ void FileChangeWatcher::AddWatchingFile(const std::filesystem::path& filePath)
         log_last_error(L"CreateFile error:");
         return;
     }
-    mFullPaths.emplace_back(filePath);
-    mFileNames.emplace_back(filePath.filename().wstring());
-    mDirectories.emplace_back(dir);
 
     const auto overlapped = new OVERLAPPED{};
     overlapped->hEvent = CreateEvent(nullptr, false, false, nullptr);
     mEvents.emplace_back(overlapped->hEvent);
-    mBuffers.emplace_back(new char[512]);
-    mOverlappeds.emplace_back(overlapped);
+    mFiles.emplace_back(filePath, filePath.filename().wstring(), dir, new char[512], overlapped);
 
-    readDirectoryChanges(static_cast<int>(mDirectories.size() - 1));
+    readDirectoryChanges(static_cast<int>(mFiles.size() - 1));
 }
 
 
 void FileChangeWatcher::readDirectoryChanges(int index) const
 {
-    if (!ReadDirectoryChangesW(mDirectories.at(index), mBuffers.at(index), 512, false, FILE_NOTIFY_CHANGE_LAST_WRITE, nullptr,
-        static_cast<OVERLAPPED*>(mOverlappeds.at(index)), nullptr))
+    const auto& [fullPath, fileName, directory, buffer, overlapped] = mFiles.at(index);
+    if (!ReadDirectoryChangesW(directory, buffer, 512, false, FILE_NOTIFY_CHANGE_LAST_WRITE, nullptr,
+        static_cast<OVERLAPPED*>(overlapped), nullptr))
     {
         log_last_error(L"ReadDirectoryChangesW error:");
         return;

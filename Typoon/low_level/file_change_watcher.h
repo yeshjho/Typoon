@@ -23,10 +23,14 @@ private:
 private:
     std::jthread mThread;
 
-    std::vector<std::filesystem::path> mFullPaths;
-    std::vector<std::wstring> mFileNames;
-    std::vector<void*> mDirectories;
+    struct File
+    {
+        std::filesystem::path fullPath;
+        std::wstring fileName;
+        void* directory = nullptr;
+        void* buffer = nullptr;
+        void* overlapped = nullptr;
+    };
     std::vector<void*> mEvents;
-    std::vector<void*> mBuffers;
-    std::vector<void*> mOverlappeds;
+    std::vector<File> mFiles;
 };
