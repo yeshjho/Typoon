@@ -30,7 +30,10 @@ private:
         void* directory = nullptr;
         void* buffer = nullptr;
         void* overlapped = nullptr;
+        std::chrono::time_point<std::chrono::system_clock> lastWriteTime;
     };
     std::vector<void*> mEvents;
     std::vector<File> mFiles;
+
+    static constexpr std::chrono::milliseconds WRITE_COOLDOWN = std::chrono::milliseconds(100);
 };
