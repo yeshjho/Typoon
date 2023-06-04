@@ -49,5 +49,15 @@
                 </File>
             </Component>
         </ComponentGroup>
+
+        <CustomAction Id="EXECUTE_AFTER_FINALIZE"
+                      Execute="immediate"
+                      Return="asyncNoWait"
+                      FileKey="MainExeFile"
+                      ExeCommand="" />
+
+        <InstallExecuteSequence>
+            <Custom Action="EXECUTE_AFTER_FINALIZE" After="InstallFinalize">NOT Installed</Custom>
+        </InstallExecuteSequence>
     </Fragment>
 </Wix>

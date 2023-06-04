@@ -97,7 +97,14 @@ void read_config_file(const std::filesystem::path& filePath)
     {
         std::filesystem::create_directories(configForParse.match_file_path.parent_path());
         std::wofstream matchFile{ configForParse.match_file_path };
-        matchFile << "{}";
+        matchFile << "{\n"
+                     "    matches: [\n"
+                     "        {\n"
+                     "            trigger: ':Typoon:',\n"
+                     "            replace: 'Typoon is awesome!',\n"
+                     "        },\n"
+                     "    ]\n"
+                     "}\n";
     }
 
     config = std::move(configForParse);
