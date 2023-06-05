@@ -213,7 +213,7 @@ void replace_string(const Ending& ending, const Agent& agent, std::wstring_view 
             additionalBackspaceCount += static_cast<unsigned int>(lastLetterNormalized.size()) - 1;
             for (const wchar_t ch : lastLetterNormalized)
             {
-                imm_simulator.AddLetter(ch);
+                imm_simulator.AddLetter(ch, false);
             }
         }
         const bool shouldToggleHangeul = isLastLetterKorean && !is_hangeul_on;
@@ -280,7 +280,7 @@ void replace_string(const Ending& ending, const Agent& agent, std::wstring_view 
             [](const wchar_t& ch) { return FakeInput{ FakeInput::EType::LETTER_AS_KEY, ch }; });
         for (const wchar_t ch : lastLetterNormalized)
         {
-            imm_simulator.AddLetter(ch);
+            imm_simulator.AddLetter(ch, false);
         }
     }
     else

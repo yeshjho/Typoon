@@ -5,7 +5,7 @@
 class ImmSimulator
 {
 public:
-    void AddLetter(wchar_t letter);
+    void AddLetter(wchar_t letter, bool doMulticast = true);
     // Returns whether a letter was removed from the current composition.
     bool RemoveLetter();
     

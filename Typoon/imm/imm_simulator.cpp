@@ -3,7 +3,7 @@
 #include "../utils/logger.h"
 
 
-void ImmSimulator::AddLetter(wchar_t letter)
+void ImmSimulator::AddLetter(wchar_t letter, bool doMulticast)
 {
     InputMessage messages[MAX_INPUT_COUNT];
     int messageLength = 0;
@@ -93,9 +93,12 @@ void ImmSimulator::AddLetter(wchar_t letter)
             mComposition.medial[mComposition.medial[0] == 0 ? 0 : 1] = letter;
         }
     }
-    
-    lambdaAddMessage({ composeLetter(), true });
-    multicast_input(messages, messageLength);
+
+    if (doMulticast)
+    {
+        lambdaAddMessage({ composeLetter(), true });
+        multicast_input(messages, messageLength);
+    }
 
     logger.Log(ELogLevel::DEBUG, "Composite:", composeLetter());
 }
