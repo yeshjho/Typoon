@@ -129,18 +129,8 @@ std::atomic<bool> is_trigger_tree_outdated = true;
 std::atomic<bool> is_constructing_trigger_tree = false;
 
 
-struct [[nodiscard]] LettersToAddAfterReplacement
+void replace_string(const Ending& ending, const Agent& agent, std::wstring_view stroke, const InputMessage(&inputs)[MAX_INPUT_COUNT], int inputLength, int inputIndex, bool doNeedFullComposite)
 {
-    // This is only used to add a single normalized Korean letter, so 5 is enough.
-    wchar_t letters[5] = { 0, };
-    int length = 0;
-};
-
-
-LettersToAddAfterReplacement replace_string(const Ending& ending, const Agent& agent, std::wstring_view stroke, const InputMessage(&inputs)[MAX_INPUT_COUNT], int inputLength, int inputIndex, bool doNeedFullComposite)
-{
-    LettersToAddAfterReplacement lettersToAddAfterwards{};
-
     const auto& [replaceStringIndex, replaceStringLength, backspaceCount, cursorMoveCount, propagateCase, uppercaseStyle, keepComposite] = ending;
     const std::wstring_view originalReplaceString{ replace_strings.data() + replaceStringIndex, replaceStringLength };
     std::wstring replaceString{ originalReplaceString };
@@ -223,7 +213,7 @@ LettersToAddAfterReplacement replace_string(const Ending& ending, const Agent& a
             additionalBackspaceCount += static_cast<unsigned int>(lastLetterNormalized.size()) - 1;
             for (const wchar_t ch : lastLetterNormalized)
             {
-                lettersToAddAfterwards.letters[lettersToAddAfterwards.length++] = ch;
+                imm_simulator.AddLetter(ch);
             }
         }
         const bool shouldToggleHangeul = isLastLetterKorean && !is_hangeul_on;
@@ -290,7 +280,7 @@ LettersToAddAfterReplacement replace_string(const Ending& ending, const Agent& a
             [](const wchar_t& ch) { return FakeInput{ FakeInput::EType::LETTER_AS_KEY, ch }; });
         for (const wchar_t ch : lastLetterNormalized)
         {
-            lettersToAddAfterwards.letters[lettersToAddAfterwards.length++] = ch;
+            imm_simulator.AddLetter(ch);
         }
     }
     else
@@ -304,8 +294,6 @@ LettersToAddAfterReplacement replace_string(const Ending& ending, const Agent& a
     std::fill_n(std::back_inserter(fakeInputs), cursorMoveCount + additionalCursorMoveCount, FakeInput{ FakeInput::EType::KEY, FakeInput::LEFT_ARROW_KEY });
 
     send_fake_inputs(fakeInputs, false);
-
-    return lettersToAddAfterwards;
 }
 
 
@@ -383,8 +371,7 @@ void on_input(const InputMessage(&inputs)[MAX_INPUT_COUNT], int length, bool cle
     }
 
     // returns true if an ending was found
-    const auto lambdaAdvanceAgent = [length, inputs](const Agent& agent, wchar_t inputLetter, bool isBeingComposed, 
-        int inputIndex, LettersToAddAfterReplacement& lettersToAddAfterReplacement)
+    const auto lambdaAdvanceAgent = [length, inputs](const Agent& agent, wchar_t inputLetter, bool isBeingComposed, int inputIndex)
     {
         if (is_trigger_tree_outdated.load())
         {
@@ -425,7 +412,7 @@ void on_input(const InputMessage(&inputs)[MAX_INPUT_COUNT], int length, bool cle
                 continue;
             }
 
-            lettersToAddAfterReplacement = replace_string(endings.at(child.endingIndex), nextAgent, stroke, inputs, length, inputIndex, doNeedFullComposite);
+            replace_string(endings.at(child.endingIndex), nextAgent, stroke, inputs, length, inputIndex, doNeedFullComposite);
 
             return true;
         }
@@ -437,7 +424,6 @@ void on_input(const InputMessage(&inputs)[MAX_INPUT_COUNT], int length, bool cle
         return false;
     };
 
-    LettersToAddAfterReplacement lettersToAddAfterReplacement;
     for (int i = 0; i < length; i++)
     {
         const auto [inputLetter, isBeingComposed] = inputs[i];
@@ -449,12 +435,12 @@ void on_input(const InputMessage(&inputs)[MAX_INPUT_COUNT], int length, bool cle
         }
 
         // Check for triggers in the root node first.
-        bool isTriggerFound = lambdaAdvanceAgent(root, inputLetter, isBeingComposed, i, lettersToAddAfterReplacement);
+        bool isTriggerFound = lambdaAdvanceAgent(root, inputLetter, isBeingComposed, i);
         if (!isTriggerFound)
         {
             for (const Agent& agent : agents)
             {
-                isTriggerFound = lambdaAdvanceAgent(agent, inputLetter, isBeingComposed, i, lettersToAddAfterReplacement);
+                isTriggerFound = lambdaAdvanceAgent(agent, inputLetter, isBeingComposed, i);
                 if (isTriggerFound)
                 {
                     break;
@@ -478,11 +464,6 @@ void on_input(const InputMessage(&inputs)[MAX_INPUT_COUNT], int length, bool cle
             agents.clear();
             std::swap(agents, nextIterationAgents);
         }
-    }
-
-    for (int i = 0; i < lettersToAddAfterReplacement.length; i++)
-    {
-        imm_simulator.AddLetter(lettersToAddAfterReplacement.letters[i]);
     }
 }
 
