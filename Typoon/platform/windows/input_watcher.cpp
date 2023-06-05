@@ -24,7 +24,7 @@ std::optional<LRESULT> input_proc([[maybe_unused]] HWND hWnd, UINT msg, [[maybe_
 
     // Will be always in the background, no need to check the wParam.
     RAWINPUT inputData;
-    UINT size;
+    UINT size = sizeof(RAWINPUT);
     if (GetRawInputData(reinterpret_cast<HRAWINPUT>(lParam), RID_INPUT, &inputData, &size, sizeof(RAWINPUTHEADER))
         == static_cast<UINT>(-1))
     {
