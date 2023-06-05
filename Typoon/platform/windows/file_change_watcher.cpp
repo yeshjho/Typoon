@@ -97,7 +97,7 @@ FileChangeWatcher::~FileChangeWatcher()
 
 void FileChangeWatcher::AddWatchingFile(const std::filesystem::path& filePath)
 {
-    const HANDLE dir = CreateFile(filePath.parent_path().c_str(), GENERIC_READ, FILE_SHARE_READ, nullptr,
+    const HANDLE dir = CreateFile(filePath.parent_path().c_str(), GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, nullptr,
         OPEN_EXISTING, FILE_FLAG_BACKUP_SEMANTICS | FILE_FLAG_OVERLAPPED, nullptr);
     if (dir == INVALID_HANDLE_VALUE) [[unlikely]]
     {
