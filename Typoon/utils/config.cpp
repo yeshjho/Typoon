@@ -44,7 +44,7 @@ struct ConfigForParse
     bool notify_match_load = true;
     bool notify_on_off = false;
 
-    HotKeyForParse hotkey_toggle_on_off = { .ctrl = true, .shift = true, .key = EKey::T };
+    HotKeyForParse hotkey_toggle_on_off = { .ctrl = true, .shift = true, .alt = true, .key = EKey::S };
     
     operator Config() const &&
     {

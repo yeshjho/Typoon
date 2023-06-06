@@ -1,7 +1,6 @@
 #include "../../low_level/input_watcher.h"
 
 #include <cwctype>
-#include <system_error>
 
 #include <Windows.h>
 #include <hidusage.h>
