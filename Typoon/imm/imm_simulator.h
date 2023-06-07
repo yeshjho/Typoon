@@ -21,6 +21,8 @@ public:
     // Compose a letter with the current composition.
     [[nodiscard]] wchar_t ComposeLetter() const;
 
+    void RedirectInputMulticast(std::function<void(const InputMessage(&messages)[MAX_INPUT_COUNT], int length)> func) { mInputMulticastFunc = std::move(func); }
+
 private:
     [[nodiscard]] static bool canCombineLetters(wchar_t a, wchar_t b);
     [[nodiscard]] static bool canBeAFinalLetter(wchar_t consonant);
@@ -29,6 +31,8 @@ private:
     [[nodiscard]] static wchar_t combineLetters(wchar_t a, wchar_t b);
 
     InputMessage composeEmitResetComposition();
+
+    void multicastInput(const InputMessage (&messages)[MAX_INPUT_COUNT], int length);
 
 
 private:
@@ -44,6 +48,8 @@ private:
     };
 
     Composition mComposition;
+
+    std::function<void(const InputMessage(&messages)[MAX_INPUT_COUNT], int length)> mInputMulticastFunc = [](const InputMessage(&messages)[MAX_INPUT_COUNT], int length) { multicast_input(messages, length); };
 };
 
 

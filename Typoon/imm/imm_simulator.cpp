@@ -25,7 +25,7 @@ void ImmSimulator::AddLetter(wchar_t letter, bool doMulticast)
         if (!RemoveLetter())
         {
             lambdaAddMessage({ letter, false });
-            multicast_input(messages, messageLength);
+            multicastInput(messages, messageLength);
         }
         // We don't need to multicast the input at all if a letter is successfully removed from the composition,
         // since the after-backspace-composition has already been cast for trigger checking before the backspace.
@@ -42,7 +42,7 @@ void ImmSimulator::AddLetter(wchar_t letter, bool doMulticast)
     {
         lambdaAddMessage(composeEmitResetComposition());
         lambdaAddMessage({ letter, false });
-        multicast_input(messages, messageLength);
+        multicastInput(messages, messageLength);
 
         logger.Log(ELogLevel::DEBUG, "Composite:", ComposeLetter());
         return;
@@ -97,7 +97,7 @@ void ImmSimulator::AddLetter(wchar_t letter, bool doMulticast)
     if (doMulticast)
     {
         lambdaAddMessage({ ComposeLetter(), true });
-        multicast_input(messages, messageLength);
+        multicastInput(messages, messageLength);
     }
 
     logger.Log(ELogLevel::DEBUG, "Composite:", ComposeLetter());
@@ -145,6 +145,12 @@ InputMessage ImmSimulator::composeEmitResetComposition()
 }
 
 
+void ImmSimulator::multicastInput(const InputMessage(&messages)[MAX_INPUT_COUNT], int length)
+{
+    mInputMulticastFunc(messages, length);
+}
+
+
 void ImmSimulator::ClearComposition()
 {
     if (ComposeLetter() != 0)
@@ -160,7 +166,7 @@ void ImmSimulator::EmitAndClearCurrentComposite()
     const InputMessage messages[MAX_INPUT_COUNT] = { composeEmitResetComposition() };
     if (messages[0].letter != 0)
     {
-        multicast_input(messages, 1);
+        multicastInput(messages, 1);
     }
 }
 

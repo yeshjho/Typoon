@@ -1,5 +1,5 @@
 #pragma once
-#include "../../Typoon/input_multicast/input_multicast.h"
+#include "../../Typoon/imm/imm_simulator.h"
 #include "../../Typoon/low_level/fake_input.h"
 
 
@@ -8,6 +8,7 @@ class TextEditorSimulator
 public:
     TextEditorSimulator();
 
+    void Type(wchar_t letter);
     void Type(const std::vector<FakeInput>& inputs);
     void Reset();
 
@@ -20,6 +21,7 @@ private:
 private:
     std::wstring mText;
     unsigned int mCursorPos = 0;
+    ImmSimulator mImmSimulator;
 };
 
 

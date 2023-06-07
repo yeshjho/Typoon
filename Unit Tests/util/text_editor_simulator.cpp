@@ -1,14 +1,17 @@
 #include "text_editor_simulator.h"
 
-#include "../../Typoon/imm/imm_simulator.h"
 #include "../../Typoon/utils/string.h"
 
 
 TextEditorSimulator::TextEditorSimulator()
 {
-    const auto lambdaListener = [this](const InputMessage(&messages)[MAX_INPUT_COUNT], int length, bool = false) { onInput(messages, length); };
+    mImmSimulator.RedirectInputMulticast([this](const InputMessage(&messages)[MAX_INPUT_COUNT], int length, bool = false) { onInput(messages, length); });
+}
 
-    input_listeners.emplace_back("text editor simulator", lambdaListener);
+
+void TextEditorSimulator::Type(wchar_t letter)
+{
+    mImmSimulator.AddLetter(letter);
 }
 
 
@@ -20,6 +23,8 @@ void TextEditorSimulator::Type(const std::vector<FakeInput>& inputs)
         {
         case FakeInput::EType::LETTER:
         {
+            mImmSimulator.EmitAndClearCurrentComposite();
+            // This case bypasses the imm irl, too
             mText.insert(mText.begin() + mCursorPos, letter);
             mCursorPos++;
             break;
@@ -29,11 +34,11 @@ void TextEditorSimulator::Type(const std::vector<FakeInput>& inputs)
         {
             if (letter == FakeInput::BACKSPACE_KEY)
             {
-                imm_simulator.AddLetter('\b');
+                mImmSimulator.AddLetter('\b');
             }
             else if (letter == FakeInput::TOGGLE_HANGEUL_KEY)
             {
-                imm_simulator.EmitAndClearCurrentComposite();
+                mImmSimulator.EmitAndClearCurrentComposite();
             }
             else if (letter == FakeInput::LEFT_ARROW_KEY)
             {
@@ -51,13 +56,16 @@ void TextEditorSimulator::Type(const std::vector<FakeInput>& inputs)
         }
 
         case FakeInput::EType::LETTER_AS_KEY:
+            for (const wchar_t hangeul : alphabet_to_hangeul({ &letter, 1 }))
+            {
+                mImmSimulator.AddLetter(hangeul);
+            }
             break;
 
         default:
             std::unreachable();
         }
     }
-
 }
 
 
@@ -65,13 +73,13 @@ void TextEditorSimulator::Reset()
 {
     mText.clear();
     mCursorPos = 0;
-    imm_simulator.ClearComposition();
+    mImmSimulator.ClearComposition();
 }
 
 
 std::wstring TextEditorSimulator::GetText() const
 {
-    if (const wchar_t letterBeingComposed = imm_simulator.ComposeLetter();
+    if (const wchar_t letterBeingComposed = mImmSimulator.ComposeLetter();
         letterBeingComposed == 0)
     {
         return mText;
@@ -79,32 +87,35 @@ std::wstring TextEditorSimulator::GetText() const
     else
     {
         std::wstring text = mText;
-        text.push_back(imm_simulator.ComposeLetter());
+        text.push_back(mImmSimulator.ComposeLetter());
         return text;
     }
 }
 
 
+// This will be called by the internal imm simulator
 void TextEditorSimulator::onInput(const InputMessage(&messages)[MAX_INPUT_COUNT], int length)
 {
     for (int i = 0; i < length; i++)
     {
         const auto [letter, isBeingComposed] = messages[i];
-        if (!isBeingComposed)
+        if (isBeingComposed)
         {
-            if (letter == '\b')
+            continue;
+        }
+
+        if (letter == '\b')
+        {
+            if (mCursorPos > 0)
             {
-                if (mCursorPos > 0)
-                {
-                    mText.erase(mText.begin() + mCursorPos - 1);
-                    mCursorPos--;
-                }
+                mText.erase(mText.begin() + mCursorPos - 1);
+                mCursorPos--;
             }
-            else
-            {
-                mText.insert(mText.begin() + mCursorPos, letter);
-                mCursorPos++;
-            }
+        }
+        else
+        {
+            mText.insert(mText.begin() + mCursorPos, letter);
+            mCursorPos++;
         }
     }
 }

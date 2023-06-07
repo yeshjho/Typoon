@@ -19,3 +19,25 @@ TEST_F(BasicMatchTest, TestTest)
     
     EXPECT_EQ(text_editor_simulator.GetText(), L"static_cast<int>(floatValue)");
 }
+
+
+TEST_F(BasicMatchTest, TestTest2)
+{
+    SetUp(R"({
+        matches: [
+            {
+                trigger: 'wwww',
+                replace: '가a나',
+                keep_composite: true,
+            },
+            {
+                trigger: '난',
+                replace: '단',
+            },
+        ]
+    })");
+
+    simulate_type(L"wwwwㄴ");
+
+    EXPECT_EQ(text_editor_simulator.GetText(), L"가a단");
+}
