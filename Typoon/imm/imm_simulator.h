@@ -18,15 +18,15 @@ public:
 
     void EmitAndClearCurrentComposite();
 
+    // Compose a letter with the current composition.
+    [[nodiscard]] wchar_t ComposeLetter() const;
+
 private:
     [[nodiscard]] static bool canCombineLetters(wchar_t a, wchar_t b);
     [[nodiscard]] static bool canBeAFinalLetter(wchar_t consonant);
     // Combines two letters into one. If one of the letters is 0, returns the other letter.
     // It assumes that two letters are combineable. (i.e., Call canCombineLetters first.)
     [[nodiscard]] static wchar_t combineLetters(wchar_t a, wchar_t b);
-    
-    // Compose a letter with the current composition.
-    [[nodiscard]] wchar_t composeLetter() const;
 
     InputMessage composeEmitResetComposition();
 
