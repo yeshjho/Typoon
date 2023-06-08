@@ -547,10 +547,11 @@ void reconstruct_trigger_tree(std::string_view matchesString)
                 }
 
                 unsigned int cursorMoveCount = 0;
-                if (const size_t cursorIndex = originalReplace.find(get_config().cursorPlaceholder);
+                const std::wstring& cursorPlaceholder = get_config().cursorPlaceholder;
+                if (const size_t cursorIndex = originalReplace.find(cursorPlaceholder);
                     cursorIndex != std::wstring::npos)
                 {
-                    replaceStr.erase(cursorIndex, 3);
+                    replaceStr.erase(cursorIndex, cursorPlaceholder.size());
                     cursorMoveCount = static_cast<unsigned int>(replaceStr.size() - cursorIndex);
                 }
 
