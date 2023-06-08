@@ -10,61 +10,12 @@
       <Platform>x64</Platform>
     </ProjectConfiguration>
   </ItemGroup>
-  <ItemGroup>
-    <ClCompile Include="imm\imm_simulator.cpp" />
-    <ClCompile Include="input_multicast\input_multicast.cpp" />
-    <ClCompile Include="parse\parse_keys.cpp" />
-    <ClCompile Include="platform\windows\common.cpp" />
-    <ClCompile Include="platform\windows\hotkey.cpp" />
-    <ClCompile Include="platform\windows\log.cpp" />
-    <ClCompile Include="platform\windows\tray_icon.cpp" />
-    <ClCompile Include="match\trigger_tree.cpp" />
-    <ClCompile Include="parse\parse_match.cpp" />
-    <ClCompile Include="platform\windows\fake_input.cpp" />
-    <ClCompile Include="platform\windows\filesystem.cpp" />
-    <ClCompile Include="platform\windows\file_change_watcher.cpp" />
-    <ClCompile Include="platform\windows\input_watcher.cpp" />
-    <ClCompile Include="platform\windows\main.cpp" />
-    <ClCompile Include="platform\windows\wnd_proc.cpp" />
-    <ClCompile Include="utils\config.cpp" />
-    <ClCompile Include="utils\logger.cpp" />
-    <ClCompile Include="utils\string.cpp" />
-  </ItemGroup>
-  <ItemGroup>
-    <ClInclude Include="common\common.h" />
-    <ClInclude Include="imm\imm_simulator.h" />
-    <ClInclude Include="input_multicast\input_multicast.h" />
-    <ClInclude Include="low_level\fake_input.h" />
-    <ClInclude Include="low_level\filesystem.h" />
-    <ClInclude Include="low_level\file_change_watcher.h" />
-    <ClInclude Include="low_level\hotkey.h" />
-    <ClInclude Include="low_level\input_watcher.h" />
-    <ClInclude Include="low_level\tray_icon.h" />
-    <ClInclude Include="match\match.h" />
-    <ClInclude Include="match\trigger_tree.h" />
-    <ClInclude Include="parse\parse_keys.h" />
-    <ClInclude Include="parse\parse_match.h" />
-    <ClInclude Include="platform\windows\log.h" />
-    <ClInclude Include="platform\windows\wnd_proc.h" />
-    <ClInclude Include="resource.h" />
-    <ClInclude Include="utils\config.h" />
-    <ClInclude Include="utils\logger.h" />
-    <ClInclude Include="utils\string.h" />
-  </ItemGroup>
-  <ItemGroup>
-    <ResourceCompile Include="Typoon.rc" />
-  </ItemGroup>
-  <ItemGroup>
-    <Image Include="..\icon.ico" />
-    <Image Include="..\icon_off.ico" />
-  </ItemGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>16.0</VCProjectVersion>
     <Keyword>Win32Proj</Keyword>
-    <ProjectGuid>{fbe00d02-c176-4799-966e-943bf0007381}</ProjectGuid>
-    <RootNamespace>Typoon</RootNamespace>
+    <ProjectGuid>{de5668e2-eb1c-430b-ba20-b10fe0e196f8}</ProjectGuid>
+    <RootNamespace>UnitTest</RootNamespace>
     <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
-    <ProjectName>Typoon</ProjectName>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
@@ -105,7 +56,7 @@
       <ExternalWarningLevel>TurnOffAllWarnings</ExternalWarningLevel>
     </ClCompile>
     <Link>
-      <SubSystem>Windows</SubSystem>
+      <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <AdditionalDependencies>Imm32.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
@@ -118,21 +69,41 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>UNI_ALGO_STATIC_DATA;NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>$(SolutionDir)external\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <LanguageStandard>stdcpplatest</LanguageStandard>
+      <AdditionalIncludeDirectories>$(SolutionDir)external\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <TreatWarningAsError>true</TreatWarningAsError>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <TreatAngleIncludeAsExternal>true</TreatAngleIncludeAsExternal>
       <ExternalWarningLevel>TurnOffAllWarnings</ExternalWarningLevel>
-      <TreatWarningAsError>true</TreatWarningAsError>
     </ClCompile>
     <Link>
-      <SubSystem>Windows</SubSystem>
+      <SubSystem>Console</SubSystem>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <AdditionalDependencies>Imm32.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
+  <ItemGroup>
+    <ClCompile Include="..\Typoon\imm\imm_simulator.cpp" />
+    <ClCompile Include="..\Typoon\input_multicast\input_multicast.cpp" />
+    <ClCompile Include="..\Typoon\match\trigger_tree.cpp" />
+    <ClCompile Include="..\Typoon\parse\parse_match.cpp" />
+    <ClCompile Include="..\Typoon\utils\string.cpp" />
+    <ClCompile Include="dummy\platform\fake_input.cpp" />
+    <ClCompile Include="dummy\platform\tray_icon.cpp" />
+    <ClCompile Include="dummy\utils\config.cpp" />
+    <ClCompile Include="dummy\utils\logger.cpp" />
+    <ClCompile Include="test\doctest_main.cpp" />
+    <ClCompile Include="test\main.cpp" />
+    <ClCompile Include="util\test_util.cpp" />
+    <ClCompile Include="util\text_editor_simulator.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="util\config.h" />
+    <ClInclude Include="util\test_util.h" />
+    <ClInclude Include="util\text_editor_simulator.h" />
+  </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
   </ImportGroup>

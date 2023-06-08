@@ -22,6 +22,17 @@ std::wstring to_u16_string(const std::string& str)
     return std::wstring{ str.begin(), str.end() };
 }
 
+std::string to_u8_string(const std::wstring& str)
+{
+    if (una::is_valid_utf16(str))
+    {
+        return una::utf16to8(str);
+    }
+#pragma warning(disable:4244)
+    return std::string{ str.begin(), str.end() };
+#pragma warning(default:4244)
+}
+
 std::wstring normalize_hangeul(std::wstring_view str)
 {
     std::wstring result;

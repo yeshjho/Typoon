@@ -6,7 +6,7 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Typoon", "Typoon\Typoon.vcx
 EndProject
 Project("{930C7802-8A8C-48F9-8165-68863BCCD9DD}") = "WindowsInstaller", "WindowsInstaller\WindowsInstaller.wixproj", "{C1486937-F3DE-4CB2-BE59-57CF687CD5AA}"
 EndProject
-Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Unit Tests", "Unit Tests\Unit Tests.vcxproj", "{400260A2-5EFE-4A05-AC17-458F5A85BF03}"
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "UnitTest", "UnitTest\UnitTest.vcxproj", "{DE5668E2-EB1C-430B-BA20-B10FE0E196F8}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -22,10 +22,10 @@ Global
 		{C1486937-F3DE-4CB2-BE59-57CF687CD5AA}.Debug|x64.Build.0 = Debug|x64
 		{C1486937-F3DE-4CB2-BE59-57CF687CD5AA}.Release|x64.ActiveCfg = Release|x64
 		{C1486937-F3DE-4CB2-BE59-57CF687CD5AA}.Release|x64.Build.0 = Release|x64
-		{400260A2-5EFE-4A05-AC17-458F5A85BF03}.Debug|x64.ActiveCfg = Debug|x64
-		{400260A2-5EFE-4A05-AC17-458F5A85BF03}.Debug|x64.Build.0 = Debug|x64
-		{400260A2-5EFE-4A05-AC17-458F5A85BF03}.Release|x64.ActiveCfg = Release|x64
-		{400260A2-5EFE-4A05-AC17-458F5A85BF03}.Release|x64.Build.0 = Release|x64
+		{DE5668E2-EB1C-430B-BA20-B10FE0E196F8}.Debug|x64.ActiveCfg = Debug|x64
+		{DE5668E2-EB1C-430B-BA20-B10FE0E196F8}.Debug|x64.Build.0 = Debug|x64
+		{DE5668E2-EB1C-430B-BA20-B10FE0E196F8}.Release|x64.ActiveCfg = Release|x64
+		{DE5668E2-EB1C-430B-BA20-B10FE0E196F8}.Release|x64.Build.0 = Release|x64
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
