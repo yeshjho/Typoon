@@ -27,7 +27,7 @@ TEST_CASE("TestTest")
 
         simulate_type(L";stifloatValue");
 
-        CHECK(text_editor_simulator.GetText() == L"static_cast<int>(floatValue)");
+        CHECK(text_editor_simulator == TextState{ L"static_cast<int>(floatValue|_|)" });
     }
 
     SUBCASE("sub2")
@@ -42,6 +42,7 @@ TEST_CASE("TestTest")
                 {
                     trigger: '난',
                     replace: '단',
+                    keep_composite: true,
                 },
             ]
         })");
@@ -49,7 +50,7 @@ TEST_CASE("TestTest")
 
         simulate_type(L"wwwwㄴ");
 
-        CHECK(text_editor_simulator.GetText() == L"가a단");
+        CHECK(text_editor_simulator == TextState{ L"가a단", true });
     }
 
     teardown_trigger_tree();

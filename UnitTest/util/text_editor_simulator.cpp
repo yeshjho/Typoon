@@ -3,6 +3,32 @@
 #include "../../Typoon/utils/string.h"
 
 
+std::pair<unsigned, unsigned> TextState::RemoveCursorPos(std::wstring& workOn) const
+{
+    auto endPos = static_cast<unsigned int>(text.size()) - 1;
+
+    unsigned int newCursorPos = cursorPos;
+    if (newCursorPos == std::numeric_limits<unsigned int>::max())
+    {
+        if (const size_t cursorIndex = text.find(cursorPlaceholder);
+            cursorIndex != std::wstring::npos)
+        {
+            newCursorPos = static_cast<unsigned int>(cursorIndex);
+
+            const auto placeholderSize = cursorPlaceholder.size();
+            workOn.erase(cursorIndex, placeholderSize);
+            endPos -= static_cast<unsigned int>(placeholderSize);
+        }
+        else
+        {
+            newCursorPos = endPos;
+        }
+    }
+
+    return { newCursorPos, endPos };
+}
+
+
 TextEditorSimulator::TextEditorSimulator()
 {
     mImmSimulator.RedirectInputMulticast([this](const InputMessage(&messages)[MAX_INPUT_COUNT], int length, bool = false) { onInput(messages, length); });
@@ -87,9 +113,35 @@ std::wstring TextEditorSimulator::GetText() const
     else
     {
         std::wstring text = mText;
-        text.push_back(mImmSimulator.ComposeLetter());
+        text.insert(text.begin() + mCursorPos, letterBeingComposed);
         return text;
     }
+}
+
+
+bool TextEditorSimulator::IsLetterAtCursorInComposition() const
+{
+    return mImmSimulator.ComposeLetter() != 0;
+}
+
+
+bool TextEditorSimulator::operator==(const TextState& textState) const
+{
+    if (textState.isLetterAtCursorInComposition != IsLetterAtCursorInComposition())
+    {
+        return false;
+    }
+
+    std::wstring textToCompare{ textState.text };
+
+    const auto [cursorPos, endPos] = textState.RemoveCursorPos(textToCompare);
+
+    if (cursorPos != mCursorPos)
+    {
+        return false;
+    }
+
+    return textToCompare == GetText();
 }
 
 
