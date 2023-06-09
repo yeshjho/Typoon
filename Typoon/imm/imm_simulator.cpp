@@ -50,13 +50,22 @@ void ImmSimulator::AddLetter(wchar_t letter, bool doMulticast)
 
     if (isConsonant)
     {
+        // The double final consonants('ㄳ', 'ㄵ', 'ㄶ', ...) can be a letter on their own.
+        // So if there is a initial letter but no medial letter and the letter can be combined with the initial letter,
+        // Combine those two and set them as the final letter. The letter will be a only-final-letter.
+        if (const bool hasInitial = mComposition.initial != 0, hasMedial = mComposition.medial[0] != 0;
+            hasInitial && !hasMedial && canCombineLetters(mComposition.initial, letter))
+        {
+            mComposition.final[0] = mComposition.initial;
+            mComposition.final[1] = letter;
+            mComposition.initial = 0;
+        }
         // Since there is no initial requires two key strokes to be composed, if there is no initial letter, we can emit the previous and set the letter as the initial.
         // Why emit and set instead of setting right away? There are compositions which only contain medial letters. (ex - 'ㅏ' followed by 'ㄱ')
-        // If there is no medial letter, we also can know that the previous composition is finished. (ex - 'ㄱ' followed by 'ㄱ')
+        // If there is no medial letter, we can also know that the previous composition is finished. (ex - 'ㄱ' followed by 'ㄱ')
         // If the final letters are full(ex - '갃' followed by 'ㄱ') or the letter cannot be combined with the previous final letter(ex - '간' followed by 'ㄱ'),
         // the composition if finished.
-        if (mComposition.initial == 0 || mComposition.medial[0] == 0 ||
-            !canBeAFinalLetter(letter) || mComposition.final[1] != 0 || !canCombineLetters(mComposition.final[0], letter))
+        else if (!hasInitial || !hasMedial || !canBeAFinalLetter(letter) || mComposition.final[1] != 0 || !canCombineLetters(mComposition.final[0], letter))
         {
             lambdaAddMessage(composeEmitResetComposition());
             mComposition.initial = letter;
@@ -174,19 +183,24 @@ void ImmSimulator::EmitAndClearCurrentComposite()
 wchar_t ImmSimulator::ComposeLetter() const
 {
     const wchar_t medial = combineLetters(mComposition.medial[0], mComposition.medial[1]);
+    const wchar_t final = combineLetters(mComposition.final[0], mComposition.final[1]);
 
+    // If there is no initial or medial letter, it can be a final-only letter.
+    if (const bool hasInitial = mComposition.initial != 0, hasMedial = medial != 0;
+        !hasInitial && !hasMedial)
+    {
+        return final;
+    }
     // If there is no initial letter, it can only be a medial-only letter.
-    if (mComposition.initial == 0)
+    else if (!hasInitial)
     {
         return medial;
     }
     // If there is no medial letter, it can only be an initial-only letter.
-    if (medial == 0)
+    else if (!hasMedial)
     {
         return mComposition.initial;
     }
-
-    const wchar_t final = combineLetters(mComposition.final[0], mComposition.final[1]);
 
     constexpr wchar_t MEDIAL_COUNT = L'ㅣ' - L'ㅏ' + 1;
     constexpr wchar_t FINAL_COUNT = L'갛' - L'가' + 1;
