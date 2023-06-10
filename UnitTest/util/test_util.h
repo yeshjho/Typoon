@@ -20,7 +20,7 @@ struct StringMaker<T>
 {
     static String convert(const T& value)
     {
-        const std::string s = una::utf16to8(value);
+        const std::string s = '\n' + una::utf16to8(value) + '\n';
         return String{ s.c_str() };
     }
 };
@@ -45,7 +45,7 @@ struct StringMaker<TextState>
             augmentedStr.insert(cursorPos, value.cursorPlaceholder);
         }
 
-        const std::wstring formattedStr = std::format(L"\n\"{}\" [\"{}\", compose: {}, cursor: {}]\n", 
+        const std::wstring formattedStr = std::format(L"\"{}\" [\"{}\", compose: {}, cursor: {}]", 
             augmentedStr, originalStr, value.isLetterAtCursorInComposition, cursorPos);
         return StringMaker<std::wstring>::convert(formattedStr);
     }
