@@ -49,6 +49,9 @@ std::wstring normalize_hangeul(std::wstring_view str)
         static constexpr std::wstring_view jongseongMap[] = {
             L"", L"ㄱ", L"ㄲ", L"ㄱㅅ", L"ㄴ", L"ㄴㅈ", L"ㄴㅎ", L"ㄷ", L"ㄹ", L"ㄹㄱ", L"ㄹㅁ", L"ㄹㅂ", L"ㄹㅅ", L"ㄹㅌ", L"ㄹㅍ", L"ㄹㅎ", L"ㅁ", L"ㅂ", L"ㅂㅅ", L"ㅅ", L"ㅆ", L"ㅇ", L"ㅈ", L"ㅊ", L"ㅋ", L"ㅌ", L"ㅍ", L"ㅎ"
         };
+        static constexpr std::wstring_view consonantMap[] = {
+            L"ㄱ", L"ㄲ", L"ㄱㅅ", L"ㄴ", L"ㄴㅈ", L"ㄴㅎ", L"ㄷ", L"ㄸ", L"ㄹ", L"ㄹㄱ", L"ㄹㅁ", L"ㄹㅂ", L"ㄹㅅ", L"ㄹㅌ", L"ㄹㅍ", L"ㄹㅎ", L"ㅁ", L"ㅂ", L"ㅃ", L"ㅂㅅ", L"ㅅ", L"ㅆ", L"ㅇ", L"ㅈ", L"ㅉ", L"ㅊ", L"ㅋ", L"ㅌ", L"ㅍ", L"ㅎ"
+        };
 
         if (L'가' <= c && c <= L'힣')
         {
@@ -59,6 +62,15 @@ std::wstring normalize_hangeul(std::wstring_view str)
             result += jungseongMap[jungseong];
             result += jongseongMap[jongseong];
         }
+        else if (L'ㄱ' <= c && c <= L'ㅎ')
+        {
+            result += consonantMap[c - L'ㄱ'];
+        }
+        else if (L'ㅏ' <= c && c <= L'ㅣ')
+        {
+            result += jungseongMap[c - L'ㅏ'];
+        }
+        // '조합형'(NFC) letters. i.e., these letters also carry the information what part(initial, medial, or final) they are.
         else if (L'ᄀ' <= c && c <= L'ᄒ') [[unlikely]]
         {
             result += choseongMap[c - L'ᄀ'];
@@ -69,7 +81,7 @@ std::wstring normalize_hangeul(std::wstring_view str)
         }
         else if (L'ᆨ' <= c && c <= L'ᇂ') [[unlikely]]
         {
-            result += jongseongMap[c - L'ᆨ' + 1];
+            result += jongseongMap[c - L'ᆨ' + 1];  // Make up for the 'no final'.
         }
         else
         {
