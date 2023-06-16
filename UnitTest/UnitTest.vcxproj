@@ -97,6 +97,7 @@
     <ClCompile Include="test\doctest_main.cpp" />
     <ClCompile Include="test\imm_simulator_test.cpp" />
     <ClCompile Include="test\main.cpp" />
+    <ClCompile Include="test\string_util_test.cpp" />
     <ClCompile Include="util\test_util.cpp" />
     <ClCompile Include="util\text_editor_simulator.cpp" />
   </ItemGroup>
