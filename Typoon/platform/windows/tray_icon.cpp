@@ -33,7 +33,14 @@ std::optional<LRESULT> tray_icon_proc(HWND hWnd, UINT msg, [[maybe_unused]] WPAR
         switch (LOWORD(wParam))
         {
         case IDM_TOGGLE_ON_OFF:
-            is_turned_on() ? turn_off() : turn_on(tray_icon_hwnd);
+            if (is_turned_on())
+            {
+                turn_off();
+            }
+            else
+            {
+                turn_on(tray_icon_hwnd);
+            }
             break;
 
         case IDM_OPEN_CONFIG:

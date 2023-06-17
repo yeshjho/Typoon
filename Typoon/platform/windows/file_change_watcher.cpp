@@ -19,12 +19,12 @@ FileChangeWatcher::FileChangeWatcher(std::function<void()> onChanged)
         {
             while (true)
             {
+                const DWORD result = WaitForMultipleObjectsEx(static_cast<DWORD>(mEvents.size()), mEvents.data(), false, INFINITE, true);
                 if (stopToken.stop_requested())
                 {
                     return;
                 }
 
-                const DWORD result = WaitForMultipleObjectsEx(static_cast<DWORD>(mEvents.size()), mEvents.data(), false, INFINITE, true);
                 if (result == WAIT_FAILED)
                 {
                     log_last_error(L"WaitForMultipleObjectsEx error:");
@@ -76,7 +76,7 @@ FileChangeWatcher::FileChangeWatcher(std::function<void()> onChanged)
 FileChangeWatcher::~FileChangeWatcher()
 {
     mThread.request_stop();
-    SetEvent(mFiles.front().overlapped);
+    SetEvent(mEvents.front());
     if (mThread.joinable())
     {
         mThread.join();

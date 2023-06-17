@@ -48,6 +48,11 @@ int wWinMain(HINSTANCE hInstance, [[maybe_unused]] HINSTANCE hPrevInstance, [[ma
         return -1;
     }
 
+    if (get_app_data_path().empty())
+    {
+        return -1;
+    }
+
     show_tray_icon(std::make_tuple(hInstance, window));
 
     read_config_file(get_config_file_path());
@@ -85,7 +90,10 @@ int wWinMain(HINSTANCE hInstance, [[maybe_unused]] HINSTANCE hPrevInstance, [[ma
     };
     matchChangeWatcher.AddWatchingFile(get_config().matchFilePath);
 
-    turn_on(window);
+    if (!turn_on(window))
+    {
+        return -1;
+    }
 
     MSG msg;
     while (GetMessage(&msg, nullptr, 0, 0))
@@ -110,5 +118,5 @@ int wWinMain(HINSTANCE hInstance, [[maybe_unused]] HINSTANCE hPrevInstance, [[ma
     FreeConsole();
 #endif
 
-    ExitProcess(static_cast<int>(msg.wParam));
+    return static_cast<int>(msg.wParam);
 }

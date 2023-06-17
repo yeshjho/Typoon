@@ -147,6 +147,7 @@ private:
     std::queue<std::wstring> mLogQueue;
     std::mutex mLogQueueMutex;
     std::condition_variable mLogQueueConditionVariable;
+    std::atomic<bool> mShouldTerminate;
 };
 
 

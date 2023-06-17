@@ -269,7 +269,14 @@ void start_hot_key_watcher(const std::any& data)
             switch (std::get<0>(*it))
             {
             case EHotKeyType::TOGGLE_ON_OFF:
-                is_turned_on() ? turn_off() : turn_on(hot_key_hwnd);
+                if (is_turned_on())
+                {
+                    turn_off();
+                }
+                else
+                {
+                    turn_on(hot_key_hwnd);
+                }
                 break;
 
             default:

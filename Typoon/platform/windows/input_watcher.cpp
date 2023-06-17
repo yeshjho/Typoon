@@ -160,7 +160,7 @@ std::optional<LRESULT> input_proc([[maybe_unused]] HWND hWnd, UINT msg, [[maybe_
 }
 
 
-void start_input_watcher(const std::any& data)
+bool start_input_watcher(const std::any& data)
 {
     wnd_proc_functions.emplace_back("input", input_proc);
 
@@ -180,8 +180,10 @@ void start_input_watcher(const std::any& data)
     if (!RegisterRawInputDevices(rid, static_cast<UINT>(std::size(rid)), sizeof(rid[0])))
     {
         log_last_error(L"RegisterRawInputDevices failed:");
-        ExitProcess(1);
+        return false;
     }
+
+    return true;
 }
 
 

@@ -9,13 +9,13 @@
 const std::filesystem::path& get_app_data_path()
 {
     static std::filesystem::path appDataPath{
-        []()
+        []() -> std::filesystem::path
         {
             PWSTR path = nullptr;
             if (FAILED(SHGetKnownFolderPath(FOLDERID_RoamingAppData, KF_FLAG_CREATE, nullptr, &path)))
             {
                 log_last_error(L"SHGetKnownFolderPath failed:");
-                ExitProcess(1);
+                return {};
             }
 
             auto appPath = std::filesystem::path{ path } / "Typoon";

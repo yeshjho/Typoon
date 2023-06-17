@@ -12,7 +12,7 @@ Logger::Logger(LogLevel minLogLevel)
         while (true)
         {
             std::unique_lock queueLock{ mLogQueueMutex };
-            mLogQueueConditionVariable.wait(queueLock, [this] { return !mLogQueue.empty(); });
+            mLogQueueConditionVariable.wait(queueLock, [this] { return mShouldTerminate || !mLogQueue.empty(); });
 
             if (stopToken.stop_requested()) [[unlikely]]
             {
@@ -32,12 +32,16 @@ Logger::Logger(LogLevel minLogLevel)
             }
         }
     })
+    , mShouldTerminate(false)
 {
 }
+
 
 Logger::~Logger()
 {
     mWriterThread.request_stop();
+    mShouldTerminate = true;
+    mLogQueueConditionVariable.notify_one();
 
     std::scoped_lock queueLock{ mLogQueueMutex };
     while (!mLogQueue.empty())
@@ -107,4 +111,3 @@ void Logger::Log(const std::wstring& string, LogLevel logLevel)
     }
     mLogQueueConditionVariable.notify_one();
 }
-

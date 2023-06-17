@@ -12,14 +12,17 @@
 
 bool is_on = false;
 
-void turn_on(const std::any& data)
+bool turn_on(const std::any& data)
 {
     if (is_on)
     {
-        return;
+        return true;
     }
 
-    start_input_watcher(std::any_cast<HWND>(data));
+    if (!start_input_watcher(std::any_cast<HWND>(data)))
+    {
+        return false;
+    }
     setup_imm_simulator();
 
     is_on = true;
@@ -29,6 +32,8 @@ void turn_on(const std::any& data)
     {
         show_notification(L"Typoon", L"Typoon is on");
     }
+
+    return true;
 }
 
 

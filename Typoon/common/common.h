@@ -2,7 +2,7 @@
 #include <any>
 
 
-void turn_on(const std::any& data);
+bool turn_on(const std::any& data);
 
 void turn_off();
 

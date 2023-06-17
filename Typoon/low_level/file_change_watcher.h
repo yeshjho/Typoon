@@ -32,8 +32,8 @@ private:
         void* overlapped = nullptr;
         std::chrono::time_point<std::chrono::system_clock> lastWriteTime;
     };
-    std::vector<void*> mEvents;
-    std::vector<File> mFiles;
+    std::vector<void*> mEvents;  // The first one is the 'kill' event, not an actual file's event.
+    std::vector<File> mFiles;  // This one contains only the actual files. Therefore, mFiles.at(n) == mEvents.at(n + 1).
 
     static constexpr std::chrono::milliseconds WRITE_COOLDOWN = std::chrono::milliseconds(100);
 };
