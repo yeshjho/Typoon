@@ -45,9 +45,6 @@
     <ClCompile Include="test\doctest_main.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="test\main.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="util\test_util.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -58,6 +55,9 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="test\string_util_test.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="test\match_test.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>

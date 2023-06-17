@@ -82,6 +82,7 @@ void TextEditorSimulator::Type(const std::vector<FakeInput>& inputs)
         }
 
         case FakeInput::EType::LETTER_AS_KEY:
+            // Only used for typing hangeul letters currently.
             for (const wchar_t hangeul : alphabet_to_hangeul({ &letter, 1 }))
             {
                 mImmSimulator.AddLetter(hangeul);
