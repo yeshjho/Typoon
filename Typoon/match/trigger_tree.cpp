@@ -676,7 +676,8 @@ void reconstruct_trigger_tree()
             {
                 tree.back().endingIndex = static_cast<int>(endings.size());
 
-                // TODO: Improve duplicate detection (ex - abc being added after bc is added)
+                // Improving on the duplicate detection turned out to be a NP-hard problem, it's known as the 'shortest common superstring problem'.
+                // Since the memory usage is not the first priority, it'll be fine with a simple solution like this.
                 int replaceStringIndex = -1;
                 if (const size_t result = replace_strings.find(node->endingMetaData.replace);
                     result == std::wstring::npos)
