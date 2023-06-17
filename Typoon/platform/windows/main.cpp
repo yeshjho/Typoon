@@ -18,6 +18,15 @@ constexpr UINT CONFIG_CHANGED_MESSAGE = WM_USER + 123;
 
 int wWinMain(HINSTANCE hInstance, [[maybe_unused]] HINSTANCE hPrevInstance, [[maybe_unused]] LPWSTR cmdLine, [[maybe_unused]] int cmdShow)
 {
+    // Prevent multiple instances
+    CreateMutex(nullptr, false, L"Typoon_{91CC86BD-3107-4BFB-88E2-0A9A1280AB4A}");
+    if (const DWORD error = GetLastError();
+        error == ERROR_ALREADY_EXISTS || error == ERROR_ACCESS_DENIED)
+    {
+        logger.Log("Typoon is already running. Terminating...");
+        return 0;
+    }
+
 #ifdef _DEBUG
     AllocConsole();
     FILE* fDummy;
