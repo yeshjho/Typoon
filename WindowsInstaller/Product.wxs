@@ -35,6 +35,7 @@
     <Fragment>
         <Directory Id="TARGETDIR" Name="SourceDir">
             <Directory Id="StartupFolder" SourceName="StartupFolder" />
+            <Directory Id="ProgramMenuFolder" SourceName="ProgramMenuFolder" />
             <Directory Id="ProgramFiles64Folder">
                 <Directory Id="INSTALLFOLDER" Name="Typoon" />
             </Directory>
@@ -45,11 +46,15 @@
         <ComponentGroup Id="ProductComponents" Directory="INSTALLFOLDER">
             <Component Id="ProductComponent" Win64="yes">
                 <File Id="MainExeFile" Source="../x64/Release/Typoon.exe" KeyPath="yes">
+                    <!-- Create a shortcut in the startup folder -->
                     <Shortcut Id="StartupShortcut" Directory="StartupFolder" Name="Typoon" Advertise="yes" Icon="icon.exe" />
+                    <!-- Add to the start menu -->
+                    <Shortcut Id="StartMenuShortcut" Directory="ProgramMenuFolder" Name="Typoon" Advertise="yes" Icon="icon.exe" />
                 </File>
             </Component>
         </ComponentGroup>
 
+        <!-- Run after installation -->
         <CustomAction Id="EXECUTE_AFTER_FINALIZE"
                       Execute="immediate"
                       Return="asyncNoWait"
