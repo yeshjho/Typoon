@@ -528,11 +528,17 @@ void reconstruct_trigger_tree()
         matches.reserve(matchesParsed.size());
         std::ranges::transform(matchesParsed, std::back_inserter(matches), [](const MatchForParse& match) { return match; });
         STOP
+        std::ranges::filter_view matchesFiltered{ matches, [](const Match& match)
+            {
+                return !match.triggers.empty() && !match.replace.empty();
+            }
+        };
+        // TODO: Warn about empty triggers or replaces
 
         /// First iteration. Construct the tree, preprocessing the data to be easy to use.
         TempNode root;
         std::vector<std::pair<const Match*, const std::wstring*>> triggersOverwritten;
-        for (const Match& match : matches)
+        for (const Match& match : matchesFiltered)
         {
             const auto& [triggers, originalReplace, isCaseSensitive, isWord, doPropagateCase, uppercaseStyle, doNeedFullComposite, doKeepComposite] = match;
             for (const auto& originalTrigger : triggers)
