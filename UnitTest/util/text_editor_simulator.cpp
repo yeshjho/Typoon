@@ -5,7 +5,7 @@
 
 std::pair<unsigned, unsigned> TextState::RemoveCursorPos(std::wstring& workOn) const
 {
-    auto endPos = static_cast<unsigned int>(text.size()) - 1;
+    auto endPos = static_cast<unsigned int>(text.size());
 
     unsigned int newCursorPos = cursorPos;
     if (newCursorPos == std::numeric_limits<unsigned int>::max())
@@ -68,6 +68,7 @@ void TextEditorSimulator::Type(const std::vector<FakeInput>& inputs)
             }
             else if (letter == FakeInput::LEFT_ARROW_KEY)
             {
+                mImmSimulator.EmitAndClearCurrentComposite();
                 if (mCursorPos > 0)
                 {
                     mCursorPos--;

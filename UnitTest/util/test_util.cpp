@@ -1,11 +1,13 @@
 #include "test_util.h"
 
+#include "../../Typoon/utils/string.h"
 #include "text_editor_simulator.h"
 
 
 void simulate_type(std::wstring_view text)
 {
-    for (wchar_t letter : text)
+    const std::wstring toType = normalize_hangeul(text);
+    for (wchar_t letter : toType)
     {
         if (letter == FakeInput::TOGGLE_HANGEUL_KEY)
         {

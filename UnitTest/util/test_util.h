@@ -38,7 +38,15 @@ struct StringMaker<TextState>
         if (value.isLetterAtCursorInComposition)
         {
             augmentedStr.insert(cursorPos, 1, L'<');
-            augmentedStr.insert(cursorPos + 2, 1, L'>');
+            if (const unsigned int pos = cursorPos + 2;
+                augmentedStr.size() >= pos)
+            {
+                augmentedStr.insert(pos, 1, L'>');
+            }
+            else
+            {
+                augmentedStr.push_back(L'>');
+            }
         }
         if (cursorPos != endPos)
         {
