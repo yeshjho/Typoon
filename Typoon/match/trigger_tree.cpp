@@ -456,7 +456,7 @@ void on_input(const InputMessage(&inputs)[MAX_INPUT_COUNT], int length, bool cle
 
         if (!isBeingComposed)
         {
-            std::erase_if(deadAgents, [](DeadAgent& deadAgent) { return ++deadAgent.backspacesNeeded >= get_config().maxBackspaceCount; });
+            std::erase_if(deadAgents, [](DeadAgent& deadAgent) { return ++deadAgent.backspacesNeeded > get_config().maxBackspaceCount; });
         }
 
         if (!isBeingComposed || isTriggerFound)
