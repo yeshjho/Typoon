@@ -638,7 +638,8 @@ void reconstruct_trigger_tree(std::string_view matchesString)
                     // TODO: Abstract the extra conditions of the options and warn the user if ignored
                     .propagateCase = doPropagateCase && !isCaseSensitive && std::ranges::any_of(trigger, [](wchar_t c) { return is_cased_alpha(c); }),
                     .uppercaseStyle = uppercaseStyle,
-                    .keepComposite = doKeepComposite && is_korean(replace.back()) && !needFullComposite && cursorMoveCount == 0,
+                    .keepComposite = doKeepComposite && is_korean(replace.back()) && !needFullComposite && cursorMoveCount == 0 && 
+                                     (trigger.size() > 1 || triggerLastLetter != replace.back()),
                 };
                 node->children[letter] = TempNode{ .endingMetaData = EndingMetaData{ .replace = std::wstring{ replace }, .tempEnding = ending } };
                 STOP
