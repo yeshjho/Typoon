@@ -8,9 +8,9 @@
 
 void start_test_case(const Config& config = default_config)
 {
+    set_config(config);
     setup_trigger_tree("");
     setup_imm_simulator();
-    set_config(config);
     text_editor_simulator.Reset();
 }
 
@@ -585,6 +585,8 @@ b',
 
     TEST_CASE("Mixed Options")
     {
+        // Writing a test for all possible combinations is simply too much work. (2^6 - 1(all off) - 6(only one on) = 57)
+        // Therefore, only test for 2 combinations of each of them. (6C2 = 15)
         start_test_case();
 
         SUBCASE("")
@@ -606,18 +608,60 @@ TEST_SUITE("Config")
         SUBCASE("Default Amount (5)")
         {
             start_test_case(config);
+
+            reconstruct_trigger_tree(R"({
+                    matches: [
+                        {
+                            trigger: 'apple',
+                            replace: 'banana',
+                        },
+                    ]
+                })");
+            wait_for_trigger_tree_construction();
+
+            simulate_type(L"a[[;l\b\b\b\bpple\na[[;l33\b\b\b\b\b\bpple aooooo\b\b\b\b\bpple");
+
+            CHECK(text_editor_simulator == TextState{ L"banana\napple banana" });
         }
 
         SUBCASE("Lesser Amount")
         {
             config.maxBackspaceCount = 3;
             start_test_case(config);
+
+            reconstruct_trigger_tree(R"({
+                    matches: [
+                        {
+                            trigger: 'apple',
+                            replace: 'banana',
+                        },
+                    ]
+                })");
+            wait_for_trigger_tree_construction();
+
+            simulate_type(L"a[[;l\b\b\b\bpple\na[[;\b\b\bpple");
+
+            CHECK(text_editor_simulator == TextState{ L"apple\nbanana" });
         }
 
         SUBCASE("Unforgiving")
         {
             config.maxBackspaceCount = -123;
             start_test_case(config);
+
+            reconstruct_trigger_tree(R"({
+                    matches: [
+                        {
+                            trigger: 'apple',
+                            replace: 'banana',
+                        },
+                    ]
+                })");
+            wait_for_trigger_tree_construction();
+
+            simulate_type(L"app;\ble");
+
+            CHECK(text_editor_simulator == TextState{ L"apple" });
         }
 
         end_test_case();
