@@ -45,7 +45,7 @@
     </DefineConstants>
     <WixVariables>
     </WixVariables>
-    <CompilerAdditionalOptions>-dVersionNumber="0.0.1"</CompilerAdditionalOptions>
+    <CompilerAdditionalOptions>-dVersionNumber="0.0.2"</CompilerAdditionalOptions>
     <LinkerAdditionalOptions>-ext WixUIExtension -ext WixUtilExtension</LinkerAdditionalOptions>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|x64' ">
