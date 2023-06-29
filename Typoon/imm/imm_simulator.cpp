@@ -25,12 +25,12 @@ void ImmSimulator::AddLetter(wchar_t letter, bool doMulticast)
         if (!RemoveLetter())
         {
             lambdaAddMessage({ letter, false });
-            multicast_input(messages, messageLength);
+            multicastInput(messages, messageLength);
         }
         // We don't need to multicast the input at all if a letter is successfully removed from the composition,
         // since the after-backspace-composition has already been cast for trigger checking before the backspace.
 
-        logger.Log(ELogLevel::DEBUG, "Composite:", composeLetter());
+        logger.Log(ELogLevel::DEBUG, "Composite:", ComposeLetter());
         return;
     }
 
@@ -42,9 +42,9 @@ void ImmSimulator::AddLetter(wchar_t letter, bool doMulticast)
     {
         lambdaAddMessage(composeEmitResetComposition());
         lambdaAddMessage({ letter, false });
-        multicast_input(messages, messageLength);
+        multicastInput(messages, messageLength);
 
-        logger.Log(ELogLevel::DEBUG, "Composite:", composeLetter());
+        logger.Log(ELogLevel::DEBUG, "Composite:", ComposeLetter());
         return;
     }
 
@@ -105,11 +105,11 @@ void ImmSimulator::AddLetter(wchar_t letter, bool doMulticast)
 
     if (doMulticast)
     {
-        lambdaAddMessage({ composeLetter(), true });
-        multicast_input(messages, messageLength);
+        lambdaAddMessage({ ComposeLetter(), true });
+        multicastInput(messages, messageLength);
     }
 
-    logger.Log(ELogLevel::DEBUG, "Composite:", composeLetter());
+    logger.Log(ELogLevel::DEBUG, "Composite:", ComposeLetter());
 }
 
 
@@ -137,26 +137,32 @@ bool ImmSimulator::RemoveLetter()
     }
     else
     {
-        logger.Log(ELogLevel::DEBUG, "Composite:", composeLetter());
+        logger.Log(ELogLevel::DEBUG, "Composite:", ComposeLetter());
         return false;
     }
 
-    logger.Log(ELogLevel::DEBUG, "Composite:", composeLetter());
+    logger.Log(ELogLevel::DEBUG, "Composite:", ComposeLetter());
     return true;
 }
 
 
 InputMessage ImmSimulator::composeEmitResetComposition()
 {
-    const wchar_t letter = composeLetter();
+    const wchar_t letter = ComposeLetter();
     ClearComposition();
     return { letter, false };
 }
 
 
+void ImmSimulator::multicastInput(const InputMessage(&messages)[MAX_INPUT_COUNT], int length)
+{
+    mInputMulticastFunc(messages, length);
+}
+
+
 void ImmSimulator::ClearComposition()
 {
-    if (composeLetter() != 0)
+    if (ComposeLetter() != 0)
     {
         logger.Log(ELogLevel::DEBUG, "Reset Composite");
     }
@@ -169,8 +175,52 @@ void ImmSimulator::EmitAndClearCurrentComposite()
     const InputMessage messages[MAX_INPUT_COUNT] = { composeEmitResetComposition() };
     if (messages[0].letter != 0)
     {
-        multicast_input(messages, 1);
+        multicastInput(messages, 1);
     }
+}
+
+
+wchar_t ImmSimulator::ComposeLetter() const
+{
+    const wchar_t medial = combineLetters(mComposition.medial[0], mComposition.medial[1]);
+    const wchar_t final = combineLetters(mComposition.final[0], mComposition.final[1]);
+
+    // If there is no initial or medial letter, it can be a final-only letter.
+    if (const bool hasInitial = mComposition.initial != 0, hasMedial = medial != 0;
+        !hasInitial && !hasMedial)
+    {
+        return final;
+    }
+    // If there is no initial letter, it can only be a medial-only letter.
+    else if (!hasInitial)
+    {
+        return medial;
+    }
+    // If there is no medial letter, it can only be an initial-only letter.
+    else if (!hasMedial)
+    {
+        return mComposition.initial;
+    }
+
+    constexpr wchar_t MEDIAL_COUNT = L'ㅣ' - L'ㅏ' + 1;
+    constexpr wchar_t FINAL_COUNT = L'갛' - L'가' + 1;
+    constexpr wchar_t INVALID = 0xFFFF;
+
+    // All possible consonant combinations are (in Unicode-order):
+    // ㄱ ㄲ ㄳ ㄴ ㄵ ㄶ ㄷ ㄸ ㄹ ㄺ ㄻ ㄼ ㄽ ㄾ ㄿ ㅀ ㅁ ㅂ ㅃ ㅄ ㅅ ㅆ ㅇ ㅈ ㅉ ㅊ ㅋ ㅌ ㅍ ㅎ (0x3131 ~ 0x314E)
+    // But not all combinations can be used as an initial nor a final.
+    // The composed letters, starting from 0xAC00, of course skips the invalid ones. So we need to map appropriately.
+    constexpr wchar_t INITIAL_MAP[] = {
+        0, 1, INVALID, 2, INVALID, INVALID, 3, 4, 5, INVALID, INVALID, INVALID, INVALID, INVALID, INVALID, INVALID, 6, 7, 8, INVALID, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18
+    };
+    constexpr wchar_t FINAL_MAP[] = {
+        0, 1, 2, 3, 4, 5, 6, INVALID, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, INVALID, 17, 18, 19, 20, 21, INVALID, 22, 23, 24, 25, 26
+    };
+
+    return L'가' +
+        MEDIAL_COUNT * FINAL_COUNT * INITIAL_MAP[mComposition.initial - L'ㄱ'] +
+        FINAL_COUNT * (medial - L'ㅏ') +
+        (final ? FINAL_MAP[final - L'ㄱ'] + 1 : 0);  // There can be no final letter at all
 }
 
 
@@ -305,50 +355,6 @@ wchar_t ImmSimulator::combineLetters(wchar_t a, wchar_t b)
     default:
         std::unreachable();
     }
-}
-
-
-wchar_t ImmSimulator::composeLetter() const
-{
-    const wchar_t medial = combineLetters(mComposition.medial[0], mComposition.medial[1]);
-    const wchar_t final = combineLetters(mComposition.final[0], mComposition.final[1]);
-
-    // If there is no initial or medial letter, it can be a final-only letter.
-    if (const bool hasInitial = mComposition.initial != 0, hasMedial = medial != 0;
-        !hasInitial && !hasMedial)
-    {
-        return final;
-    }
-    // If there is no initial letter, it can only be a medial-only letter.
-    else if (!hasInitial)
-    {
-        return medial;
-    }
-    // If there is no medial letter, it can only be an initial-only letter.
-    else if (!hasMedial)
-    {
-        return mComposition.initial;
-    }
-
-    constexpr wchar_t MEDIAL_COUNT = L'ㅣ' - L'ㅏ' + 1;
-    constexpr wchar_t FINAL_COUNT = L'갛' - L'가' + 1;
-    constexpr wchar_t INVALID = 0xFFFF;
-
-    // All possible consonant combinations are (in Unicode-order):
-    // ㄱ ㄲ ㄳ ㄴ ㄵ ㄶ ㄷ ㄸ ㄹ ㄺ ㄻ ㄼ ㄽ ㄾ ㄿ ㅀ ㅁ ㅂ ㅃ ㅄ ㅅ ㅆ ㅇ ㅈ ㅉ ㅊ ㅋ ㅌ ㅍ ㅎ (0x3131 ~ 0x314E)
-    // But not all combinations can be used as an initial nor a final.
-    // The composed letters, starting from 0xAC00, of course skips the invalid ones. So we need to map appropriately.
-    constexpr wchar_t INITIAL_MAP[] = {
-        0, 1, INVALID, 2, INVALID, INVALID, 3, 4, 5, INVALID, INVALID, INVALID, INVALID, INVALID, INVALID, INVALID, 6, 7, 8, INVALID, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18
-    };
-    constexpr wchar_t FINAL_MAP[] = {
-        0, 1, 2, 3, 4, 5, 6, INVALID, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, INVALID, 17, 18, 19, 20, 21, INVALID, 22, 23, 24, 25, 26
-    };
-
-    return L'가' + 
-        MEDIAL_COUNT * FINAL_COUNT * INITIAL_MAP[mComposition.initial - L'ㄱ'] +
-        FINAL_COUNT * (medial - L'ㅏ') +
-        (final ? FINAL_MAP[final - L'ㄱ'] + 1 : 0);  // There can be no final letter at all
 }
 
 

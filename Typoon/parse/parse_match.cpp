@@ -38,6 +38,22 @@ MatchForParse::operator Match() const
 
 std::vector<MatchForParse> parse_matches(const std::filesystem::path& file)
 {
+    if (std::ifstream ifs{ file }; ifs.is_open())
+    {
+        const std::string str{ std::istreambuf_iterator<char>(ifs), std::istreambuf_iterator<char>() };
+        return parse_matches(std::string_view{ str });
+    }
+
+    const std::wstring errorString = json5_error_to_string({ json5::error::could_not_open });
+    logger.Log(ELogLevel::ERROR, "Matches file is invalid.", errorString);
+    show_notification(L"Match File Parse Error", errorString);
+
+    return {};
+}
+
+
+std::vector<MatchForParse> parse_matches(std::string_view matchesString)
+{
     struct MatchesForParse
     {
         std::vector<MatchForParse> matches;
@@ -45,12 +61,22 @@ std::vector<MatchForParse> parse_matches(const std::filesystem::path& file)
         JSON5_MEMBERS(matches)
     };
     MatchesForParse matches;
-    if (const json5::error error = json5::from_file(file.string(), matches);
-        error != json5::error::none)
+
+    json5::document doc;
+    json5::error err;
+    if (err = from_string(matchesString, doc);
+        err == json5::error::none)
     {
-        const std::wstring errorString = json5_error_to_string(error);
-        logger.Log(ELogLevel::ERROR, "Matches file", file.string(), "is invalid.", errorString);
-        show_notification(L"Match File Parse Error", errorString);
+        if (err = json5::from_document(doc, matches);
+            err == json5::error::none)
+        {
+            return matches.matches;
+        }
     }
+
+    const std::wstring errorString = json5_error_to_string(err);
+    logger.Log(ELogLevel::ERROR, "Matches string is invalid.", errorString);
+    show_notification(L"Match File Parse Error", errorString);
+
     return matches.matches;
 }

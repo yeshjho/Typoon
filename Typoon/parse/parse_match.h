@@ -37,3 +37,5 @@ JSON5_ENUM(MatchForParse::EUppercaseStyle, first_letter, capitalize_words)
 
 
 std::vector<MatchForParse> parse_matches(const std::filesystem::path& file);
+// For unit tests
+std::vector<MatchForParse> parse_matches(std::string_view matchesString);

@@ -456,7 +456,7 @@ void on_input(const InputMessage(&inputs)[MAX_INPUT_COUNT], int length, bool cle
 
         if (!isBeingComposed)
         {
-            std::erase_if(deadAgents, [](DeadAgent& deadAgent) { return ++deadAgent.backspacesNeeded >= get_config().maxBackspaceCount; });
+            std::erase_if(deadAgents, [](DeadAgent& deadAgent) { return ++deadAgent.backspacesNeeded > get_config().maxBackspaceCount; });
         }
 
         if (!isBeingComposed || isTriggerFound)
@@ -487,7 +487,7 @@ void teardown_trigger_tree()
 
 std::jthread trigger_tree_constructor_thread;
 
-void reconstruct_trigger_tree()
+void reconstruct_trigger_tree(std::string_view matchesString)
 {
     struct EndingMetaData
     {
@@ -517,12 +517,12 @@ void reconstruct_trigger_tree()
 
     logger.Log("Trigger tree construction started");
 
-    trigger_tree_constructor_thread = std::jthread{ [](const std::stop_token& stopToken)
+    trigger_tree_constructor_thread = std::jthread{ [matchesString](const std::stop_token& stopToken)
     {
 #define STOP if (stopToken.stop_requested()) { return; }
 
         STOP
-        std::vector<MatchForParse>&& matchesParsed = parse_matches(match_file);
+        std::vector<MatchForParse>&& matchesParsed = matchesString.empty() ? parse_matches(match_file) : parse_matches(matchesString);
         STOP
         std::vector<Match> matches;
         matches.reserve(matchesParsed.size());
@@ -644,7 +644,8 @@ void reconstruct_trigger_tree()
                     // TODO: Abstract the extra conditions of the options and warn the user if ignored
                     .propagateCase = doPropagateCase && !isCaseSensitive && std::ranges::any_of(trigger, [](wchar_t c) { return is_cased_alpha(c); }),
                     .uppercaseStyle = uppercaseStyle,
-                    .keepComposite = doKeepComposite && is_korean(replace.back()) && !needFullComposite && cursorMoveCount == 0,
+                    .keepComposite = doKeepComposite && is_korean(replace.back()) && !needFullComposite && cursorMoveCount == 0 && 
+                                     (trigger.size() > 1 || triggerLastLetter != replace.back()),
                 };
                 node->children[letter] = TempNode{ .endingMetaData = EndingMetaData{ .replace = std::wstring{ replace }, .tempEnding = ending } };
                 STOP
@@ -744,5 +745,14 @@ void halt_trigger_tree_construction()
     if (trigger_tree_constructor_thread.joinable())
     {
         trigger_tree_constructor_thread.join();
+    }
+}
+
+
+void wait_for_trigger_tree_construction()
+{
+    while (is_constructing_trigger_tree.load())
+    {
+        std::this_thread::sleep_for(std::chrono::milliseconds{ 1 });
     }
 }

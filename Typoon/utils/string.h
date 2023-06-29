@@ -13,6 +13,8 @@ bool is_cased_alpha(wchar_t c);
 
 std::wstring to_u16_string(const std::string& str);
 
+std::string to_u8_string(const std::wstring& str);
+
 // Separate all the letters in each Korean letter into consonants and vowels.
 // ex - '곿까ㅒㄷ' -> ㄱㅗㅏㄱㅅㄲㅏㅒㄷ'
 std::wstring normalize_hangeul(std::wstring_view str);
