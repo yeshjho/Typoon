@@ -2,6 +2,7 @@
 #include <filesystem>
 
 
+void reconstruct_trigger_tree_with(std::filesystem::path matchFile);
 void setup_trigger_tree(std::filesystem::path matchFile);
 void teardown_trigger_tree();
 void reconstruct_trigger_tree(std::string_view matchesString = {} /* for unit tests */);

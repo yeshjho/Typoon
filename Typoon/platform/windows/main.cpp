@@ -73,12 +73,20 @@ int wWinMain(HINSTANCE hInstance, [[maybe_unused]] HINSTANCE hPrevInstance, [[ma
         {
             read_config_file(get_config_file_path());
 
-            if (const Config& config = get_config(); 
-                prevMatchFilePath != config.matchFilePath || prevCursorPlaceholder != config.cursorPlaceholder)
+            const Config& config = get_config();
+            if (const bool didMatchFilePathChange = prevMatchFilePath != config.matchFilePath;
+                didMatchFilePathChange || prevCursorPlaceholder != config.cursorPlaceholder)
             {
                 prevMatchFilePath = config.matchFilePath;
                 prevCursorPlaceholder = config.cursorPlaceholder;
-                reconstruct_trigger_tree();
+                if (didMatchFilePathChange)
+                {
+                    reconstruct_trigger_tree_with(config.matchFilePath);
+                }
+                else
+                {
+                    reconstruct_trigger_tree();
+                }
             }
 
             PostMessage(window, CONFIG_CHANGED_MESSAGE, 0, 0);

@@ -476,10 +476,16 @@ void on_input(const InputMessage(&inputs)[MAX_INPUT_COUNT], int length, bool cle
 }
 
 
-void setup_trigger_tree(std::filesystem::path matchFile)
+void reconstruct_trigger_tree_with(std::filesystem::path matchFile)
 {
     match_file = std::move(matchFile);
     reconstruct_trigger_tree();
+}
+
+
+void setup_trigger_tree(std::filesystem::path matchFile)
+{
+    reconstruct_trigger_tree_with(std::move(matchFile));
 
     input_listeners.emplace_back("trigger_tree", on_input);
 }
