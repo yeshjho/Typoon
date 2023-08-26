@@ -11,6 +11,7 @@
 const wchar_t FakeInput::BACKSPACE_KEY = VK_BACK;
 const wchar_t FakeInput::TOGGLE_HANGEUL_KEY = VK_HANGUL;
 const wchar_t FakeInput::LEFT_ARROW_KEY = VK_LEFT;
+const wchar_t FakeInput::ENTER_KEY = VK_RETURN;
 
 
 void send_fake_inputs(const std::vector<FakeInput>& inputs, bool isCapsLockOn)

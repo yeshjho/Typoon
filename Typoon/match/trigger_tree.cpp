@@ -293,6 +293,14 @@ void replace_string(const Ending& ending, const Agent& agent, std::wstring_view 
 
     std::fill_n(std::back_inserter(fakeInputs), cursorMoveCount + additionalCursorMoveCount, FakeInput{ FakeInput::EType::KEY, FakeInput::LEFT_ARROW_KEY });
 
+    for (FakeInput& fakeInput : fakeInputs)
+    {
+        if (fakeInput.type == FakeInput::EType::LETTER && fakeInput.letter == '\n')
+        {
+            fakeInput = { FakeInput::EType::KEY, FakeInput::ENTER_KEY };
+        }
+    }
+
     send_fake_inputs(fakeInputs, false);
 }
 

@@ -7,6 +7,7 @@
 const wchar_t FakeInput::BACKSPACE_KEY = 0x0870;
 const wchar_t FakeInput::TOGGLE_HANGEUL_KEY = 0x0871;
 const wchar_t FakeInput::LEFT_ARROW_KEY = 0x0872;
+const wchar_t FakeInput::ENTER_KEY = 0x0873;
 
 
 void send_fake_inputs(const std::vector<FakeInput>& inputs, [[maybe_unused]] bool isCapsLockOn)

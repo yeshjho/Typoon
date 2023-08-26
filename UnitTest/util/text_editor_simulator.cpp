@@ -74,6 +74,11 @@ void TextEditorSimulator::Type(const std::vector<FakeInput>& inputs)
                     mCursorPos--;
                 }
             }
+            else if (letter == FakeInput::ENTER_KEY)
+            {
+                mImmSimulator.EmitAndClearCurrentComposite();
+                mImmSimulator.AddLetter('\n');
+            }
             else
             {
                 std::unreachable();

@@ -17,6 +17,7 @@ struct FakeInput
     static const wchar_t BACKSPACE_KEY;
     static const wchar_t TOGGLE_HANGEUL_KEY;
     static const wchar_t LEFT_ARROW_KEY;
+    static const wchar_t ENTER_KEY;
 };
 
 
