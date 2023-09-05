@@ -8,6 +8,8 @@
 
 void simulate_type(std::wstring_view text);
 
+void reconstruct_trigger_tree_with_u8string(std::u8string_view text);
+
 
 inline Config default_config{ .maxBackspaceCount = 5, .cursorPlaceholder = L"|_|" };
 

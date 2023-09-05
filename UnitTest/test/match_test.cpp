@@ -46,7 +46,7 @@ TEST_SUITE("Match")
 
         SUBCASE("Infinite Triggers - Ignore keep_composite")
         {
-            reconstruct_trigger_tree(R"({
+            reconstruct_trigger_tree_with_u8string(u8R"({
                 matches: [
                     {
                         trigger: '가',
@@ -75,7 +75,7 @@ TEST_SUITE("Match")
 
         SUBCASE("Ascii Only")
         {
-            reconstruct_trigger_tree(R"({
+            reconstruct_trigger_tree_with_u8string(u8R"({
                 matches: [
                     {
                         trigger: 'acommodate',
@@ -114,7 +114,7 @@ TEST_SUITE("Match")
 
         SUBCASE("Hangeul Only")
         {
-            reconstruct_trigger_tree(R"({
+            reconstruct_trigger_tree_with_u8string(u8R"({
                 matches: [
                     {
                         trigger: '됬',
@@ -147,7 +147,7 @@ TEST_SUITE("Match")
 
         SUBCASE("Ascii & Hangeul Mixed")
         {
-            reconstruct_trigger_tree(R"({
+            reconstruct_trigger_tree_with_u8string(u8R"({
                 matches: [
                     {
                         trigger: 'aㄱb나!',
@@ -172,7 +172,7 @@ TEST_SUITE("Match")
 
         SUBCASE("Whitespaces")
         {
-            reconstruct_trigger_tree(R"({
+            reconstruct_trigger_tree_with_u8string(u8R"({
                 matches: [
                     {
                         trigger: 'ab',
@@ -199,7 +199,7 @@ b',
 
         SUBCASE("Multiple Triggers")
         {
-            reconstruct_trigger_tree(R"({
+            reconstruct_trigger_tree_with_u8string(u8R"({
                 matches: [
                     {
                         triggers: ['asc ii!', '한글', 'mixed혼합!'],
@@ -216,7 +216,7 @@ b',
 
         SUBCASE("Cursor Position")
         {
-            reconstruct_trigger_tree(R"({
+            reconstruct_trigger_tree_with_u8string(u8R"({
                 matches: [
                     {
                         trigger: ';sti',
@@ -249,7 +249,7 @@ b',
 
         SUBCASE("Case Sensitive")
         {
-            reconstruct_trigger_tree(R"({
+            reconstruct_trigger_tree_with_u8string(u8R"({
                 matches: [
                     {
                         trigger: 'lower',
@@ -277,7 +277,7 @@ b',
 
         SUBCASE("Case Insensitive")
         {
-            reconstruct_trigger_tree(R"({
+            reconstruct_trigger_tree_with_u8string(u8R"({
                 matches: [
                     {
                         trigger: 'lower',
@@ -310,7 +310,7 @@ b',
 
         SUBCASE("Word")
         {
-            reconstruct_trigger_tree(R"({
+            reconstruct_trigger_tree_with_u8string(u8R"({
                 matches: [
                     {
                         trigger: 'apple',
@@ -333,7 +333,7 @@ b',
 
         SUBCASE("Non Word")
         {
-            reconstruct_trigger_tree(R"({
+            reconstruct_trigger_tree_with_u8string(u8R"({
                 matches: [
                     {
                         trigger: 'apple',
@@ -362,7 +362,7 @@ b',
 
         SUBCASE("Full Composite")
         {
-            reconstruct_trigger_tree(R"({
+            reconstruct_trigger_tree_with_u8string(u8R"({
                 matches: [
                     {
                         trigger: '가나',
@@ -385,7 +385,7 @@ b',
 
         SUBCASE("Non Full Composite")
         {
-            reconstruct_trigger_tree(R"({
+            reconstruct_trigger_tree_with_u8string(u8R"({
                 matches: [
                     {
                         trigger: '가나',
@@ -414,7 +414,7 @@ b',
 
         SUBCASE("Propagate Case")
         {
-            reconstruct_trigger_tree(R"({
+            reconstruct_trigger_tree_with_u8string(u8R"({
                 matches: [
                     {
                         trigger: 'apple',
@@ -437,7 +437,7 @@ b',
 
         SUBCASE("Don't Propagate Case")
         {
-            reconstruct_trigger_tree(R"({
+            reconstruct_trigger_tree_with_u8string(u8R"({
                 matches: [
                     {
                         trigger: 'apple',
@@ -466,7 +466,7 @@ b',
 
         SUBCASE("Default (First Letter)")
         {
-            reconstruct_trigger_tree(R"({
+            reconstruct_trigger_tree_with_u8string(u8R"({
                 matches: [
                     {
                         trigger: 'apple',
@@ -491,7 +491,7 @@ b',
 
         SUBCASE("Word")
         {
-            reconstruct_trigger_tree(R"({
+            reconstruct_trigger_tree_with_u8string(u8R"({
                 matches: [
                     {
                         trigger: 'apple',
@@ -524,7 +524,7 @@ b',
 
         SUBCASE("Keep Composite")
         {
-            reconstruct_trigger_tree(R"({
+            reconstruct_trigger_tree_with_u8string(u8R"({
                 matches: [
                     {
                         trigger: '스빈다',
@@ -542,7 +542,7 @@ b',
 
         SUBCASE("Don't Keep Composite")
         {
-            reconstruct_trigger_tree(R"({
+            reconstruct_trigger_tree_with_u8string(u8R"({
                 matches: [
                     {
                         trigger: '스빈다',
@@ -559,7 +559,7 @@ b',
 
         SUBCASE("Chaining")
         {
-            reconstruct_trigger_tree(R"({
+            reconstruct_trigger_tree_with_u8string(u8R"({
                 matches: [
                     {
                         trigger: 'wwww',
@@ -609,7 +609,7 @@ TEST_SUITE("Config")
         {
             start_test_case(config);
 
-            reconstruct_trigger_tree(R"({
+            reconstruct_trigger_tree_with_u8string(u8R"({
                     matches: [
                         {
                             trigger: 'apple',
@@ -629,7 +629,7 @@ TEST_SUITE("Config")
             config.maxBackspaceCount = 3;
             start_test_case(config);
 
-            reconstruct_trigger_tree(R"({
+            reconstruct_trigger_tree_with_u8string(u8R"({
                     matches: [
                         {
                             trigger: 'apple',
@@ -649,7 +649,7 @@ TEST_SUITE("Config")
             config.maxBackspaceCount = -123;
             start_test_case(config);
 
-            reconstruct_trigger_tree(R"({
+            reconstruct_trigger_tree_with_u8string(u8R"({
                     matches: [
                         {
                             trigger: 'apple',
@@ -676,7 +676,7 @@ TEST_SUITE("Config")
 
         SUBCASE("No More |_|")
         {
-            reconstruct_trigger_tree(R"({
+            reconstruct_trigger_tree_with_u8string(u8R"({
                 matches: [
                     {
                         trigger: ';sti',
@@ -692,7 +692,7 @@ TEST_SUITE("Config")
 
         SUBCASE("Cursor Placeholder")
         {
-            reconstruct_trigger_tree(R"({
+            reconstruct_trigger_tree_with_u8string(u8R"({
                 matches: [
                     {
                         trigger: ';sti',
