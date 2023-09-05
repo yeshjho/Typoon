@@ -10,6 +10,10 @@ void simulate_type(std::wstring_view text);
 
 void reconstruct_trigger_tree_with_u8string(std::u8string_view text);
 
+void check_text_editor_simulator(const TextState& textState);
+
+void check_normalization(std::wstring_view original, std::wstring_view normalized);
+
 
 inline Config default_config{ .maxBackspaceCount = 5, .cursorPlaceholder = L"|_|" };
 

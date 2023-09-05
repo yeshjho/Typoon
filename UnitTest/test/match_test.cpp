@@ -63,7 +63,7 @@ TEST_SUITE("Match")
             wait_for_trigger_tree_construction();
 
             simulate_type(L"가 가가가ㄷㄷㅏ");
-            CHECK(text_editor_simulator == TextState{ L"나가 나가나가나가ㄷㄷ|_|ㅏ", true });
+            check_text_editor_simulator({ L"나가 나가나가나가ㄷㄷ|_|ㅏ", true });
         }
 
         end_test_case();
@@ -108,7 +108,7 @@ TEST_SUITE("Match")
             simulate_type(L"acommodate the neccessary calender with acknowledgement.\n"
                           ":1to10:!to)");
 
-            CHECK(text_editor_simulator == TextState{ L"accommodate the necessary calendar with acknowledgment.\n"
+            check_text_editor_simulator({ L"accommodate the necessary calendar with acknowledgment.\n"
                                                       "1, 2, 3, 4, 5, 6, 7, 8, 9, 10!@#$%^&*()" });
         }
 
@@ -142,7 +142,7 @@ TEST_SUITE("Match")
 
             simulate_type(L"ㅖ? ;ㅇㅇ ㄳ. 덩쿨이 됬습니다.");
 
-            CHECK(text_editor_simulator == TextState{ L"예? 알겠습니다 감사합니다. 덩굴이 됐습니다." });
+            check_text_editor_simulator({ L"예? 알겠습니다 감사합니다. 덩굴이 됐습니다." });
         }
 
         SUBCASE("Ascii & Hangeul Mixed")
@@ -167,7 +167,7 @@ TEST_SUITE("Match")
 
             simulate_type(L"aㄱb나! 가aㄴbㄳ\n혼합mixed");
 
-            CHECK(text_editor_simulator == TextState{ L"혼합mixed mixed혼합\nmixed혼합" });
+            check_text_editor_simulator({ L"혼합mixed mixed혼합\nmixed혼합" });
         }
 
         SUBCASE("Whitespaces")
@@ -194,7 +194,7 @@ b',
 
             simulate_type(L"a	bab가\n나");
 
-            CHECK(text_editor_simulator == TextState{ L"a    ba\nb가나" });
+            check_text_editor_simulator({ L"a    ba\nb가나" });
         }
 
         SUBCASE("Multiple Triggers")
@@ -211,7 +211,7 @@ b',
 
             simulate_type(L"asc ii! 한글\nmixed혼합!");
 
-            CHECK(text_editor_simulator == TextState{ L"대체 text 대체 text\n대체 text" });
+            check_text_editor_simulator({ L"대체 text 대체 text\n대체 text" });
         }
 
         SUBCASE("Cursor Position")
@@ -231,13 +231,13 @@ b',
             wait_for_trigger_tree_construction();
 
             simulate_type(L";stifloatValue");
-            CHECK(text_editor_simulator == TextState{ L"static_cast<int>(floatValue|_|)" });
+            check_text_editor_simulator({ L"static_cast<int>(floatValue|_|)" });
 
             teardown_imm_simulator();
             setup_imm_simulator();
             text_editor_simulator.Reset();
             simulate_type(L"useless");
-            CHECK(text_editor_simulator == TextState{ L"useless" });
+            check_text_editor_simulator({ L"useless" });
         }
 
         end_test_case();
@@ -272,7 +272,7 @@ b',
 
             simulate_type(L"lower LOWER lOwER upper UPPER upPeR mixed MIXED MiXeD");
 
-            CHECK(text_editor_simulator == TextState{ L"triggered LOWER lOwER upper TRIGGERED upPeR mixed MIXED tRiGgErEd" });
+            check_text_editor_simulator({ L"triggered LOWER lOwER upper TRIGGERED upPeR mixed MIXED tRiGgErEd" });
         }
 
         SUBCASE("Case Insensitive")
@@ -298,7 +298,7 @@ b',
 
             simulate_type(L"lower LOWER lOwER upper UPPER upPeR mixed MIXED MiXeD");
 
-            CHECK(text_editor_simulator == TextState{ L"triggered triggered triggered TRIGGERED TRIGGERED TRIGGERED tRiGgErEd tRiGgErEd tRiGgErEd" });
+            check_text_editor_simulator({ L"triggered triggered triggered TRIGGERED TRIGGERED TRIGGERED tRiGgErEd tRiGgErEd tRiGgErEd" });
         }
 
         end_test_case();
@@ -328,7 +328,7 @@ b',
 
             simulate_type(L"apple, apples apple\n가나하 가나. 가나ㅏ ");
 
-            CHECK(text_editor_simulator == TextState{ L"banana, apples banana\n가나하 다라. 가나ㅏ " });
+            check_text_editor_simulator({ L"banana, apples banana\n가나하 다라. 가나ㅏ " });
         }
 
         SUBCASE("Non Word")
@@ -350,7 +350,7 @@ b',
 
             simulate_type(L"apple, apples apple\n가나하 가나. 가나ㅏ ");
 
-            CHECK(text_editor_simulator == TextState{ L"banana, bananas banana\n다라하 다라. 다라ㅏ " });
+            check_text_editor_simulator({ L"banana, bananas banana\n다라하 다라. 다라ㅏ " });
         }
 
         end_test_case();
@@ -380,7 +380,7 @@ b',
 
             simulate_type(L"가나 가나카 가난한 가나, ㄱ사 ㄳ. ㄳ ");
 
-            CHECK(text_editor_simulator == TextState{ L"다라 다라카 가난한 다라, ㄱ사 감사. 감사 " });
+            check_text_editor_simulator({ L"다라 다라카 가난한 다라, ㄱ사 감사. 감사 " });
         }
 
         SUBCASE("Non Full Composite")
@@ -402,7 +402,7 @@ b',
 
             simulate_type(L"가나 가나카 가난한 가나, ㄱ사 ㄳ. ㄳ ");
 
-            CHECK(text_editor_simulator == TextState{ L"다라 다라카 다라ㄴ한 다라, 감사ㅏ 감사. 감사 " });
+            check_text_editor_simulator({ L"다라 다라카 다라ㄴ한 다라, 감사ㅏ 감사. 감사 " });
         }
 
         end_test_case();
@@ -432,7 +432,7 @@ b',
 
             simulate_type(L"apple Apple APplE aPplE APPLE ;car ;Car ;CAr ;cAr ;CAR");
 
-            CHECK(text_editor_simulator == TextState{ L"banana Banana Banana banana BANANA 1d2o3g 1D2o3g 1D2o3g 1d2o3g 1D2O3G" });
+            check_text_editor_simulator({ L"banana Banana Banana banana BANANA 1d2o3g 1D2o3g 1D2o3g 1d2o3g 1D2O3G" });
         }
 
         SUBCASE("Don't Propagate Case")
@@ -454,7 +454,7 @@ b',
 
             simulate_type(L"apple Apple APplE aPplE APPLE ;car ;Car ;CAr ;cAr ;CAR");
 
-            CHECK(text_editor_simulator == TextState{ L"banana banana banana banana banana 1d2o3g 1d2o3g 1d2o3g 1d2o3g 1d2o3g" });
+            check_text_editor_simulator({ L"banana banana banana banana banana 1d2o3g 1d2o3g 1d2o3g 1d2o3g 1d2o3g" });
         }
 
         end_test_case();
@@ -485,7 +485,7 @@ b',
 
             simulate_type(L"apple Apple APplE aPplE APPLE ;car ;Car ;CAr ;cAr ;CAR");
 
-            CHECK(text_editor_simulator == TextState{ L"banana butterfly Banana butterfly Banana butterfly banana butterfly BANANA BUTTERFLY "
+            check_text_editor_simulator({ L"banana butterfly Banana butterfly Banana butterfly banana butterfly BANANA BUTTERFLY "
                                                       "1d2o3g dr!1l 1D2o3g dr!1l 1D2o3g dr!1l 1d2o3g dr!1l 1D2O3G DR!1L" });
         }
 
@@ -511,7 +511,7 @@ b',
 
             simulate_type(L"apple Apple APplE aPplE APPLE ;car ;Car ;CAr ;cAr ;CAR");
 
-            CHECK(text_editor_simulator == TextState{ L"banana butterfly Banana Butterfly Banana Butterfly banana butterfly BANANA BUTTERFLY "
+            check_text_editor_simulator({ L"banana butterfly Banana Butterfly Banana Butterfly banana butterfly BANANA BUTTERFLY "
                                                       "1d2o3g dr!1l 1D2o3g Dr!1L 1D2o3g Dr!1L 1d2o3g dr!1l 1D2O3G DR!1L" });
         }
 
@@ -537,7 +537,7 @@ b',
 
             simulate_type(L"알겠스빈답");
 
-            CHECK(text_editor_simulator == TextState{ L"알겠습니|_|답", true });
+            check_text_editor_simulator({ L"알겠습니|_|답", true });
         }
 
         SUBCASE("Don't Keep Composite")
@@ -554,7 +554,7 @@ b',
 
             simulate_type(L"알겠스빈답");
 
-            CHECK(text_editor_simulator == TextState{ L"알겠습니다|_|ㅂ", true });
+            check_text_editor_simulator({ L"알겠습니다|_|ㅂ", true });
         }
 
         SUBCASE("Chaining")
@@ -577,7 +577,7 @@ b',
 
             simulate_type(L"wwwwㄴ");
 
-            CHECK(text_editor_simulator == TextState{ L"가a|_|단", true });
+            check_text_editor_simulator({ L"가a|_|단", true });
         }
 
         end_test_case();
@@ -621,7 +621,7 @@ TEST_SUITE("Config")
 
             simulate_type(L"a[[;l\b\b\b\bpple\na[[;l33\b\b\b\b\b\bpple aooooo\b\b\b\b\bpple");
 
-            CHECK(text_editor_simulator == TextState{ L"banana\napple banana" });
+            check_text_editor_simulator({ L"banana\napple banana" });
         }
 
         SUBCASE("Lesser Amount")
@@ -641,7 +641,7 @@ TEST_SUITE("Config")
 
             simulate_type(L"a[[;l\b\b\b\bpple\na[[;\b\b\bpple");
 
-            CHECK(text_editor_simulator == TextState{ L"apple\nbanana" });
+            check_text_editor_simulator({ L"apple\nbanana" });
         }
 
         SUBCASE("Unforgiving")
@@ -661,7 +661,7 @@ TEST_SUITE("Config")
 
             simulate_type(L"app;\ble");
 
-            CHECK(text_editor_simulator == TextState{ L"apple" });
+            check_text_editor_simulator({ L"apple" });
         }
 
         end_test_case();
@@ -687,7 +687,7 @@ TEST_SUITE("Config")
             wait_for_trigger_tree_construction();
 
             simulate_type(L";stifloatValue");
-            CHECK(text_editor_simulator == TextState{ .text = L"static_cast<int>(|_|)floatValue", .cursorPlaceholder = L"$|$" });
+            check_text_editor_simulator({ .text = L"static_cast<int>(|_|)floatValue", .cursorPlaceholder = L"$|$" });
         }
 
         SUBCASE("Cursor Placeholder")
@@ -707,13 +707,13 @@ TEST_SUITE("Config")
             wait_for_trigger_tree_construction();
 
             simulate_type(L";stifloatValue");
-            CHECK(text_editor_simulator == TextState{ .text = L"static_cast<int>(floatValue$|$)", .cursorPlaceholder = L"$|$" });
+            check_text_editor_simulator({ .text = L"static_cast<int>(floatValue$|$)", .cursorPlaceholder = L"$|$" });
 
             teardown_imm_simulator();
             setup_imm_simulator();
             text_editor_simulator.Reset();
             simulate_type(L"useless");
-            CHECK(text_editor_simulator == TextState{ .text = L"useless", .cursorPlaceholder = L"$|$" });
+            check_text_editor_simulator({ .text = L"useless", .cursorPlaceholder = L"$|$" });
         }
 
         end_test_case();
