@@ -28,8 +28,8 @@ jobs:
 
     - name: Build
       working-directory: ${{env.GITHUB_WORKSPACE}}
-      run: msbuild /m /t:UnitTest /p:Configuration=${{matrix.configuration}} /p:Platform=x64 ${{env.SOLUTION_FILE_PATH}}
+      run: chcp 65001; msbuild /m /t:UnitTest /p:Configuration=${{matrix.configuration}} /p:Platform=x64 ${{env.SOLUTION_FILE_PATH}}
 
     - name: Test
       working-directory: ${{env.GITHUB_WORKSPACE}}
-      run: ./${{matrix.configuration}}/UnitTest.exe
+      run: chcp 65001; ./${{matrix.configuration}}/UnitTest.exe
