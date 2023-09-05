@@ -8,6 +8,17 @@
 #include "../utils/string.h"
 
 
+OptionContainerForParse& OptionContainerForParse::operator|=(const OptionContainerForParse& other)
+{
+    case_sensitive |= other.case_sensitive;
+    word |= other.word;
+    propagate_case |= other.propagate_case;
+    uppercase_style = other.uppercase_style == EUppercaseStyle::first_letter ? uppercase_style : other.uppercase_style;
+    full_composite |= other.full_composite;
+    keep_composite |= other.keep_composite;
+}
+
+
 MatchForParse::operator Match() const
 {
     Match match{
@@ -54,23 +65,40 @@ std::vector<MatchForParse> parse_matches(const std::filesystem::path& file)
 
 std::vector<MatchForParse> parse_matches(std::string_view matchesString)
 {
-    struct MatchesForParse
+    struct MatchesAndGroupsForParse
     {
+        std::vector<GroupForParse> groups;
         std::vector<MatchForParse> matches;
 
-        JSON5_MEMBERS(matches)
+        JSON5_MEMBERS(groups, matches)
     };
-    MatchesForParse matches;
+    MatchesAndGroupsForParse matchesAndGroups;
 
     json5::document doc;
     json5::error err;
     if (err = from_string(matchesString, doc);
         err == json5::error::none)
     {
-        if (err = json5::from_document(doc, matches);
+        if (err = json5::from_document(doc, matchesAndGroups);
             err == json5::error::none)
         {
-            return matches.matches;
+            size_t matchesLengthInGroups = 0;
+            for (GroupForParse& group : matchesAndGroups.groups)
+            {
+                matchesLengthInGroups += group.matches.size();
+            }
+            matchesAndGroups.matches.reserve(matchesAndGroups.matches.size() + matchesLengthInGroups);
+
+            for (GroupForParse& group : matchesAndGroups.groups)
+            {
+                for (MatchForParse& match : group.matches)
+                {
+                    match |= group;
+                    matchesAndGroups.groups.emplace_back(std::move(match));
+                }
+            }
+
+            return matchesAndGroups.matches;
         }
     }
 
@@ -78,5 +106,5 @@ std::vector<MatchForParse> parse_matches(std::string_view matchesString)
     logger.Log(ELogLevel::ERROR, "Matches string is invalid.", errorString);
     show_notification(L"Match File Parse Error", errorString);
 
-    return matches.matches;
+    return {};
 }
