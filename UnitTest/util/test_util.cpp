@@ -1,6 +1,7 @@
 #include "test_util.h"
 
 #include "../../Typoon/utils/string.h"
+#include "../../Typoon/match/trigger_tree.h"
 #include "text_editor_simulator.h"
 
 
@@ -30,4 +31,22 @@ void simulate_type(std::wstring_view text)
             imm_simulator.AddLetter(letter);
         }
     }
+}
+
+
+void reconstruct_trigger_tree_with_u8string(std::u8string_view text)
+{
+    reconstruct_trigger_tree(std::string_view{ reinterpret_cast<const char*>(&text.front()), text.size() });
+}
+
+
+void check_text_editor_simulator(const TextState& textState)
+{
+    CHECK(text_editor_simulator == textState);
+}
+
+
+void check_normalization(std::wstring_view original, std::wstring_view normalized)
+{
+    CHECK(normalize_hangeul(original) == normalized);
 }
