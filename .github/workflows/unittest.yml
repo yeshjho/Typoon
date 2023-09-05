@@ -28,7 +28,7 @@ jobs:
 
     - name: Build
       working-directory: ${{env.GITHUB_WORKSPACE}}
-      run: msbuild /m /p:Configuration=${{matrix.configuration}} ${{env.PROJ_FILE_PATH}}
+      run: msbuild /m /p:Configuration=${{matrix.configuration}};Platform=x64 ${{env.PROJ_FILE_PATH}}
 
     - name: Test
       working-directory: ${{env.GITHUB_WORKSPACE}}
