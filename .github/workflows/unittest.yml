@@ -32,4 +32,4 @@ jobs:
 
     - name: Test
       working-directory: ${{env.GITHUB_WORKSPACE}}
-      run: chcp 65001; ./${{matrix.configuration}}/UnitTest.exe
+      run: chcp 65001; ./x64/${{matrix.configuration}}/UnitTest.exe
