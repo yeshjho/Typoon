@@ -97,6 +97,7 @@
     <ClCompile Include="dummy\utils\config.cpp" />
     <ClCompile Include="dummy\utils\logger.cpp" />
     <ClCompile Include="test\doctest_main.cpp" />
+    <ClCompile Include="test\group_test.cpp" />
     <ClCompile Include="test\imm_simulator_test.cpp" />
     <ClCompile Include="test\match_test.cpp" />
     <ClCompile Include="test\string_util_test.cpp" />

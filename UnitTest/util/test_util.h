@@ -6,6 +6,9 @@
 #include "text_editor_simulator.h"
 
 
+inline Config default_config{.maxBackspaceCount = 5, .cursorPlaceholder = L"|_|" };
+
+
 void simulate_type(std::wstring_view text);
 
 void reconstruct_trigger_tree_with_u8string(std::u8string_view text);
@@ -14,8 +17,9 @@ void check_text_editor_simulator(const TextState& textState);
 
 void check_normalization(std::wstring_view original, std::wstring_view normalized);
 
+void start_match_test_case(const Config& config = default_config);
 
-inline Config default_config{ .maxBackspaceCount = 5, .cursorPlaceholder = L"|_|" };
+void end_match_test_case();
 
 
 namespace doctest

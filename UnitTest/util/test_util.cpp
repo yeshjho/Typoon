@@ -2,6 +2,7 @@
 
 #include "../../Typoon/utils/string.h"
 #include "../../Typoon/match/trigger_tree.h"
+#include "config.h"
 #include "text_editor_simulator.h"
 
 
@@ -49,4 +50,20 @@ void check_text_editor_simulator(const TextState& textState)
 void check_normalization(std::wstring_view original, std::wstring_view normalized)
 {
     CHECK(normalize_hangeul(original) == normalized);
+}
+
+
+void start_match_test_case(const Config& config)
+{
+    set_config(config);
+    setup_trigger_tree("");
+    setup_imm_simulator();
+    text_editor_simulator.Reset();
+}
+
+
+void end_match_test_case()
+{
+    teardown_trigger_tree();
+    teardown_imm_simulator();
 }
