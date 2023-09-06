@@ -16,6 +16,8 @@ OptionContainerForParse& OptionContainerForParse::operator|=(const OptionContain
     uppercase_style = other.uppercase_style == EUppercaseStyle::first_letter ? uppercase_style : other.uppercase_style;
     full_composite |= other.full_composite;
     keep_composite |= other.keep_composite;
+
+    return *this;
 }
 
 
@@ -72,13 +74,14 @@ std::vector<MatchForParse> parse_matches(std::string_view matchesString)
 
         JSON5_MEMBERS(groups, matches)
     };
-    MatchesAndGroupsForParse matchesAndGroups;
 
     json5::document doc;
     json5::error err;
     if (err = from_string(matchesString, doc);
         err == json5::error::none)
     {
+        MatchesAndGroupsForParse matchesAndGroups;
+
         if (err = json5::from_document(doc, matchesAndGroups);
             err == json5::error::none)
         {
@@ -94,7 +97,7 @@ std::vector<MatchForParse> parse_matches(std::string_view matchesString)
                 for (MatchForParse& match : group.matches)
                 {
                     match |= group;
-                    matchesAndGroups.groups.emplace_back(std::move(match));
+                    matchesAndGroups.matches.emplace_back(std::move(match));
                 }
             }
 

@@ -8,6 +8,8 @@
 #include "../match/match.h"
 
 
+// Helper classes for parsing the matches.
+// If the names of the fields are identical to the strings in the data file, reflection part can be automatically handled by the json5 library.
 struct OptionContainerForParse
 {
     enum class EUppercaseStyle
@@ -28,10 +30,6 @@ struct OptionContainerForParse
     JSON5_MEMBERS(case_sensitive, word, propagate_case, uppercase_style, full_composite, keep_composite)
 };
 
-JSON5_ENUM(OptionContainerForParse::EUppercaseStyle, first_letter, capitalize_words)
-
-// A helper class for parsing the matches.
-// If the names of the fields are identical to the strings in the data file, reflection part can be automatically handled by the json5 library.
 struct MatchForParse : OptionContainerForParse
 {
     std::vector<std::string> triggers;
@@ -49,6 +47,8 @@ struct GroupForParse : OptionContainerForParse
 
     JSON5_MEMBERS_INHERIT(OptionContainerForParse, matches)
 };
+
+JSON5_ENUM(OptionContainerForParse::EUppercaseStyle, first_letter, capitalize_words)
 
 
 std::vector<MatchForParse> parse_matches(const std::filesystem::path& file);
