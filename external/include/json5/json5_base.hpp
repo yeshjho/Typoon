@@ -1,5 +1,8 @@
 #pragma once
 
+#include <array>
+#include <iostream>
+#include <string_view>
 #include <tuple>
 
 /*
@@ -59,9 +62,9 @@
 	}
 */
 #define JSON5_MEMBERS(...) \
-	inline auto make_named_tuple() noexcept { \
+	constexpr auto make_named_tuple() noexcept { \
 		return std::tuple((const char*)#__VA_ARGS__, std::tie( __VA_ARGS__ )); } \
-	inline auto make_named_tuple() const noexcept { \
+	constexpr auto make_named_tuple() const noexcept { \
 		return std::tuple((const char*)#__VA_ARGS__, std::tie( __VA_ARGS__ )); }
 
 /*
@@ -81,13 +84,23 @@
 */
 #define JSON5_MEMBERS_INHERIT(_Base, ...) \
 	inline auto make_named_tuple() noexcept { \
-		return std::tuple_cat( \
-		                       json5::detail::class_wrapper<_Base>::make_named_tuple(*this), \
-		                       std::tuple((const char*)#__VA_ARGS__, std::tie( __VA_ARGS__ ))); } \
+		constexpr _Base base; \
+        static constexpr std::string_view baseMemberNames = std::get<0>(json5::detail::class_wrapper<_Base>::make_named_tuple(base)); \
+		static constexpr std::string_view comma = ","; \
+		static constexpr std::string_view memberNames = #__VA_ARGS__; \
+		static constexpr std::string_view names = json5::detail::join_v<baseMemberNames, comma, memberNames>; \
+        return std::tuple{ names.data(), std::tuple_cat( \
+            std::get<1>(json5::detail::class_wrapper<_Base>::make_named_tuple(*this)), \
+            std::tie(__VA_ARGS__)) }; } \
 	inline auto make_named_tuple() const noexcept { \
-		return std::tuple_cat( \
-		                       json5::detail::class_wrapper<_Base>::make_named_tuple(*this), \
-		                       std::tuple((const char*)#__VA_ARGS__, std::tie( __VA_ARGS__ ))); } \
+		constexpr _Base base; \
+        static constexpr std::string_view baseMemberNames = std::get<0>(json5::detail::class_wrapper<_Base>::make_named_tuple(base)); \
+		static constexpr std::string_view comma = ","; \
+		static constexpr std::string_view memberNames = #__VA_ARGS__; \
+		static constexpr std::string_view names = json5::detail::join_v<baseMemberNames, comma, memberNames>; \
+        return std::tuple{ names.data(), std::tuple_cat( \
+            std::get<1>(json5::detail::class_wrapper<_Base>::make_named_tuple(*this)), \
+            std::tie(__VA_ARGS__)) }; } \
 
 /*
 	Generates enum wrapper:
@@ -187,8 +200,8 @@ using string_offset = unsigned;
 
 template <typename T> struct class_wrapper
 {
-	inline static auto make_named_tuple( T &in ) noexcept { return in.make_named_tuple(); }
-	inline static auto make_named_tuple( const T &in ) noexcept { return in.make_named_tuple(); }
+	constexpr static auto make_named_tuple( T &in ) noexcept { return in.make_named_tuple(); }
+	constexpr static auto make_named_tuple( const T &in ) noexcept { return in.make_named_tuple(); }
 };
 
 template <typename T> struct enum_table : std::false_type { };
@@ -208,6 +221,31 @@ protected:
 	int _line = 1;
 	int _column = 1;
 };
+
+// Copied from https://stackoverflow.com/a/62823211
+template <std::string_view const&... Strs>
+struct join
+{
+	// Join all strings into a single std::array of chars
+	static constexpr auto impl() noexcept
+	{
+		constexpr std::size_t len = (Strs.size() + ... + 0);
+		std::array<char, len + 1> arr{};
+		auto append = [i = 0, &arr](auto const& s) mutable {
+			for (auto c : s) arr[i++] = c;
+		};
+		(append(Strs), ...);
+		arr[len] = 0;
+		return arr;
+	}
+	// Give the joined string static storage
+	static constexpr auto arr = impl();
+	// View as a std::string_view
+	static constexpr std::string_view value {arr.data(), arr.size() - 1};
+};
+// Helper to get the value out
+template <std::string_view const&... Strs>
+static constexpr auto join_v = join<Strs...>::value;
 
 } // namespace json5::detail
 
