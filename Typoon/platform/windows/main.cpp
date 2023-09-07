@@ -99,16 +99,26 @@ int wWinMain(HINSTANCE hInstance, [[maybe_unused]] HINSTANCE hPrevInstance, [[ma
     };
     configChangeWatcher.AddWatchingFile(get_config_file_path());
 
-    FileChangeWatcher matchChangeWatcher{
-        []()
-        {
-            reconstruct_trigger_tree();
-        }
+    FileChangeWatcher* matchChangeWatcher = nullptr;
+    std::function<void()> matchFileChangeCallback;
+    matchFileChangeCallback = [&matchChangeWatcher, &matchFileChangeCallback]()
+    {
+        reconstruct_trigger_tree({}, [&matchChangeWatcher, &matchFileChangeCallback]()
+            {
+                delete matchChangeWatcher;
+                matchChangeWatcher = new FileChangeWatcher{ matchFileChangeCallback };
+                for (const std::filesystem::path& file : match_files_in_use)
+                {
+                    matchChangeWatcher->AddWatchingFile(file);
+                }
+            }
+        );
     };
-    matchChangeWatcher.AddWatchingFile(get_config().matchFilePath);
+    matchFileChangeCallback();
 
     if (!turn_on(window))
     {
+        delete matchChangeWatcher;
         return -1;
     }
 
@@ -123,6 +133,8 @@ int wWinMain(HINSTANCE hInstance, [[maybe_unused]] HINSTANCE hPrevInstance, [[ma
         TranslateMessage(&msg);
         DispatchMessage(&msg);
     }
+
+    delete matchChangeWatcher;
 
     turn_off();
 

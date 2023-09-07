@@ -47,23 +47,22 @@ MatchForParse::operator Match() const
 }
 
 
-std::vector<MatchForParse> parse_matches(const std::filesystem::path& file)
+std::pair<std::vector<MatchForParse>, std::set<std::filesystem::path>> parse_matches(const std::filesystem::path& file)
 {
-    std::unordered_set<std::filesystem::path> importedFiles;
-    return parse_matches(file, importedFiles);
+    std::set<std::filesystem::path> importedFiles;
+    return { parse_matches(file, importedFiles), importedFiles };
 }
 
 
-std::vector<MatchForParse> parse_matches(const std::filesystem::path& file, std::unordered_set<std::filesystem::path>& importedFiles)
+std::vector<MatchForParse> parse_matches(const std::filesystem::path& file, std::set<std::filesystem::path>& importedFiles)
 {
     const std::filesystem::path normalizedPath = file.lexically_normal();
-    if (importedFiles.contains(normalizedPath))
+    if (auto [_, wasNew] = importedFiles.insert(normalizedPath);
+        !wasNew)
     {
         logger.Log(ELogLevel::WARNING, "Circular import detected:", file);
         return {};
     }
-
-    importedFiles.insert(normalizedPath);
 
     std::wstring errorString;
     if (std::ifstream ifs{ file }; ifs.is_open())

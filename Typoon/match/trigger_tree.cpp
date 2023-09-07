@@ -485,8 +485,7 @@ void reconstruct_trigger_tree_with(std::filesystem::path matchFile)
 
 void setup_trigger_tree(std::filesystem::path matchFile)
 {
-    reconstruct_trigger_tree_with(std::move(matchFile));
-
+    match_file = std::move(matchFile);
     input_listeners.emplace_back("trigger_tree", on_input);
 }
 
@@ -501,7 +500,7 @@ void teardown_trigger_tree()
 
 std::jthread trigger_tree_constructor_thread;
 
-void reconstruct_trigger_tree(std::string_view matchesString)
+void reconstruct_trigger_tree(std::string_view matchesString, std::function<void()> onFinish)
 {
     struct EndingMetaData
     {
@@ -531,12 +530,22 @@ void reconstruct_trigger_tree(std::string_view matchesString)
 
     logger.Log("Trigger tree construction started");
 
-    trigger_tree_constructor_thread = std::jthread{ [matchesString](const std::stop_token& stopToken)
+    trigger_tree_constructor_thread = std::jthread{ [matchesString, onFinish = std::move(onFinish)](const std::stop_token& stopToken)
     {
 #define STOP if (stopToken.stop_requested()) { return; }
 
         STOP
-        std::vector<MatchForParse>&& matchesParsed = matchesString.empty() ? parse_matches(match_file) : parse_matches(matchesString);
+        std::vector<MatchForParse> matchesParsed;
+        if (matchesString.empty())
+        {
+            const auto&& [matches, files] = parse_matches(match_file);
+            matchesParsed = std::move(matches);
+            match_files_in_use = std::move(files);
+        }
+        else
+        {
+            matchesParsed = parse_matches(matchesString);
+        }
         STOP
         std::vector<Match> matches;
         matches.reserve(matchesParsed.size());
@@ -742,6 +751,10 @@ void reconstruct_trigger_tree(std::string_view matchesString)
 
         tree_height = height;
         is_constructing_trigger_tree.store(false);
+        if (onFinish)
+        {
+            onFinish();
+        }
 
         logger.Log("Trigger tree construction finished");
         if (get_config().notifyMatchLoad)
