@@ -1,9 +1,7 @@
 #include "parse_match.h"
 
-#include <json5/json5_input.hpp>
-#include <json5/json5_reflect.hpp>
-
 #include "../low_level/tray_icon.h"
+#include "../utils/json5_util.h"
 #include "../utils/logger.h"
 #include "../utils/string.h"
 
@@ -51,13 +49,64 @@ MatchForParse::operator Match() const
 
 std::vector<MatchForParse> parse_matches(const std::filesystem::path& file)
 {
+    std::unordered_set<std::filesystem::path> importedFiles;
+    return parse_matches(file, importedFiles);
+}
+
+
+std::vector<MatchForParse> parse_matches(const std::filesystem::path& file, std::unordered_set<std::filesystem::path>& importedFiles)
+{
+    const std::filesystem::path normalizedPath = file.lexically_normal();
+    if (importedFiles.contains(normalizedPath))
+    {
+        logger.Log(ELogLevel::WARNING, "Circular import detected:", file);
+        return {};
+    }
+
+    importedFiles.insert(normalizedPath);
+
+    std::wstring errorString;
     if (std::ifstream ifs{ file }; ifs.is_open())
     {
         const std::string str{ std::istreambuf_iterator<char>(ifs), std::istreambuf_iterator<char>() };
-        return parse_matches(std::string_view{ str });
+
+        json5::document doc;
+        json5::error err;
+        if (err = from_string(str, doc);
+            err == json5::error::none)
+        {
+            struct Imports
+            {
+                std::vector<std::filesystem::path> imports;
+
+                JSON5_MEMBERS(imports)
+            } imports;
+
+            if (err = json5::from_document(doc, imports);
+                err == json5::error::none)
+            {
+                std::vector<MatchForParse> matches;
+
+                for (const std::filesystem::path& importPath : imports.imports)
+                {
+                    std::vector<MatchForParse> importedMatches = parse_matches(importPath.is_absolute() ? importPath : (file.parent_path() / importPath), importedFiles);
+                    std::ranges::move(importedMatches, std::back_inserter(matches));
+                }
+
+                std::vector<MatchForParse> mainMatches = parse_matches(std::string_view{ str });
+                std::ranges::move(mainMatches, std::back_inserter(matches));
+
+                return matches;
+            }
+        }
+
+        errorString = json5_error_to_string(err);
     }
 
-    const std::wstring errorString = json5_error_to_string({ json5::error::could_not_open });
+    if (errorString.empty())
+    {
+        errorString = json5_error_to_string({ json5::error::could_not_open });
+    }
     logger.Log(ELogLevel::ERROR, "Matches file is invalid.", errorString);
     show_notification(L"Match File Parse Error", errorString);
 

@@ -1,6 +1,7 @@
 #pragma once
 #include <filesystem>
 #include <string>
+#include <unordered_set>
 #include <vector>
 
 #include <json5/json5_base.hpp>
@@ -52,5 +53,6 @@ JSON5_ENUM(OptionContainerForParse::EUppercaseStyle, first_letter, capitalize_wo
 
 
 std::vector<MatchForParse> parse_matches(const std::filesystem::path& file);
+std::vector<MatchForParse> parse_matches(const std::filesystem::path& file, std::unordered_set<std::filesystem::path>& importedFiles);
 // For unit tests
 std::vector<MatchForParse> parse_matches(std::string_view matchesString);
