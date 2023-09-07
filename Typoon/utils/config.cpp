@@ -7,31 +7,9 @@
 #include "../low_level/filesystem.h"
 #include "../low_level/tray_icon.h"
 #include "../parse/parse_keys.h"
+#include "json5_util.h"
 #include "logger.h"
 #include "./string.h"
-
-namespace json5::detail
-{
-
-template <>
-error read(const value& in, std::filesystem::path& out)
-{
-    if (in.is_string())
-    {
-        out = in.get_c_str();
-        return { error::none };
-    }
-
-    return { error::string_expected };
-}
-
-template<>
-value write(writer& w, const std::filesystem::path& in)
-{
-    return write(w, in.generic_string());
-}
-
-}
 
 
 struct ConfigForParse

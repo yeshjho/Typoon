@@ -48,6 +48,7 @@
     <ClInclude Include="platform\windows\wnd_proc.h" />
     <ClInclude Include="resource.h" />
     <ClInclude Include="utils\config.h" />
+    <ClInclude Include="utils\json5_util.h" />
     <ClInclude Include="utils\logger.h" />
     <ClInclude Include="utils\string.h" />
   </ItemGroup>
