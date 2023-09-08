@@ -2,30 +2,13 @@
 
 #include "../../Typoon/match/trigger_tree.h"
 #include "../util/test_util.h"
-#include "../util/config.h"
-#include "../util/text_editor_simulator.h"
-
-
-void start_test_case(const Config& config = default_config)
-{
-    set_config(config);
-    setup_trigger_tree("");
-    setup_imm_simulator();
-    text_editor_simulator.Reset();
-}
-
-void end_test_case()
-{
-    teardown_trigger_tree();
-    teardown_imm_simulator();
-}
 
 
 TEST_SUITE("Match")
 {
     TEST_CASE("Erroneous Matches")
     {
-        start_test_case();
+        start_match_test_case();
 
         SUBCASE("Triggers")
         {
@@ -66,12 +49,12 @@ TEST_SUITE("Match")
             check_text_editor_simulator({ L"나가 나가나가나가ㄷㄷ|_|ㅏ", true });
         }
 
-        end_test_case();
+        end_match_test_case();
     }
 
     TEST_CASE("Basics")
     {
-        start_test_case();
+        start_match_test_case();
 
         SUBCASE("Ascii Only")
         {
@@ -240,12 +223,12 @@ b',
             check_text_editor_simulator({ L"useless" });
         }
 
-        end_test_case();
+        end_match_test_case();
     }
 
     TEST_CASE("Options - case_sensitive")
     {
-        start_test_case();
+        start_match_test_case();
 
         SUBCASE("Case Sensitive")
         {
@@ -301,12 +284,12 @@ b',
             check_text_editor_simulator({ L"triggered triggered triggered TRIGGERED TRIGGERED TRIGGERED tRiGgErEd tRiGgErEd tRiGgErEd" });
         }
 
-        end_test_case();
+        end_match_test_case();
     }
 
     TEST_CASE("Options - word")
     {
-        start_test_case();
+        start_match_test_case();
 
         SUBCASE("Word")
         {
@@ -353,12 +336,12 @@ b',
             check_text_editor_simulator({ L"banana, bananas banana\n다라하 다라. 다라ㅏ " });
         }
 
-        end_test_case();
+        end_match_test_case();
     }
 
     TEST_CASE("Options - full_composite")
     {
-        start_test_case();
+        start_match_test_case();
 
         SUBCASE("Full Composite")
         {
@@ -405,12 +388,12 @@ b',
             check_text_editor_simulator({ L"다라 다라카 다라ㄴ한 다라, 감사ㅏ 감사. 감사 " });
         }
 
-        end_test_case();
+        end_match_test_case();
     }
 
     TEST_CASE("Options - propagate_case")
     {
-        start_test_case();
+        start_match_test_case();
 
         SUBCASE("Propagate Case")
         {
@@ -457,12 +440,12 @@ b',
             check_text_editor_simulator({ L"banana banana banana banana banana 1d2o3g 1d2o3g 1d2o3g 1d2o3g 1d2o3g" });
         }
 
-        end_test_case();
+        end_match_test_case();
     }
 
     TEST_CASE("Options - uppercase_style")
     {
-        start_test_case();
+        start_match_test_case();
 
         SUBCASE("Default (First Letter)")
         {
@@ -515,12 +498,12 @@ b',
                                                       "1d2o3g dr!1l 1D2o3g Dr!1L 1D2o3g Dr!1L 1d2o3g dr!1l 1D2O3G DR!1L" });
         }
 
-        end_test_case();
+        end_match_test_case();
     }
 
     TEST_CASE("Options - keep_composite")
     {
-        start_test_case();
+        start_match_test_case();
 
         SUBCASE("Keep Composite")
         {
@@ -580,21 +563,21 @@ b',
             check_text_editor_simulator({ L"가a|_|단", true });
         }
 
-        end_test_case();
+        end_match_test_case();
     }
 
     TEST_CASE("Mixed Options")
     {
         // Writing a test for all possible combinations is simply too much work. (2^6 - 1(all off) - 6(only one on) = 57)
         // Therefore, only test for 2 combinations of each of them. (6C2 = 15)
-        start_test_case();
+        start_match_test_case();
 
         SUBCASE("")
         {
             
         }
 
-        end_test_case();
+        end_match_test_case();
     }
 }
 
@@ -607,7 +590,7 @@ TEST_SUITE("Config")
 
         SUBCASE("Default Amount (5)")
         {
-            start_test_case(config);
+            start_match_test_case(config);
 
             reconstruct_trigger_tree_with_u8string(u8R"({
                     matches: [
@@ -627,7 +610,7 @@ TEST_SUITE("Config")
         SUBCASE("Lesser Amount")
         {
             config.maxBackspaceCount = 3;
-            start_test_case(config);
+            start_match_test_case(config);
 
             reconstruct_trigger_tree_with_u8string(u8R"({
                     matches: [
@@ -647,7 +630,7 @@ TEST_SUITE("Config")
         SUBCASE("Unforgiving")
         {
             config.maxBackspaceCount = -123;
-            start_test_case(config);
+            start_match_test_case(config);
 
             reconstruct_trigger_tree_with_u8string(u8R"({
                     matches: [
@@ -664,7 +647,7 @@ TEST_SUITE("Config")
             check_text_editor_simulator({ L"apple" });
         }
 
-        end_test_case();
+        end_match_test_case();
     }
 
     TEST_CASE("cursor_placeholder")
@@ -672,7 +655,7 @@ TEST_SUITE("Config")
         Config config = default_config;
         config.cursorPlaceholder = L"$|$";
 
-        start_test_case(config);
+        start_match_test_case(config);
 
         SUBCASE("No More |_|")
         {
@@ -716,6 +699,6 @@ TEST_SUITE("Config")
             check_text_editor_simulator({ .text = L"useless", .cursorPlaceholder = L"$|$" });
         }
 
-        end_test_case();
+        end_match_test_case();
     }
 }

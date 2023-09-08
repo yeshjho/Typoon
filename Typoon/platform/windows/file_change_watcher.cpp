@@ -108,7 +108,7 @@ void FileChangeWatcher::AddWatchingFile(const std::filesystem::path& filePath)
     const auto overlapped = new OVERLAPPED{};
     overlapped->hEvent = CreateEvent(nullptr, false, false, nullptr);
     mEvents.emplace_back(overlapped->hEvent);
-    mFiles.emplace_back(filePath, filePath.filename().wstring(), dir, new char[512], overlapped);
+    mFiles.emplace_back(filePath, filePath.filename().wstring(), dir, new char[512] { 0, }, overlapped);
 
     readDirectoryChanges(static_cast<int>(mFiles.size() - 1));
 }
