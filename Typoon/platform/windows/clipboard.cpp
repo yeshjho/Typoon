@@ -3,16 +3,134 @@
 #include <Windows.h>
 #include <gdiplus.h>
 
+#include "log.h"
+
+
+UINT clipboard_content_type = 0;
+void* clipboard_data = nullptr;
+
 
 void push_current_clipboard_state()
 {
+    if (!OpenClipboard(nullptr))
+    {
+        log_last_error(L"Failed to open clipboard:");
+        return;
+    }
 
+    pop_current_clipboard_state_without_restoring();
+
+    if (clipboard_content_type = EnumClipboardFormats(0);
+        clipboard_content_type != 0)
+    {
+        const HANDLE data = GetClipboardData(clipboard_content_type);
+        GlobalLock(data);
+
+        switch(clipboard_content_type)
+        {
+        case CF_TEXT:
+        {
+            auto* text = static_cast<const char*>(data);
+            const size_t size = strlen(text) + 1;
+            clipboard_data = new char[size];
+            strcpy_s(static_cast<char*>(clipboard_data), size, text);
+            break;
+        }
+
+        case CF_UNICODETEXT:
+        {
+            auto* text = static_cast<const wchar_t*>(data);
+            const size_t size = wcslen(text) + 1;
+            clipboard_data = new wchar_t[size];
+            wcscpy_s(static_cast<wchar_t*>(clipboard_data), size, text);
+            break;
+        }
+
+        case CF_BITMAP:
+        {
+            const auto hBitmap = static_cast<HBITMAP>(data);
+            BITMAP bitmap;
+            GetObject(hBitmap, sizeof(BITMAP), &bitmap);
+
+            const HDC sourceHdc = CreateCompatibleDC(nullptr);
+            SelectObject(sourceHdc, hBitmap);
+
+            clipboard_data = CreateCompatibleBitmap(sourceHdc, bitmap.bmWidth, bitmap.bmHeight);
+            const HDC targetHdc = CreateCompatibleDC(nullptr);
+            SelectObject(targetHdc, clipboard_data);
+
+            BitBlt(targetHdc, 0, 0, bitmap.bmWidth, bitmap.bmHeight, sourceHdc, 0, 0, SRCCOPY);
+
+            DeleteDC(targetHdc);
+            DeleteDC(sourceHdc);
+            break;
+        }
+
+        // TODO: Handle other clipboard types (Do we really have to?)
+
+        default:
+            break;
+        }
+    }
+
+    CloseClipboard();
 }
 
 
 void pop_current_clipboard_state()
 {
-    
+    if (!OpenClipboard(nullptr))
+    {
+        log_last_error(L"Failed to open clipboard:");
+        return;
+    }
+
+    switch (clipboard_content_type)
+    {
+    case CF_TEXT:
+        SetClipboardData(CF_TEXT, clipboard_data);
+        break;
+
+    case CF_UNICODETEXT:
+        SetClipboardData(CF_UNICODETEXT, clipboard_data);
+        break;
+
+    case CF_BITMAP:
+        SetClipboardData(CF_BITMAP, clipboard_data);
+        break;
+
+    default:
+        break;
+    }
+
+    CloseClipboard();
+
+    pop_current_clipboard_state_without_restoring();
+}
+
+
+void pop_current_clipboard_state_without_restoring()
+{
+    switch (clipboard_content_type)
+    {
+    case CF_TEXT:
+        delete[] static_cast<char*>(clipboard_data);
+        break;
+
+    case CF_UNICODETEXT:
+        delete[] static_cast<wchar_t*>(clipboard_data);
+        break;
+
+    case CF_BITMAP:
+        DeleteObject(clipboard_data);
+        break;
+
+    default:
+        break;
+    }
+
+    clipboard_content_type = 0;
+    clipboard_data = nullptr;
 }
 
 
@@ -22,7 +140,8 @@ void set_clipboard_image(const std::filesystem::path& imagePath)
     ULONG_PTR token;
     Gdiplus::GdiplusStartup(&token, &startupInput, nullptr);
 
-    if (Gdiplus::Bitmap* bitmap = Gdiplus::Bitmap::FromFile(imagePath.c_str()))
+    if (Gdiplus::Bitmap* bitmap = Gdiplus::Bitmap::FromFile(imagePath.c_str());
+        bitmap->GetLastStatus() == Gdiplus::Status::Ok)
     {
         const unsigned int propSize = bitmap->GetPropertyItemSize(PropertyTagOrientation);
         auto* propertyItem = static_cast<Gdiplus::PropertyItem*>(operator new(propSize));
@@ -79,14 +198,25 @@ void set_clipboard_image(const std::filesystem::path& imagePath)
                 const HBITMAP realHBitmap = CreateDIBitmap(hdc, &ds.dsBmih, CBM_INIT,
                     ds.dsBm.bmBits, reinterpret_cast<BITMAPINFO*>(&ds.dsBmih), DIB_RGB_COLORS);
                 ReleaseDC(HWND_DESKTOP, hdc);
-                SetClipboardData(CF_BITMAP, realHBitmap);
+                if (!SetClipboardData(CF_BITMAP, realHBitmap))
+                {
+                    log_last_error(L"Failed to set clipboard data:");
+                }
                 DeleteObject(realHBitmap);
             }
             CloseClipboard();
         }
+        else
+        {
+            log_last_error(L"Failed to open clipboard:");
+        }
 
         DeleteObject(hBitmap);
         delete bitmap;
+    }
+    else
+    {
+        log_last_error(L"Failed to load image from file:");
     }
 
     Gdiplus::GdiplusShutdown(token);

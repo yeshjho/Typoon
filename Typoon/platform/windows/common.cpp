@@ -2,6 +2,7 @@
 
 #include <ObjectArray.h>
 
+#include "../../low_level/clipboard.h"
 #include "../../low_level/input_watcher.h"
 #include "../../low_level/tray_icon.h"
 
@@ -47,6 +48,7 @@ void turn_off()
     halt_trigger_tree_construction();
     end_input_watcher();
     teardown_imm_simulator();
+    pop_current_clipboard_state_without_restoring();
 
     is_on = false;
 
