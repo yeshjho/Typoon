@@ -18,7 +18,7 @@ void push_current_clipboard_state()
         return;
     }
 
-    pop_current_clipboard_state_without_restoring();
+    pop_clipboard_state_without_restoring();
 
     if (clipboard_content_type = EnumClipboardFormats(0);
         clipboard_content_type != 0)
@@ -32,7 +32,7 @@ void push_current_clipboard_state()
         {
             auto* text = static_cast<const char*>(data);
             const size_t size = strlen(text) + 1;
-            clipboard_data = new char[size];
+            clipboard_data = new char[size] { 0, };
             strcpy_s(static_cast<char*>(clipboard_data), size, text);
             break;
         }
@@ -41,7 +41,7 @@ void push_current_clipboard_state()
         {
             auto* text = static_cast<const wchar_t*>(data);
             const size_t size = wcslen(text) + 1;
-            clipboard_data = new wchar_t[size];
+            clipboard_data = new wchar_t[size] { 0, };
             wcscpy_s(static_cast<wchar_t*>(clipboard_data), size, text);
             break;
         }
@@ -77,7 +77,7 @@ void push_current_clipboard_state()
 }
 
 
-void pop_current_clipboard_state()
+void pop_clipboard_state()
 {
     if (!OpenClipboard(nullptr))
     {
@@ -88,14 +88,34 @@ void pop_current_clipboard_state()
     switch (clipboard_content_type)
     {
     case CF_TEXT:
-        SetClipboardData(CF_TEXT, clipboard_data);
+    {
+        EmptyClipboard();
+
+        const auto* text = static_cast<const char*>(clipboard_data);
+        const size_t len = (strlen(text) + 1) * sizeof(char);
+        const HGLOBAL mem = GlobalAlloc(GMEM_MOVEABLE, len);
+        strcpy_s(static_cast<char*>(GlobalLock(mem)), len, text);
+        GlobalUnlock(mem);
+        SetClipboardData(CF_TEXT, mem);
         break;
+    }
 
     case CF_UNICODETEXT:
-        SetClipboardData(CF_UNICODETEXT, clipboard_data);
+    {
+        EmptyClipboard();
+
+        const auto* text = static_cast<const wchar_t*>(clipboard_data);
+        const size_t len = (wcslen(text) + 1) * sizeof(wchar_t);
+        const HGLOBAL mem = GlobalAlloc(GMEM_MOVEABLE, len);
+        wcscpy_s(static_cast<wchar_t*>(GlobalLock(mem)), len, text);
+        GlobalUnlock(mem);
+        SetClipboardData(CF_UNICODETEXT, mem);
         break;
+    }
 
     case CF_BITMAP:
+        EmptyClipboard();
+
         SetClipboardData(CF_BITMAP, clipboard_data);
         break;
 
@@ -105,11 +125,11 @@ void pop_current_clipboard_state()
 
     CloseClipboard();
 
-    pop_current_clipboard_state_without_restoring();
+    pop_clipboard_state_without_restoring();
 }
 
 
-void pop_current_clipboard_state_without_restoring()
+void pop_clipboard_state_without_restoring()
 {
     switch (clipboard_content_type)
     {
@@ -131,6 +151,25 @@ void pop_current_clipboard_state_without_restoring()
 
     clipboard_content_type = 0;
     clipboard_data = nullptr;
+}
+
+
+std::thread clipboard_state_restorer;
+
+
+void pop_clipboard_state_with_delay(std::function<bool()> predicate)
+{
+    constexpr std::chrono::milliseconds delay{ 200 };
+    clipboard_state_restorer = std::thread{
+        [predicate = std::move(predicate)]()
+        {
+            std::this_thread::sleep_for(delay);
+            if (predicate())
+            {
+                pop_clipboard_state();
+            }
+        }
+    };
 }
 
 

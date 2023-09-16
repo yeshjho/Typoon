@@ -8,6 +8,7 @@
 #include "../../utils/string.h"
 #include "log.h"
 
+
 const wchar_t FakeInput::BACKSPACE_KEY = VK_BACK;
 const wchar_t FakeInput::TOGGLE_HANGEUL_KEY = VK_HANGUL;
 const wchar_t FakeInput::LEFT_ARROW_KEY = VK_LEFT;
@@ -80,11 +81,34 @@ void send_fake_inputs(const std::vector<FakeInput>& inputs, bool isCapsLockOn)
             break;
         }
 
+        case FakeInput::EType::HOT_KEY_PASTE:
+        {
+            INPUT ctrlInput = {};
+            ctrlInput.type = INPUT_KEYBOARD;
+            ctrlInput.ki.wVk = VK_CONTROL;
+            ctrlInput.ki.dwExtraInfo = FAKE_INPUT_EXTRA_INFO_CONSTANT;
+
+            INPUT vInput = {};
+            vInput.type = INPUT_KEYBOARD;
+            vInput.ki.wVk = 'V';
+            vInput.ki.dwExtraInfo = FAKE_INPUT_EXTRA_INFO_CONSTANT;
+
+            windowsInputs.emplace_back(ctrlInput);
+            windowsInputs.emplace_back(vInput);
+
+            vInput.ki.dwFlags = KEYEVENTF_KEYUP;
+            windowsInputs.emplace_back(vInput);
+
+            ctrlInput.ki.dwFlags = KEYEVENTF_KEYUP;
+            windowsInputs.emplace_back(ctrlInput);
+            break;
+        }
+
         default:
             std::unreachable();
         }
     }
-    
+
     if (const UINT uSent = SendInput(static_cast<UINT>(windowsInputs.size()), windowsInputs.data(), sizeof(INPUT));
         uSent != windowsInputs.size()) [[unlikely]]
     {

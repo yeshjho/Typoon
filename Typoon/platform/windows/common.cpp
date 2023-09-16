@@ -48,7 +48,7 @@ void turn_off()
     halt_trigger_tree_construction();
     end_input_watcher();
     teardown_imm_simulator();
-    pop_current_clipboard_state_without_restoring();
+    pop_clipboard_state_without_restoring();
 
     is_on = false;
 
