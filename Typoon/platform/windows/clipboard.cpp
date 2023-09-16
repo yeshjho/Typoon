@@ -3,11 +3,16 @@
 #include <Windows.h>
 #include <gdiplus.h>
 
+#include "../../utils/logger.h"
 #include "log.h"
 
 
 UINT clipboard_content_type = 0;
 void* clipboard_data = nullptr;
+size_t clipboard_data_size = 0;
+
+
+constexpr UINT CLIPBOARD_FORMAT_IMAGE = 49161;
 
 
 void push_current_clipboard_state()
@@ -31,46 +36,41 @@ void push_current_clipboard_state()
         case CF_TEXT:
         {
             auto* text = static_cast<const char*>(data);
-            const size_t size = strlen(text) + 1;
-            clipboard_data = new char[size] { 0, };
-            strcpy_s(static_cast<char*>(clipboard_data), size, text);
+            const size_t len = strlen(text) + 1;
+            clipboard_data = new char[len] { 0, };
+            strcpy_s(static_cast<char*>(clipboard_data), len, text);
+            clipboard_data_size = len * sizeof(char);
             break;
         }
 
         case CF_UNICODETEXT:
         {
             auto* text = static_cast<const wchar_t*>(data);
-            const size_t size = wcslen(text) + 1;
-            clipboard_data = new wchar_t[size] { 0, };
-            wcscpy_s(static_cast<wchar_t*>(clipboard_data), size, text);
+            const size_t len = wcslen(text) + 1;
+            clipboard_data = new wchar_t[len] { 0, };
+            wcscpy_s(static_cast<wchar_t*>(clipboard_data), len, text);
+            clipboard_data_size = len * sizeof(wchar_t);
             break;
         }
 
-        case CF_BITMAP:
+        // TODO: It seems like there's no way to get the actual data of the image from the clipboard.
+        /*
+        case CLIPBOARD_FORMAT_IMAGE:
         {
-            const auto hBitmap = static_cast<HBITMAP>(data);
-            BITMAP bitmap;
-            GetObject(hBitmap, sizeof(BITMAP), &bitmap);
-
-            const HDC sourceHdc = CreateCompatibleDC(nullptr);
-            SelectObject(sourceHdc, hBitmap);
-
-            clipboard_data = CreateCompatibleBitmap(sourceHdc, bitmap.bmWidth, bitmap.bmHeight);
-            const HDC targetHdc = CreateCompatibleDC(nullptr);
-            SelectObject(targetHdc, clipboard_data);
-
-            BitBlt(targetHdc, 0, 0, bitmap.bmWidth, bitmap.bmHeight, sourceHdc, 0, 0, SRCCOPY);
-
-            DeleteDC(targetHdc);
-            DeleteDC(sourceHdc);
+            clipboard_data_size = GlobalSize(data);
+            clipboard_data = new char[clipboard_data_size] { 0, };
+            std::memcpy(clipboard_data, data, clipboard_data_size);
             break;
         }
+        */
 
         // TODO: Handle other clipboard types (Do we really have to?)
-
         default:
+            logger.Log(ELogLevel::INFO, "Unhandled clipboard format", clipboard_content_type);
             break;
         }
+
+        GlobalUnlock(data);
     }
 
     CloseClipboard();
@@ -92,9 +92,8 @@ void pop_clipboard_state()
         EmptyClipboard();
 
         const auto* text = static_cast<const char*>(clipboard_data);
-        const size_t len = (strlen(text) + 1) * sizeof(char);
-        const HGLOBAL mem = GlobalAlloc(GMEM_MOVEABLE, len);
-        strcpy_s(static_cast<char*>(GlobalLock(mem)), len, text);
+        const HGLOBAL mem = GlobalAlloc(GMEM_MOVEABLE, clipboard_data_size);
+        strcpy_s(static_cast<char*>(GlobalLock(mem)), clipboard_data_size / sizeof(char), text);
         GlobalUnlock(mem);
         SetClipboardData(CF_TEXT, mem);
         break;
@@ -105,19 +104,25 @@ void pop_clipboard_state()
         EmptyClipboard();
 
         const auto* text = static_cast<const wchar_t*>(clipboard_data);
-        const size_t len = (wcslen(text) + 1) * sizeof(wchar_t);
-        const HGLOBAL mem = GlobalAlloc(GMEM_MOVEABLE, len);
-        wcscpy_s(static_cast<wchar_t*>(GlobalLock(mem)), len, text);
+        const HGLOBAL mem = GlobalAlloc(GMEM_MOVEABLE, clipboard_data_size);
+        wcscpy_s(static_cast<wchar_t*>(GlobalLock(mem)), clipboard_data_size / sizeof(wchar_t), text);
         GlobalUnlock(mem);
         SetClipboardData(CF_UNICODETEXT, mem);
         break;
     }
 
-    case CF_BITMAP:
+    /*
+    case CLIPBOARD_FORMAT_IMAGE:
+    {
         EmptyClipboard();
 
-        SetClipboardData(CF_BITMAP, clipboard_data);
+        const HGLOBAL mem = GlobalAlloc(GMEM_MOVEABLE, clipboard_data_size);
+        std::memcpy(GlobalLock(mem), clipboard_data, clipboard_data_size);
+        GlobalUnlock(mem);
+        SetClipboardData(CLIPBOARD_FORMAT_IMAGE, mem);
         break;
+    }
+    */
 
     default:
         break;
@@ -134,15 +139,12 @@ void pop_clipboard_state_without_restoring()
     switch (clipboard_content_type)
     {
     case CF_TEXT:
+    case CLIPBOARD_FORMAT_IMAGE:
         delete[] static_cast<char*>(clipboard_data);
         break;
 
     case CF_UNICODETEXT:
         delete[] static_cast<wchar_t*>(clipboard_data);
-        break;
-
-    case CF_BITMAP:
-        DeleteObject(clipboard_data);
         break;
 
     default:
@@ -159,7 +161,8 @@ std::thread clipboard_state_restorer;
 
 void pop_clipboard_state_with_delay(std::function<bool()> predicate)
 {
-    constexpr std::chrono::milliseconds delay{ 200 };
+    // We never know how long does the simulated paste take. This is the best we can do.
+    constexpr std::chrono::milliseconds delay{ 500 };
     clipboard_state_restorer = std::thread{
         [predicate = std::move(predicate)]()
         {
@@ -264,5 +267,19 @@ void set_clipboard_image(const std::filesystem::path& imagePath)
 
 void set_clipboard_text(const std::wstring& text)
 {
-    
+    if (!OpenClipboard(nullptr))
+    {
+        log_last_error(L"Failed to open clipboard:");
+        return;
+    }
+
+    EmptyClipboard();
+
+    const size_t len = text.size() + 1;
+    const HGLOBAL mem = GlobalAlloc(GMEM_MOVEABLE, len * sizeof(wchar_t));
+    wcscpy_s(static_cast<wchar_t*>(GlobalLock(mem)), len, text.c_str());
+    GlobalUnlock(mem);
+    SetClipboardData(CF_UNICODETEXT, mem);
+
+    CloseClipboard();
 }
