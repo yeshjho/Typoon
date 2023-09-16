@@ -11,3 +11,5 @@ void pop_clipboard_state_with_delay(std::function<bool()> predicate = []() { ret
 
 void set_clipboard_image(const std::filesystem::path& imagePath);
 void set_clipboard_text(const std::wstring& text);
+
+void end_clipboard_storer();

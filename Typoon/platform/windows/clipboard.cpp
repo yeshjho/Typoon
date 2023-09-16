@@ -29,27 +29,34 @@ void push_current_clipboard_state()
         clipboard_content_type != 0)
     {
         const HANDLE data = GetClipboardData(clipboard_content_type);
-        GlobalLock(data);
 
         switch(clipboard_content_type)
         {
         case CF_TEXT:
         {
+            GlobalLock(data);
+
             auto* text = static_cast<const char*>(data);
             const size_t len = strlen(text) + 1;
             clipboard_data = new char[len] { 0, };
             strcpy_s(static_cast<char*>(clipboard_data), len, text);
             clipboard_data_size = len * sizeof(char);
+
+            GlobalUnlock(data);
             break;
         }
 
         case CF_UNICODETEXT:
         {
+            GlobalLock(data);
+
             auto* text = static_cast<const wchar_t*>(data);
             const size_t len = wcslen(text) + 1;
             clipboard_data = new wchar_t[len] { 0, };
             wcscpy_s(static_cast<wchar_t*>(clipboard_data), len, text);
             clipboard_data_size = len * sizeof(wchar_t);
+
+            GlobalUnlock(data);
             break;
         }
 
@@ -57,9 +64,13 @@ void push_current_clipboard_state()
         /*
         case CLIPBOARD_FORMAT_IMAGE:
         {
+            GlobalLock(data);
+            
             clipboard_data_size = GlobalSize(data);
             clipboard_data = new char[clipboard_data_size] { 0, };
             std::memcpy(clipboard_data, data, clipboard_data_size);
+
+            GlobalUnlock(data);
             break;
         }
         */
@@ -69,8 +80,6 @@ void push_current_clipboard_state()
             logger.Log(ELogLevel::INFO, "Unhandled clipboard format", clipboard_content_type);
             break;
         }
-
-        GlobalUnlock(data);
     }
 
     CloseClipboard();
@@ -163,6 +172,10 @@ void pop_clipboard_state_with_delay(std::function<bool()> predicate)
 {
     // We never know how long does the simulated paste take. This is the best we can do.
     constexpr std::chrono::milliseconds delay{ 500 };
+    if (clipboard_state_restorer.joinable())
+    {
+        clipboard_state_restorer.join();
+    }
     clipboard_state_restorer = std::thread{
         [predicate = std::move(predicate)]()
         {
@@ -282,4 +295,15 @@ void set_clipboard_text(const std::wstring& text)
     SetClipboardData(CF_UNICODETEXT, mem);
 
     CloseClipboard();
+}
+
+
+void end_clipboard_storer()
+{
+    pop_clipboard_state_without_restoring();
+
+    if (clipboard_state_restorer.joinable())
+    {
+        clipboard_state_restorer.join();
+    }
 }

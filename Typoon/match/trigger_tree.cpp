@@ -6,6 +6,7 @@
 
 #include "../imm/imm_simulator.h"
 #include "../input_multicast/input_multicast.h"
+#include "../low_level/clipboard.h"
 #include "../low_level/fake_input.h"
 #include "../low_level/input_watcher.h"
 #include "../low_level/tray_icon.h"
@@ -94,6 +95,7 @@ struct Node
 struct Ending
 {
     int replaceStringIndex = -1;
+    bool isImage = false;
     unsigned int replaceStringLength = 0;
     unsigned int backspaceCount = 0;
     unsigned int cursorMoveCount = 0;
@@ -131,8 +133,21 @@ std::atomic<bool> is_constructing_trigger_tree = false;
 
 void replace_string(const Ending& ending, const Agent& agent, std::wstring_view stroke, const InputMessage(&inputs)[MAX_INPUT_COUNT], int inputLength, int inputIndex, bool doNeedFullComposite)
 {
-    const auto& [replaceStringIndex, replaceStringLength, backspaceCount, cursorMoveCount, propagateCase, uppercaseStyle, keepComposite] = ending;
+    const auto& [replaceStringIndex, isImage, replaceStringLength, backspaceCount, cursorMoveCount, 
+        propagateCase, uppercaseStyle, keepComposite] = ending;
+
     const std::wstring_view originalReplaceString{ replace_strings.data() + replaceStringIndex, replaceStringLength };
+    if (isImage)
+    {
+        push_current_clipboard_state();
+        set_clipboard_image(originalReplaceString);
+        std::vector<FakeInput> fakeInputs{ backspaceCount, FakeInput{ FakeInput::EType::KEY, FakeInput::BACKSPACE_KEY } };
+        fakeInputs.emplace_back(FakeInput::EType::HOT_KEY_PASTE);
+        send_fake_inputs(fakeInputs, false);
+        // Popping the clipboard state is done in main.
+        return;
+    }
+
     std::wstring replaceString{ originalReplaceString };
 
     unsigned int additionalCursorMoveCount = 0;
@@ -538,7 +553,7 @@ void reconstruct_trigger_tree(std::string_view matchesString, std::function<void
         std::vector<MatchForParse> matchesParsed;
         if (matchesString.empty())
         {
-            const auto&& [matches, files] = parse_matches(match_file);
+            auto&& [matches, files] = parse_matches(match_file);
             matchesParsed = std::move(matches);
             match_files_in_use = std::move(files);
         }
@@ -553,7 +568,7 @@ void reconstruct_trigger_tree(std::string_view matchesString, std::function<void
         STOP
         std::ranges::filter_view matchesFiltered{ matches, [](const Match& match)
             {
-                return !match.triggers.empty() && !match.replace.empty();
+                return !match.triggers.empty() && (!match.replace.empty() || !match.replaceImage.empty());
             }
         };
         // TODO: Warn about empty triggers or replaces
@@ -563,9 +578,12 @@ void reconstruct_trigger_tree(std::string_view matchesString, std::function<void
         std::vector<std::pair<const Match*, const std::wstring*>> triggersOverwritten;
         for (const Match& match : matchesFiltered)
         {
-            const auto& [triggers, originalReplace, isCaseSensitive, isWord, doPropagateCase, uppercaseStyle, doNeedFullComposite, doKeepComposite] = match;
+            const auto& [triggers, originalReplace, replaceImage, 
+                isCaseSensitive, isWord, doPropagateCase, uppercaseStyle, doNeedFullComposite, doKeepComposite] = match;
             for (const auto& originalTrigger : triggers)
             {
+                const bool isImage = !replaceImage.empty();
+
                 std::wstring triggerStr{ originalTrigger };
                 std::wstring replaceStr{ originalReplace };
 
@@ -662,15 +680,22 @@ void reconstruct_trigger_tree(std::string_view matchesString, std::function<void
                 }
 
                 Ending ending{
+                    .isImage = isImage,
                     .backspaceCount = backspaceCount,
                     .cursorMoveCount = cursorMoveCount,
                     // TODO: Abstract the extra conditions of the options and warn the user if ignored
-                    .propagateCase = doPropagateCase && !isCaseSensitive && std::ranges::any_of(trigger, [](wchar_t c) { return is_cased_alpha(c); }),
+                    .propagateCase = doPropagateCase && !isCaseSensitive && std::ranges::any_of(trigger, [](wchar_t c) { return is_cased_alpha(c); }) && 
+                                     !isImage,
                     .uppercaseStyle = uppercaseStyle,
                     .keepComposite = doKeepComposite && is_korean(replace.back()) && !needFullComposite && cursorMoveCount == 0 && 
-                                     (trigger.size() > 1 || triggerLastLetter != replace.back()),
+                                     (trigger.size() > 1 || triggerLastLetter != replace.back()) && !isImage,
                 };
-                node->children[letter] = TempNode{ .endingMetaData = EndingMetaData{ .replace = std::wstring{ replace }, .tempEnding = ending } };
+                node->children[letter] = TempNode{ .endingMetaData = 
+                    EndingMetaData{
+                        .replace = isImage ? replaceImage.generic_wstring() : std::wstring{ replace },
+                        .tempEnding = ending,
+                    }
+                };
                 STOP
             }
             STOP
