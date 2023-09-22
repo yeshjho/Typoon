@@ -40,7 +40,7 @@ std::pair<std::wstring, int> run_command_and_get_output(std::wstring_view comman
         logger.Log(ELogLevel::WARNING, L"Command output was truncated", command);
     }
 
-    if (output.back() == L'\n')
+    if (!output.empty() && output.back() == L'\n')
     {
         output.pop_back();
     }
