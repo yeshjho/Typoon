@@ -7,6 +7,7 @@
 #include "../imm/imm_simulator.h"
 #include "../input_multicast/input_multicast.h"
 #include "../low_level/clipboard.h"
+#include "../low_level/command.h"
 #include "../low_level/fake_input.h"
 #include "../low_level/input_watcher.h"
 #include "../low_level/tray_icon.h"
@@ -94,8 +95,15 @@ struct Node
 // The last letter of a trigger, contains the information for the replacement string.
 struct Ending
 {
+    enum class EReplaceType
+    {
+        TEXT,
+        IMAGE,
+        COMMAND,
+    };
+
     int replaceStringIndex = -1;
-    bool isImage = false;
+    EReplaceType type = EReplaceType::TEXT;
     unsigned int replaceStringLength = 0;
     unsigned int backspaceCount = 0;
     unsigned int cursorMoveCount = 0;
@@ -133,11 +141,14 @@ std::atomic<bool> is_constructing_trigger_tree = false;
 
 void replace_string(const Ending& ending, const Agent& agent, std::wstring_view stroke, const InputMessage(&inputs)[MAX_INPUT_COUNT], int inputLength, int inputIndex, bool doNeedFullComposite)
 {
-    const auto& [replaceStringIndex, isImage, replaceStringLength, backspaceCount, cursorMoveCount, 
+    const auto& [replaceStringIndex, replaceType, replaceStringLength, backspaceCount, cursorMoveCount, 
         propagateCase, uppercaseStyle, keepComposite] = ending;
 
     const std::wstring_view originalReplaceString{ replace_strings.data() + replaceStringIndex, replaceStringLength };
-    if (isImage)
+
+    switch (replaceType)
+    {
+    case Ending::EReplaceType::IMAGE:
     {
         push_current_clipboard_state();
         set_clipboard_image(originalReplaceString);
@@ -146,6 +157,26 @@ void replace_string(const Ending& ending, const Agent& agent, std::wstring_view 
         send_fake_inputs(fakeInputs, false);
         // Popping the clipboard state is done in main.
         return;
+    }
+
+    case Ending::EReplaceType::COMMAND:
+    {
+        std::vector<FakeInput> fakeInputs{ backspaceCount, FakeInput{ FakeInput::EType::KEY, FakeInput::BACKSPACE_KEY } };
+        const auto& [str, ret] = run_command_and_get_output(originalReplaceString);
+        fakeInputs.reserve(fakeInputs.size() + str.size());
+        for (wchar_t c : str)
+        {
+            fakeInputs.emplace_back(FakeInput::EType::LETTER, c);
+        }
+        send_fake_inputs(fakeInputs, false);
+        return;
+    }
+
+    case Ending::EReplaceType::TEXT:
+        break;
+
+    default:
+        std::unreachable();
     }
 
     std::wstring replaceString{ originalReplaceString };
@@ -568,7 +599,7 @@ void reconstruct_trigger_tree(std::string_view matchesString, std::function<void
         STOP
         std::ranges::filter_view matchesFiltered{ matches, [](const Match& match)
             {
-                return !match.triggers.empty() && (!match.replace.empty() || !match.replaceImage.empty());
+                return !match.triggers.empty() && (!match.replace.empty() || !match.replaceImage.empty() || !match.replaceCommand.empty());
             }
         };
         // TODO: Warn about empty triggers or replaces
@@ -578,12 +609,10 @@ void reconstruct_trigger_tree(std::string_view matchesString, std::function<void
         std::vector<std::pair<const Match*, const std::wstring*>> triggersOverwritten;
         for (const Match& match : matchesFiltered)
         {
-            const auto& [triggers, originalReplace, replaceImage, 
+            const auto& [triggers, originalReplace, replaceImage, replaceCommand,
                 isCaseSensitive, isWord, doPropagateCase, uppercaseStyle, doNeedFullComposite, doKeepComposite] = match;
             for (const auto& originalTrigger : triggers)
             {
-                const bool isImage = !replaceImage.empty();
-
                 std::wstring triggerStr{ originalTrigger };
                 std::wstring replaceStr{ originalReplace };
 
@@ -679,20 +708,27 @@ void reconstruct_trigger_tree(std::string_view matchesString, std::function<void
                     }
                 }
 
+                const Ending::EReplaceType replaceType = 
+                    !replaceImage.empty() ? Ending::EReplaceType::IMAGE :
+                    !replaceCommand.empty() ? Ending::EReplaceType::COMMAND :
+                    Ending::EReplaceType::TEXT;
                 Ending ending{
-                    .isImage = isImage,
+                    .type = replaceType,
                     .backspaceCount = backspaceCount,
                     .cursorMoveCount = cursorMoveCount,
                     // TODO: Abstract the extra conditions of the options and warn the user if ignored
                     .propagateCase = doPropagateCase && !isCaseSensitive && std::ranges::any_of(trigger, [](wchar_t c) { return is_cased_alpha(c); }) && 
-                                     !isImage,
+                                     replaceType == Ending::EReplaceType::TEXT,
                     .uppercaseStyle = uppercaseStyle,
                     .keepComposite = doKeepComposite && is_korean(replace.back()) && !needFullComposite && cursorMoveCount == 0 && 
-                                     (trigger.size() > 1 || triggerLastLetter != replace.back()) && !isImage,
+                                     (trigger.size() > 1 || triggerLastLetter != replace.back()) && replaceType == Ending::EReplaceType::TEXT,
                 };
                 node->children[letter] = TempNode{ .endingMetaData = 
                     EndingMetaData{
-                        .replace = isImage ? replaceImage.generic_wstring() : std::wstring{ replace },
+                        .replace = 
+                            replaceType == Ending::EReplaceType::IMAGE ? replaceImage.generic_wstring() :
+                            replaceType == Ending::EReplaceType::COMMAND ? replaceCommand :
+                            std::wstring{ replace },
                         .tempEnding = ending,
                     }
                 };

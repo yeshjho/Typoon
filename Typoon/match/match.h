@@ -15,6 +15,7 @@ struct Match
     std::vector<std::wstring> triggers;
     std::wstring replace;
     std::filesystem::path replaceImage;
+    std::wstring replaceCommand;
     bool isCaseSensitive;
     bool isWord;
     bool doPropagateCase;

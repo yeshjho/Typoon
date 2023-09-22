@@ -22,8 +22,9 @@ OptionContainerForParse& OptionContainerForParse::operator|=(const OptionContain
 MatchForParse::operator Match() const
 {
     Match match{
-        .replace = replace_image.empty() ? to_u16_string(replace) : std::wstring{},
+        .replace = to_u16_string(replace),
         .replaceImage = replace_image,
+        .replaceCommand = to_u16_string(replace_command),
         .isCaseSensitive = case_sensitive,
         .isWord = word,
         .doPropagateCase = propagate_case,

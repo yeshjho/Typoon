@@ -37,8 +37,9 @@ struct MatchForParse : OptionContainerForParse
     std::string trigger;
     std::string replace;
     std::filesystem::path replace_image;
+    std::string replace_command;
 
-    JSON5_MEMBERS_INHERIT(OptionContainerForParse, triggers, trigger, replace, replace_image)
+    JSON5_MEMBERS_INHERIT(OptionContainerForParse, triggers, trigger, replace, replace_image, replace_command)
 
     operator Match() const;
 };
