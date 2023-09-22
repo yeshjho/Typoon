@@ -23,6 +23,8 @@ MatchForParse::operator Match() const
 {
     Match match{
         .replace = to_u16_string(replace),
+        .replaceImage = replace_image,
+        .replaceCommand = to_u16_string(replace_command),
         .isCaseSensitive = case_sensitive,
         .isWord = word,
         .doPropagateCase = propagate_case,

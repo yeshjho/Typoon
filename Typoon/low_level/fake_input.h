@@ -9,6 +9,7 @@ struct FakeInput
         LETTER,
         LETTER_AS_KEY,
         KEY,
+        HOT_KEY_PASTE,
     };
 
     EType type = EType::LETTER;

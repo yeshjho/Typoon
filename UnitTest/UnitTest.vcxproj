@@ -92,6 +92,8 @@
     <ClCompile Include="..\Typoon\match\trigger_tree.cpp" />
     <ClCompile Include="..\Typoon\parse\parse_match.cpp" />
     <ClCompile Include="..\Typoon\utils\string.cpp" />
+    <ClCompile Include="dummy\platform\clipboard.cpp" />
+    <ClCompile Include="dummy\platform\command.cpp" />
     <ClCompile Include="dummy\platform\fake_input.cpp" />
     <ClCompile Include="dummy\platform\tray_icon.cpp" />
     <ClCompile Include="dummy\utils\config.cpp" />

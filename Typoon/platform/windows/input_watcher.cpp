@@ -36,9 +36,18 @@ std::optional<LRESULT> input_proc([[maybe_unused]] HWND hWnd, UINT msg, [[maybe_
     case RIM_TYPEKEYBOARD:
     {
         const RAWKEYBOARD& keyboardData = inputData.data.keyboard;
+        unsigned char keyboardState[256] = { 0, };
 
         if (keyboardData.ExtraInformation == FAKE_INPUT_EXTRA_INFO_CONSTANT)
         {
+            if (keyboardData.Message == WM_KEYUP && keyboardData.VKey == 'V')
+            {
+                GetKeyState(0);  // GetKeyboardState doesn't fetch control keys such as Shift, CapsLock, etc. without this call.
+                if (GetKeyboardState(keyboardState) && (keyboardState[VK_CONTROL] & 0x80))
+                {
+                    PostMessage(nullptr, CLIPBOARD_PASTE_DONE_MESSAGE, 0, 0);
+                }
+            }
             break;
         }
 
@@ -71,7 +80,6 @@ std::optional<LRESULT> input_proc([[maybe_unused]] HWND hWnd, UINT msg, [[maybe_
             break;
         }
 
-        unsigned char keyboardState[256] = { 0, };
         // ToUnicodeEx produces in UTF-16, so 2 wchar_t's are enough.
         wchar_t characters[2] = { 0, };
 

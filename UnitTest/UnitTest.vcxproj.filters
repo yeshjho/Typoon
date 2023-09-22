@@ -63,6 +63,12 @@
     <ClCompile Include="test\group_test.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="dummy\platform\clipboard.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="dummy\platform\command.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="util\config.h">

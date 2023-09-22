@@ -1,5 +1,6 @@
 #include <Windows.h>
 
+#include "../../low_level/clipboard.h"
 #include "../../low_level/file_change_watcher.h"
 #include "../../low_level/filesystem.h"
 #include "../../low_level/hotkey.h"
@@ -13,8 +14,6 @@
 #include "log.h"
 #include "wnd_proc.h"
 
-
-constexpr UINT CONFIG_CHANGED_MESSAGE = WM_USER + 123;
 
 int wWinMain(HINSTANCE hInstance, [[maybe_unused]] HINSTANCE hPrevInstance, [[maybe_unused]] LPWSTR cmdLine, [[maybe_unused]] int cmdShow)
 {
@@ -125,10 +124,19 @@ int wWinMain(HINSTANCE hInstance, [[maybe_unused]] HINSTANCE hPrevInstance, [[ma
     MSG msg;
     while (GetMessage(&msg, nullptr, 0, 0))
     {
-        // Registering hot keys should happen in the same thread as the one that has created the window.
-        if (msg.message == CONFIG_CHANGED_MESSAGE)
+        switch (msg.message)
         {
+        // Registering hot keys should happen in the same thread as the one that has created the window.
+        case CONFIG_CHANGED_MESSAGE:
             reregister_hot_keys();
+            break;
+
+        case CLIPBOARD_PASTE_DONE_MESSAGE:
+            pop_clipboard_state_with_delay([seq = GetClipboardSequenceNumber()]() { return seq == GetClipboardSequenceNumber(); });
+            break;
+
+        default:
+            break;
         }
         TranslateMessage(&msg);
         DispatchMessage(&msg);
