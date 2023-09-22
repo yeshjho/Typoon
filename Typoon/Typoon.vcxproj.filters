@@ -72,6 +72,9 @@
     <ClCompile Include="platform\windows\clipboard.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="platform\windows\command.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="utils\logger.h">
@@ -135,6 +138,9 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="low_level\clipboard.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="low_level\command.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
