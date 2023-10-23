@@ -13,7 +13,8 @@ namespace json5::detail
     {
         if (in.is_string())
         {
-            out = in.get_c_str();
+            // If we don't cast it to char8_t, the locale comes in and the encoding gets messed up and it'll throw.
+            out = reinterpret_cast<const char8_t*>(in.get_c_str());
             return { error::none };
         }
 
