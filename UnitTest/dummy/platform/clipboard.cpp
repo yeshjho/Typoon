@@ -4,5 +4,10 @@
 void push_current_clipboard_state()
 {}
 
-bool set_clipboard_image(const std::filesystem::path&)
+void pop_clipboard_state()
 {}
+
+bool set_clipboard_image(const std::filesystem::path&)
+{
+    return true;
+}
