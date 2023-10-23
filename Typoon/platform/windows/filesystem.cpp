@@ -2,7 +2,6 @@
 
 #include <ShlObj_core.h>
 
-#include "../../utils/logger.h"
 #include "log.h"
 
 

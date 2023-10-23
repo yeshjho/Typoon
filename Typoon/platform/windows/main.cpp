@@ -9,7 +9,6 @@
 #include "../../common/common.h"
 #include "../../match/trigger_tree.h"
 #include "../../utils/config.h"
-#include "../../utils/logger.h"
 
 #include "log.h"
 #include "wnd_proc.h"
@@ -46,14 +45,14 @@ try
     windowClass.lpszClassName = windowClassName;
     if (!RegisterClassExW(&windowClass))
     {
-        log_last_error(L"RegisterClassExW failed");
+        log_last_error(L"RegisterClassExW failed", ELogLevel::FATAL);
         return -1;
     }
 
     const HWND window = CreateWindow(windowClassName, L"Typoon Worker Process", WS_OVERLAPPEDWINDOW, 0, 0, 0, 0, nullptr, nullptr, hInstance, nullptr);
     if (!window)
     {
-        log_last_error(L"CreateWindow failed");
+        log_last_error(L"CreateWindow failed", ELogLevel::FATAL);
         return -1;
     }
 

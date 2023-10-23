@@ -8,7 +8,6 @@
 #include "../../imm/imm_simulator.h"
 #include "../../input_multicast/input_multicast.h"
 #include "../../low_level/fake_input.h"
-#include "../../utils/logger.h"
 #include "../../utils/string.h"
 #include "log.h"
 #include "wnd_proc.h"

@@ -151,11 +151,17 @@ void replace_string(const Ending& ending, const Agent& agent, std::wstring_view 
     case Ending::EReplaceType::IMAGE:
     {
         push_current_clipboard_state();
-        set_clipboard_image(originalReplaceString);
         std::vector<FakeInput> fakeInputs{ backspaceCount, FakeInput{ FakeInput::EType::KEY, FakeInput::BACKSPACE_KEY } };
-        fakeInputs.emplace_back(FakeInput::EType::HOT_KEY_PASTE);
+        if (set_clipboard_image(originalReplaceString))
+        {
+            // Popping the clipboard state is done in main.
+            fakeInputs.emplace_back(FakeInput::EType::HOT_KEY_PASTE);
+        }
+        else
+        {
+            pop_clipboard_state();
+        }
         send_fake_inputs(fakeInputs, false);
-        // Popping the clipboard state is done in main.
         return;
     }
 

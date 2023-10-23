@@ -8,7 +8,6 @@
 
 #include "../../common/common.h"
 #include "../../utils/config.h"
-#include "../../utils/logger.h"
 #include "log.h"
 #include "wnd_proc.h"
 

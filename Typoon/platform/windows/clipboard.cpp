@@ -3,7 +3,7 @@
 #include <Windows.h>
 #include <gdiplus.h>
 
-#include "../../utils/logger.h"
+#include "../../low_level/tray_icon.h"
 #include "log.h"
 
 
@@ -189,11 +189,20 @@ void pop_clipboard_state_with_delay(std::function<bool()> predicate)
 }
 
 
-void set_clipboard_image(const std::filesystem::path& imagePath)
+bool set_clipboard_image(const std::filesystem::path& imagePath)
 {
     const Gdiplus::GdiplusStartupInput startupInput;
     ULONG_PTR token;
     Gdiplus::GdiplusStartup(&token, &startupInput, nullptr);
+
+    bool toReturn = true;
+    const auto lambdaOnError = [&toReturn](const std::wstring& msg, LogLevel logLevel = ELogLevel::ERROR)
+        {
+            toReturn = false;
+            const std::wstring errorStr = get_last_error_string();
+            logger.Log(logLevel, msg, errorStr);
+            show_notification(msg, errorStr);
+        };
 
     if (Gdiplus::Bitmap* bitmap = Gdiplus::Bitmap::FromFile(imagePath.c_str());
         bitmap->GetLastStatus() == Gdiplus::Status::Ok)
@@ -255,7 +264,7 @@ void set_clipboard_image(const std::filesystem::path& imagePath)
                 ReleaseDC(HWND_DESKTOP, hdc);
                 if (!SetClipboardData(CF_BITMAP, realHBitmap))
                 {
-                    log_last_error(L"Failed to set clipboard data:");
+                    lambdaOnError(L"Failed to set clipboard data");
                 }
                 DeleteObject(realHBitmap);
             }
@@ -263,7 +272,7 @@ void set_clipboard_image(const std::filesystem::path& imagePath)
         }
         else
         {
-            log_last_error(L"Failed to open clipboard:");
+            lambdaOnError(L"Failed to open clipboard");
         }
 
         DeleteObject(hBitmap);
@@ -271,10 +280,11 @@ void set_clipboard_image(const std::filesystem::path& imagePath)
     }
     else
     {
-        log_last_error(L"Failed to load image from file:");
+        lambdaOnError(L"Failed to load image from file");
     }
 
     Gdiplus::GdiplusShutdown(token);
+    return toReturn;
 }
 
 

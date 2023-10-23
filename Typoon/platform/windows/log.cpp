@@ -3,10 +3,8 @@
 #include <Windows.h>
 #undef ERROR
 
-#include "../../utils/logger.h"
 
-
-void log_last_error(const std::wstring& additionalMsg)
+std::wstring get_last_error_string()
 {
     const DWORD errorCode = GetLastError();
     LPWSTR errorText = nullptr;
@@ -19,7 +17,13 @@ void log_last_error(const std::wstring& additionalMsg)
         0,
         nullptr
     );
-    const std::wstring msg = additionalMsg + L" " + errorText;
-    logger.Log(ELogLevel::ERROR, msg);
+    std::wstring msg = errorText;
     LocalFree(errorText);
+    return msg;
+}
+
+
+void log_last_error(const std::wstring& additionalMsg, LogLevel logLevel)
+{
+    logger.Log(logLevel, additionalMsg, get_last_error_string());
 }

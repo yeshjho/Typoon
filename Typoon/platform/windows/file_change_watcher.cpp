@@ -4,7 +4,7 @@
 
 #include <Windows.h>
 
-#include "../../utils/logger.h"
+#include "../../low_level/tray_icon.h"
 #include "log.h"
 
 

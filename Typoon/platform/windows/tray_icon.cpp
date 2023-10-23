@@ -6,7 +6,6 @@
 #include "../../low_level/filesystem.h"
 #include "../../resource.h"
 #include "../../utils/config.h"
-#include "../../utils/logger.h"
 #include "log.h"
 #include "wnd_proc.h"
 

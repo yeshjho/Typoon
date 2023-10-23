@@ -4,7 +4,6 @@
 
 #include <Windows.h>
 
-#include "../../utils/logger.h"
 #include "../../utils/string.h"
 #include "log.h"
 
