@@ -578,6 +578,7 @@ void reconstruct_trigger_tree(std::string_view matchesString, std::function<void
 
     trigger_tree_constructor_thread = std::jthread{ [matchesString, onFinish = std::move(onFinish)](const std::stop_token& stopToken)
     {
+    try {
 #define STOP if (stopToken.stop_requested()) { return; }
 
         STOP
@@ -824,6 +825,19 @@ void reconstruct_trigger_tree(std::string_view matchesString, std::function<void
         }
 
 #undef STOP
+    }
+    catch (const std::exception& e)
+    {
+        logger.Log(ELogLevel::ERROR, "Exception while constructing trigger tree", e.what());
+        show_notification(L"Match File Load Failed!",
+            L"An exception occurred while parsing the match file.\nPlease report this with a log file.", false);
+    }
+    catch (...)
+    {
+        logger.Log(ELogLevel::ERROR, "Unknown exception while constructing trigger tree");
+        show_notification(L"Match File Load Failed!",
+            L"An exception occurred while parsing the match file.\nPlease report this with a log file.", false);
+    }
     } };
 }
 
