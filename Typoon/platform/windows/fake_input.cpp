@@ -41,27 +41,44 @@ void send_fake_inputs(const std::vector<FakeInput>& inputs, bool isCapsLockOn)
         {
             INPUT shiftInput = {};
             shiftInput.type = INPUT_KEYBOARD;
-            shiftInput.ki.wVk = VK_SHIFT;
             shiftInput.ki.dwExtraInfo = FAKE_INPUT_EXTRA_INFO_CONSTANT;
 
-            const auto lambdaAddShiftKeys = [&inputsToSend](INPUT input)
+            const bool needShift = is_cased_alpha(letter) && (static_cast<bool>(std::iswupper(letter)) ^ isCapsLockOn);
+
+            /* issue #1: Korean letter needs a shift key to type with keep_composite: true doesn't work correctly when the right shift is held
+             * Originally, it only dealt with the VK_SHIFT.
+             * But apparently most, if not all, applications distinguish between left and right shifts, so we're dealing with them separately.
+             */
+            const bool isLShiftPressed = GetAsyncKeyState(VK_LSHIFT) & 0x8000;
+            const bool isRShiftPressed = GetAsyncKeyState(VK_RSHIFT) & 0x8000;
+            const bool isAnyShiftPressed = isLShiftPressed || isRShiftPressed;
+
+            const auto lambdaAddShiftKeys = [&inputsToSend, isLShiftPressed, isRShiftPressed](INPUT input)
                 {
-                    /* issue #1: Korean letter needs a shift key to type with keep_composite: true doesn't work correctly when the right shift is held
-                     * Originally, it only simulated the VK_SHIFT.
-                     * But apparently some applications distinguish between left and right shifts, so we're sending all possible shift keys.
-                     */
-                    input.ki.wVk = VK_SHIFT;
-                    inputsToSend.emplace_back(input);
-                    input.ki.wVk = VK_LSHIFT;
-                    inputsToSend.emplace_back(input);
-                    input.ki.wVk = VK_RSHIFT;
-                    inputsToSend.emplace_back(input);
+                    if (isLShiftPressed)
+                    {
+                        input.ki.wVk = VK_LSHIFT;
+                        inputsToSend.emplace_back(input);
+                    }
+                    if (isRShiftPressed)
+                    {
+                        input.ki.wVk = VK_RSHIFT;
+                        inputsToSend.emplace_back(input);
+                    }
                 };
 
-            const bool needShift = is_cased_alpha(letter) && (static_cast<bool>(std::iswupper(letter)) ^ isCapsLockOn);
-            if (needShift)
+            if (needShift != isAnyShiftPressed)
             {
-                lambdaAddShiftKeys(shiftInput);
+                if (needShift)
+                {
+                    shiftInput.ki.wVk = VK_SHIFT;
+                    inputsToSend.emplace_back(shiftInput);
+                }
+                else
+                {
+                    shiftInput.ki.dwFlags = KEYEVENTF_KEYUP;
+                    lambdaAddShiftKeys(shiftInput);
+                }
             }
 
             INPUT keyInput = {};
@@ -72,11 +89,19 @@ void send_fake_inputs(const std::vector<FakeInput>& inputs, bool isCapsLockOn)
 
             keyInput.ki.dwFlags = KEYEVENTF_KEYUP;
             inputsToSend.emplace_back(keyInput);
-
-            if (needShift)
+            
+            if (needShift != isAnyShiftPressed)
             {
-                shiftInput.ki.dwFlags = KEYEVENTF_KEYUP;
-                lambdaAddShiftKeys(shiftInput);
+                if (needShift)
+                {
+                    shiftInput.ki.dwFlags = KEYEVENTF_KEYUP;
+                    inputsToSend.emplace_back(shiftInput);
+                }
+                else
+                {
+                    shiftInput.ki.dwFlags = 0;
+                    lambdaAddShiftKeys(shiftInput);
+                }
             }
             break;
         }
