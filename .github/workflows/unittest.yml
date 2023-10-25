@@ -3,8 +3,11 @@ name: Run UnitTest
 on:
   push:
     branches: [ "*" ]
+    paths: [ "external/**", "Typoon/**", "UnitTest/**", "Typoon.sln" ]
+
   pull_request:
     branches: [ "main" ]
+
   workflow_dispatch:
 
 env:
