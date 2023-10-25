@@ -1,0 +1,243 @@
+name: Issues Management
+
+on:
+  push:
+    branches: [ "**" ]
+
+env:
+  PROJECT_ID: 3
+
+jobs:
+  issue_management:
+    strategy:
+      fail-fast: false
+      max-parallel: 1
+      matrix:
+        commit: ${{ github.event.commits }}
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Get Issue Number
+      id: get_issue_number
+      run: |
+        commit_message="${{ matrix.commit.message }}"
+        if [[ $commit_message =~ \#([0-9]+) ]]; then
+          issue_number=${BASH_REMATCH[1]}
+          echo "issue_number=$issue_number" >> $GITHUB_OUTPUT
+        fi
+
+    - name: Get Fix Status
+      id: get_fix_status_in_msg
+      if: ${{ steps.get_issue_number.outputs.issue_number != '' }}
+      env:
+        ISSUE_NUMBER: ${{ steps.get_issue_number.outputs.issue_number }}
+      run: |
+        commit_message="${{ matrix.commit.message }}"
+        shopt -s nocasematch
+        if [[ $commit_message =~ (fixes|fixed|final fix (on|of)|finished( working on| fixing)?)\ +(the +)?((bug|issue) +)?#${{ env.ISSUE_NUMBER }} ]]; then
+          echo "fix_status=fixed" >> $GITHUB_OUTPUT
+          echo "column_name=Pending Release" >> $GITHUB_OUTPUT
+        elif [[ $commit_message =~ (fixing|working on)\ +(the +)?((bug|issue) +)?#${{ env.ISSUE_NUMBER }} ]]; then
+          echo "fix_status=fixing" >> $GITHUB_OUTPUT
+          echo "column_name=Fixing" >> $GITHUB_OUTPUT
+        fi
+
+    - name: Check Issue Status
+      id: check_issue_status
+      if: ${{ steps.get_fix_status_in_msg.outputs.fix_status != '' }}
+      env:
+        GITHUB_TOKEN: ${{ secrets.SECRET_TOKEN }}
+      run: |
+        gh api graphql -f query='
+          query($user: String!, $repo: String!) {
+            repository(name: $repo, owner: $user) {
+              issue(number: ${{ steps.get_issue_number.outputs.issue_number }}) {
+                labels(first: 10) {
+                  nodes {
+                    ... on Label {
+                      name
+                    }
+                  }
+                }
+              }
+            }
+          }
+        ' -f user="${{ github.repository_owner }}" -f repo="${{ github.event.repository.name }}" > issue_labels.json || {
+          echo "no_issue=true" >> $GITHUB_OUTPUT
+          exit 0
+        }
+
+        issue_status=$(jq '.data.repository.issue.labels.nodes[] | select(.name== "fixing") | .name' issue_labels.json)
+        if [[ $issue_status == '' ]]; then
+          issue_status=$(jq '.data.repository.issue.labels.nodes[] | select(.name== "fixed") | .name' issue_labels.json)
+        fi
+        echo 'issue_status'=$issue_status >> $GITHUB_OUTPUT
+
+    - name: Get Card Id
+      id: get_card_id
+      if: ${{ steps.check_issue_status.outputs.no_issue != 'true' && 
+              ((steps.get_fix_status_in_msg.outputs.fix_status == 'fixing' && steps.check_issue_status.outputs.issue_status == '') ||
+               (steps.get_fix_status_in_msg.outputs.fix_status == 'fixed' && steps.check_issue_status.outputs.issue_status != 'fixed')) }}
+      env:
+        GITHUB_TOKEN: ${{ secrets.SECRET_TOKEN }}
+      run: |
+        gh api graphql -f query='
+          query($user: String!, $repo: String!) {
+            repository(name: $repo, owner: $user) {
+              issue(number: ${{ steps.get_issue_number.outputs.issue_number }}) {
+                projectItems(first: 10) {
+                  nodes {
+                    ... on ProjectV2Item {
+                      id
+                      project {
+                        number
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        ' -f user="${{ github.repository_owner }}" -f repo="${{ github.event.repository.name }}" > card_data.json
+
+        echo 'card_id='$(jq '.data.repository.issue.projectItems.nodes[] | select(.project.number== '$PROJECT_ID') | .id' card_data.json) >> $GITHUB_OUTPUT
+    
+    - name: Get Column ID
+      id: get_column_id
+      if: ${{ steps.get_card_id.outputs.card_id != '' }}
+      env:
+        GITHUB_TOKEN: ${{ secrets.SECRET_TOKEN }}
+      run: |
+        gh api graphql -f query='
+          query($user: String!) {
+            user(login: $user) {
+              projectV2(number: ${{ env.PROJECT_ID }}) {
+                id
+                fields(first: 20) {
+                  nodes {
+                    ... on ProjectV2SingleSelectField {
+                      id
+                      name
+                      options {
+                        id
+                        name
+                      }
+                    }
+                    ... on ProjectV2Field {
+                      id
+                      name
+                    }
+                  }
+                }
+              }
+            }
+          }
+        ' -f user="${{ github.repository_owner }}" > project_data.json
+
+        echo 'project_global_id='$(jq '.data.user.projectV2.id' project_data.json) >> $GITHUB_OUTPUT
+        echo 'status_field_id='$(jq '.data.user.projectV2.fields.nodes[] | select(.name== "Status") | .id' project_data.json) >> $GITHUB_OUTPUT
+        echo 'sha_field_id='$(jq '.data.user.projectV2.fields.nodes[] | select(.name== "Commit Fixed") | .id' project_data.json) >> $GITHUB_OUTPUT
+        echo 'value_id='$(jq '.data.user.projectV2.fields.nodes[] | select(.name== "Status") | .options[] | select(.name== "${{ steps.get_fix_status_in_msg.outputs.column_name }}") |.id' project_data.json) >> $GITHUB_OUTPUT
+    
+    - name: Move Card to Appropriate Column
+      id: move_card_to_pending_release_column
+      if: ${{ steps.get_column_id.outputs.project_global_id != '' }}
+      env:
+        GITHUB_TOKEN: ${{ secrets.SECRET_TOKEN }}
+      run: |
+        gh api graphql -f query='
+          mutation(
+            $project: ID!
+            $item: ID!
+            $status_field: ID!
+            $status_value: String!
+          ) {
+            set_status: updateProjectV2ItemFieldValue(input: {
+                projectId: $project
+                itemId: $item
+                fieldId: $status_field
+                value: { 
+                  singleSelectOptionId: $status_value
+                }
+              }
+            ) {
+              projectV2Item {
+                id
+              }
+            }
+          }
+        ' -f project=${{ steps.get_column_id.outputs.project_global_id }} -f item=${{ steps.get_card_id.outputs.card_id }} -f status_field=${{ steps.get_column_id.outputs.status_field_id }} -f status_value=${{ steps.get_column_id.outputs.value_id }}
+
+    - name: Add Commit Fixed SHA to the Card
+      id: add_fixed_commit_sha_to_the_card
+      if: ${{ steps.get_column_id.outputs.project_global_id != '' && steps.get_fix_status_in_msg.outputs.fix_status == 'fixed' }}
+      env:
+        GITHUB_TOKEN: ${{ secrets.SECRET_TOKEN }}
+      run: |
+        gh api graphql -f query='
+          mutation(
+            $project: ID!
+            $item: ID!
+            $status_field: ID!
+            $status_value: String!
+          ) {
+            set_status: updateProjectV2ItemFieldValue(input: {
+                projectId: $project
+                itemId: $item
+                fieldId: $status_field
+                value: { 
+                  text: $status_value
+                }
+              }
+            ) {
+              projectV2Item {
+                id
+              }
+            }
+          }
+        ' -f project=${{ steps.get_column_id.outputs.project_global_id }} -f item=${{ steps.get_card_id.outputs.card_id }} -f status_field=${{ steps.get_column_id.outputs.sha_field_id }} -f status_value="${{ matrix.commit.id }}"
+
+    - name: Add Appropriate Label to Issue
+      id: add_label_to_issue
+      if: ${{ steps.get_column_id.outputs.project_global_id != '' }}
+      uses: actions/github-script@v6
+      with:
+        github-token: ${{ secrets.SECRET_TOKEN }}
+        script: |
+          github.rest.issues.addLabels({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            issue_number: ${{ steps.get_issue_number.outputs.issue_number }},
+            labels: ["${{ steps.get_fix_status_in_msg.outputs.fix_status }}"],
+          });
+    
+    - name: Remove "Fixing" Label
+      id: remove_fixing_label
+      if: ${{ steps.get_column_id.outputs.project_global_id != '' && steps.get_fix_status_in_msg.outputs.fix_status == 'fixed' }}
+      uses: actions/github-script@v6
+      with:
+        github-token: ${{ secrets.SECRET_TOKEN }}
+        script: |
+          github.hook.error("request", async (error, options) => {});
+
+          github.rest.issues.removeLabel({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            issue_number: ${{ steps.get_issue_number.outputs.issue_number }},
+            name: "fixing",
+          });
+          
+    - name: Add Comment to Issue
+      id: add_comment_to_issue
+      if: ${{ steps.get_column_id.outputs.project_global_id != '' }}
+      uses: actions/github-script@v6
+      with:
+        github-token: ${{ secrets.SECRET_TOKEN }}
+        script: |
+          github.rest.issues.createComment({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            issue_number: ${{ steps.get_issue_number.outputs.issue_number }},
+            body: "${{ steps.get_fix_status_in_msg.outputs.fix_status }}" == "fixing" ? "It is being worked on.\n수정 중입니다." : "It has been addressed now, the fix will be in the next release.\n수정되었습니다. 다음 릴리즈에 반영될 예정입니다.",
+          });
