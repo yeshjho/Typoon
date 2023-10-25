@@ -16,8 +16,8 @@ const wchar_t FakeInput::ENTER_KEY = VK_RETURN;
 
 void send_fake_inputs(const std::vector<FakeInput>& inputs, bool isCapsLockOn)
 {
-    std::vector<INPUT> windowsInputs;
-    windowsInputs.reserve(inputs.size() * 2);
+    std::vector<INPUT> inputsToSend;
+    inputsToSend.reserve(inputs.size() * 2);
 
     for (const auto& [type, letter] : inputs)
     {
@@ -25,15 +25,15 @@ void send_fake_inputs(const std::vector<FakeInput>& inputs, bool isCapsLockOn)
         {
         case FakeInput::EType::LETTER:
         {
-            INPUT windowsInput = {};
-            windowsInput.type = INPUT_KEYBOARD;
-            windowsInput.ki.wScan = letter;
-            windowsInput.ki.dwFlags = KEYEVENTF_UNICODE;
-            windowsInput.ki.dwExtraInfo = FAKE_INPUT_EXTRA_INFO_CONSTANT;
-            windowsInputs.emplace_back(windowsInput);
+            INPUT keyInput = {};
+            keyInput.type = INPUT_KEYBOARD;
+            keyInput.ki.wScan = letter;
+            keyInput.ki.dwFlags = KEYEVENTF_UNICODE;
+            keyInput.ki.dwExtraInfo = FAKE_INPUT_EXTRA_INFO_CONSTANT;
+            inputsToSend.emplace_back(keyInput);
             
-            windowsInput.ki.dwFlags |= KEYEVENTF_KEYUP;
-            windowsInputs.emplace_back(windowsInput);
+            keyInput.ki.dwFlags |= KEYEVENTF_KEYUP;
+            inputsToSend.emplace_back(keyInput);
             break;
         }
 
@@ -44,39 +44,53 @@ void send_fake_inputs(const std::vector<FakeInput>& inputs, bool isCapsLockOn)
             shiftInput.ki.wVk = VK_SHIFT;
             shiftInput.ki.dwExtraInfo = FAKE_INPUT_EXTRA_INFO_CONSTANT;
 
+            const auto lambdaAddShiftKeys = [&inputsToSend](INPUT input)
+                {
+                    /* issue #1: Korean letter needs a shift key to type with keep_composite: true doesn't work correctly when the right shift is held
+                     * Originally, it only simulated the VK_SHIFT.
+                     * But apparently some applications distinguish between left and right shifts, so we're sending all possible shift keys.
+                     */
+                    input.ki.wVk = VK_SHIFT;
+                    inputsToSend.emplace_back(input);
+                    input.ki.wVk = VK_LSHIFT;
+                    inputsToSend.emplace_back(input);
+                    input.ki.wVk = VK_RSHIFT;
+                    inputsToSend.emplace_back(input);
+                };
+
             const bool needShift = is_cased_alpha(letter) && (static_cast<bool>(std::iswupper(letter)) ^ isCapsLockOn);
             if (needShift)
             {
-                windowsInputs.emplace_back(shiftInput);
+                lambdaAddShiftKeys(shiftInput);
             }
 
-            INPUT windowsInput = {};
-            windowsInput.type = INPUT_KEYBOARD;
-            windowsInput.ki.wVk = std::towupper(letter);
-            windowsInput.ki.dwExtraInfo = FAKE_INPUT_EXTRA_INFO_CONSTANT;
-            windowsInputs.emplace_back(windowsInput);
+            INPUT keyInput = {};
+            keyInput.type = INPUT_KEYBOARD;
+            keyInput.ki.wVk = std::towupper(letter);
+            keyInput.ki.dwExtraInfo = FAKE_INPUT_EXTRA_INFO_CONSTANT;
+            inputsToSend.emplace_back(keyInput);
 
-            windowsInput.ki.dwFlags = KEYEVENTF_KEYUP;
-            windowsInputs.emplace_back(windowsInput);
+            keyInput.ki.dwFlags = KEYEVENTF_KEYUP;
+            inputsToSend.emplace_back(keyInput);
 
             if (needShift)
             {
                 shiftInput.ki.dwFlags = KEYEVENTF_KEYUP;
-                windowsInputs.emplace_back(shiftInput);
+                lambdaAddShiftKeys(shiftInput);
             }
             break;
         }
 
         case FakeInput::EType::KEY:
         {
-            INPUT windowsInput = {};
-            windowsInput.type = INPUT_KEYBOARD;
-            windowsInput.ki.wVk = letter;
-            windowsInput.ki.dwExtraInfo = FAKE_INPUT_EXTRA_INFO_CONSTANT;
-            windowsInputs.emplace_back(windowsInput);
+            INPUT keyInput = {};
+            keyInput.type = INPUT_KEYBOARD;
+            keyInput.ki.wVk = letter;
+            keyInput.ki.dwExtraInfo = FAKE_INPUT_EXTRA_INFO_CONSTANT;
+            inputsToSend.emplace_back(keyInput);
 
-            windowsInput.ki.dwFlags = KEYEVENTF_KEYUP;
-            windowsInputs.emplace_back(windowsInput);
+            keyInput.ki.dwFlags = KEYEVENTF_KEYUP;
+            inputsToSend.emplace_back(keyInput);
             break;
         }
 
@@ -92,14 +106,14 @@ void send_fake_inputs(const std::vector<FakeInput>& inputs, bool isCapsLockOn)
             vInput.ki.wVk = 'V';
             vInput.ki.dwExtraInfo = FAKE_INPUT_EXTRA_INFO_CONSTANT;
 
-            windowsInputs.emplace_back(ctrlInput);
-            windowsInputs.emplace_back(vInput);
+            inputsToSend.emplace_back(ctrlInput);
+            inputsToSend.emplace_back(vInput);
 
             vInput.ki.dwFlags = KEYEVENTF_KEYUP;
-            windowsInputs.emplace_back(vInput);
+            inputsToSend.emplace_back(vInput);
 
             ctrlInput.ki.dwFlags = KEYEVENTF_KEYUP;
-            windowsInputs.emplace_back(ctrlInput);
+            inputsToSend.emplace_back(ctrlInput);
             break;
         }
 
@@ -108,13 +122,13 @@ void send_fake_inputs(const std::vector<FakeInput>& inputs, bool isCapsLockOn)
         }
     }
 
-    if (const UINT uSent = SendInput(static_cast<UINT>(windowsInputs.size()), windowsInputs.data(), sizeof(INPUT));
-        uSent != windowsInputs.size()) [[unlikely]]
+    if (const UINT uSent = SendInput(static_cast<UINT>(inputsToSend.size()), inputsToSend.data(), sizeof(INPUT));
+        uSent != inputsToSend.size()) [[unlikely]]
     {
         log_last_error(L"Sending inputs failed:");
     }
 
-    for (const auto& windowsInput : windowsInputs)
+    for (const auto& windowsInput : inputsToSend)
     {
         if (windowsInput.ki.dwFlags & KEYEVENTF_KEYUP)
         {
