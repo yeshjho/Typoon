@@ -68,7 +68,7 @@ try
     start_hot_key_watcher(window);
 
     FileChangeWatcher configChangeWatcher{
-        [window, prevMatchFilePath = get_config().matchFilePath, prevCursorPlaceholder = get_config().cursorPlaceholder]() mutable
+        [window, prevMatchFilePath = get_config().matchFilePath, prevCursorPlaceholder = get_config().cursorPlaceholder](const std::filesystem::path&) mutable
         {
             read_config_file(get_config_file_path());
 
@@ -98,26 +98,25 @@ try
     };
     configChangeWatcher.AddWatchingFile(get_config_file_path());
 
-    FileChangeWatcher* matchChangeWatcher = nullptr;
-    std::function<void()> matchFileChangeCallback;
-    matchFileChangeCallback = [&matchChangeWatcher, &matchFileChangeCallback]()
+    FileChangeWatcher matchChangeWatcher;
+    std::function<void(const std::filesystem::path&)> matchFileChangeCallback;
+    matchFileChangeCallback = [&matchChangeWatcher, &matchFileChangeCallback](const std::filesystem::path&)
     {
         reconstruct_trigger_tree({}, [&matchChangeWatcher, &matchFileChangeCallback]()
             {
-                delete matchChangeWatcher;
-                matchChangeWatcher = new FileChangeWatcher{ matchFileChangeCallback };
+                matchChangeWatcher.Reset();
                 for (const std::filesystem::path& file : match_files_in_use)
                 {
-                    matchChangeWatcher->AddWatchingFile(file);
+                    matchChangeWatcher.AddWatchingFile(file);
                 }
             }
         );
     };
-    matchFileChangeCallback();
+    matchFileChangeCallback({});
+    matchChangeWatcher.SetOnChanged(matchFileChangeCallback);
 
     if (!turn_on(window))
     {
-        delete matchChangeWatcher;
         return -1;
     }
 
@@ -141,8 +140,6 @@ try
         TranslateMessage(&msg);
         DispatchMessage(&msg);
     }
-
-    delete matchChangeWatcher;
 
     turn_off();
 

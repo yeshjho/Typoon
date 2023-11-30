@@ -11,11 +11,12 @@
 std::jthread file_change_watcher_thread;
 
 
-FileChangeWatcher::FileChangeWatcher(std::function<void()> onChanged)
+FileChangeWatcher::FileChangeWatcher(std::function<void(const std::filesystem::path& fileChanged)> onChanged)
+    : mOnChanged(std::move(onChanged))
 {
     mEvents.emplace_back(CreateEvent(nullptr, false, false, nullptr));  // "Kill" event
     mThread = std::jthread{
-        [this, onChanged = std::move(onChanged)](const std::stop_token& stopToken)
+        [this](const std::stop_token& stopToken)
         {
             try
             {
@@ -25,6 +26,15 @@ FileChangeWatcher::FileChangeWatcher(std::function<void()> onChanged)
                 if (stopToken.stop_requested())
                 {
                     return;
+                }
+
+                if (mIsBeingModified.load())
+                {
+                    while (mIsBeingModified.load())
+                    {
+                        std::this_thread::sleep_for(std::chrono::milliseconds(10));
+                    }
+                    continue;
                 }
 
                 if (result == WAIT_FAILED)
@@ -53,7 +63,7 @@ FileChangeWatcher::FileChangeWatcher(std::function<void()> onChanged)
                                 const std::chrono::time_point now = std::chrono::system_clock::now();
                                 if (now - lastWriteTime >= WRITE_COOLDOWN)
                                 {
-                                    onChanged();
+                                    mOnChanged(fullPath);
                                 }
                                 lastWriteTime = now;
                             }
@@ -90,28 +100,20 @@ FileChangeWatcher::FileChangeWatcher(std::function<void()> onChanged)
 
 FileChangeWatcher::~FileChangeWatcher()
 {
-    mThread.request_stop();
-    SetEvent(mEvents.front());
-    if (mThread.joinable())
-    {
-        mThread.join();
-    }
+    Reset(true);
+}
 
-    for (const HANDLE handle : mEvents)
-    {
-        CloseHandle(handle);
-    }
-    for (const auto& [fullPath, fileName, directory, buffer, overlapped, lastWriteTime] : mFiles)
-    {
-        CloseHandle(directory);
-        delete[] static_cast<const char*>(buffer);
-        delete static_cast<const OVERLAPPED*>(overlapped);
-    }
+
+void FileChangeWatcher::SetOnChanged(std::function<void(const std::filesystem::path& fileChanged)> onChanged)
+{
+    mOnChanged = std::move(onChanged);
 }
 
 
 void FileChangeWatcher::AddWatchingFile(const std::filesystem::path& filePath)
 {
+    mIsBeingModified = true;
+
     const HANDLE dir = CreateFile(filePath.parent_path().c_str(), GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, nullptr,
         OPEN_EXISTING, FILE_FLAG_BACKUP_SEMANTICS | FILE_FLAG_OVERLAPPED, nullptr);
     if (dir == INVALID_HANDLE_VALUE) [[unlikely]]
@@ -126,6 +128,45 @@ void FileChangeWatcher::AddWatchingFile(const std::filesystem::path& filePath)
     mFiles.emplace_back(filePath, filePath.filename().wstring(), dir, new char[512] { 0, }, overlapped);
 
     readDirectoryChanges(static_cast<int>(mFiles.size() - 1));
+
+    mIsBeingModified = false;
+}
+
+
+void FileChangeWatcher::Reset(bool killThread)
+{
+    mIsBeingModified = true;
+
+    if (killThread)
+    {
+        mThread.request_stop();
+        SetEvent(mEvents.front());
+        if (mThread.joinable())
+        {
+            mThread.join();
+        }
+    }
+
+    for (const HANDLE handle : std::views::drop(mEvents, killThread ? 0 : 1))
+    {
+        CloseHandle(handle);
+    }
+    for (const auto& [fullPath, fileName, directory, buffer, overlapped, lastWriteTime] : mFiles)
+    {
+        CloseHandle(directory);
+        delete[] static_cast<const char*>(buffer);
+        delete static_cast<const OVERLAPPED*>(overlapped);
+    }
+
+    if (!killThread)
+    {
+        mEvents.resize(1);
+        mFiles.clear();
+
+        SetEvent(mEvents.front());
+    }
+
+    mIsBeingModified = false;
 }
 
 
