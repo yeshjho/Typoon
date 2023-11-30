@@ -36,12 +36,16 @@ concept CanConvertibleToString = requires(T t)
 };
 
 template<typename T>
-concept CanBeString = CanConstructWStringWith<T> || CanConvertibleToWString<T> || CanConstructStringWith<T> || CanConvertibleToString<T>;
+concept CanBeString = CanConstructWStringWith<T> || CanConvertibleToWString<T> || CanConstructStringWith<T> || CanConvertibleToString<T> || std::is_same_v<std::remove_cvref_t<T>, bool>;
 
 template<CanBeString T>
 std::wstring to_wstring(const T& t)
 {
-    if constexpr (CanConstructWStringWith<T>)
+    if constexpr (std::is_same_v<std::remove_cvref_t<T>, bool>)
+    {
+        return t ? L"true" : L"false";
+    }
+    else if constexpr (CanConstructWStringWith<T>)
     {
         return std::wstring{ t };
     }
