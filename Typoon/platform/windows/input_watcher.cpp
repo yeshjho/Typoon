@@ -8,6 +8,7 @@
 #include "../../imm/imm_simulator.h"
 #include "../../input_multicast/input_multicast.h"
 #include "../../low_level/fake_input.h"
+#include "../../low_level/window_focus.h"
 #include "../../utils/string.h"
 #include "log.h"
 #include "wnd_proc.h"
@@ -35,7 +36,7 @@ std::optional<LRESULT> input_proc([[maybe_unused]] HWND hWnd, UINT msg, [[maybe_
     case RIM_TYPEKEYBOARD:
     {
         const RAWKEYBOARD& keyboardData = inputData.data.keyboard;
-        unsigned char keyboardState[256] = { 0, };
+        static unsigned char keyboardState[256];
 
         if (keyboardData.ExtraInformation == FAKE_INPUT_EXTRA_INFO_CONSTANT)
         {
@@ -79,9 +80,6 @@ std::optional<LRESULT> input_proc([[maybe_unused]] HWND hWnd, UINT msg, [[maybe_
             break;
         }
 
-        // ToUnicodeEx produces in UTF-16, so 2 wchar_t's are enough.
-        wchar_t characters[2] = { 0, };
-
         GetKeyState(0);  // GetKeyboardState doesn't fetch control keys such as Shift, CapsLock, etc. without this call.
         if (!GetKeyboardState(keyboardState) ||
             // Even when the Windows key is pressed, ToUnicodeEx will return the character of the key, thus filtering out.
@@ -94,8 +92,29 @@ std::optional<LRESULT> input_proc([[maybe_unused]] HWND hWnd, UINT msg, [[maybe_
         }
         // TODO: Alt key can affect the following key even when it's not down currently.
 
-        const HWND foregroundWindow = GetForegroundWindow();
-        if (const int result = ToUnicodeEx(vKey, keyboardData.MakeCode, keyboardState, characters, static_cast<int>(std::size(characters)), 0, GetKeyboardLayout(GetWindowThreadProcessId(foregroundWindow, nullptr)));
+        GUITHREADINFO gti{ .cbSize = sizeof(GUITHREADINFO) };
+        if (!GetGUIThreadInfo(0, &gti))
+        {
+            log_last_error(L"GetGUIThreadInfo failed:");
+            break;
+        }
+        const HWND foregroundWindow = gti.hwndFocus;
+
+        DWORD processId;
+        const DWORD threadId = GetWindowThreadProcessId(foregroundWindow, &processId);
+        if (!threadId)
+        {
+            log_last_error(L"GetWindowThreadProcessId failed:");
+            break;
+        }
+
+        check_for_window_focus_change(processId);
+
+        // ToUnicodeEx produces in UTF-16, so 2 wchar_t's are enough.
+        wchar_t characters[2] = { 0, };
+
+        if (const int result = ToUnicodeEx(vKey, keyboardData.MakeCode, keyboardState, characters, 
+                                           static_cast<int>(std::size(characters)), 0, GetKeyboardLayout(threadId));
             result <= 0)
         {
             imm_simulator.ClearComposition();
