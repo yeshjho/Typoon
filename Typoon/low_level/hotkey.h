@@ -138,6 +138,7 @@ enum class [[nodiscard]] EModifierKey : unsigned int
 enum class [[nodiscard]] EHotKeyType
 {
     TOGGLE_ON_OFF,
+    GET_PROGRAM_NAME,
 };
 
 

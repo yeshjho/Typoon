@@ -27,6 +27,7 @@ struct Config
     bool notifyOnOff;
 
     std::pair<EKey, EModifierKey> toggleOnOffHotkey;
+    std::pair<EKey, EModifierKey> getProgramNameHotkey;
 
     std::vector<ProgramOverride> programOverrides;
 };

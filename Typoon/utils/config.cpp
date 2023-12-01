@@ -72,6 +72,7 @@ struct ConfigForParse
     bool notify_on_off = false;
 
     HotKeyForParse hotkey_toggle_on_off = { .ctrl = true, .shift = true, .alt = true, .key = EKey::S };
+    HotKeyForParse hotkey_get_program_name = { .ctrl = true, .shift = true, .alt = true, .key = EKey::D };
 
     std::vector<ProgramOverrideForParse> program_overrides;
     
@@ -84,7 +85,8 @@ struct ConfigForParse
             notify_config_load,
             notify_match_load,
             notify_on_off,
-            { hotkey_toggle_on_off.key, get_combined_modifier(hotkey_toggle_on_off) }
+            { hotkey_toggle_on_off.key, get_combined_modifier(hotkey_toggle_on_off) },
+            { hotkey_get_program_name.key, get_combined_modifier(hotkey_get_program_name) }
         };
 
         std::transform(std::move_iterator{ program_overrides.begin() }, std::move_iterator{ program_overrides.end() }, std::back_inserter(config.programOverrides),
@@ -98,7 +100,7 @@ struct ConfigForParse
 };
 
 
-JSON5_CLASS(ConfigForParse, match_file_path, max_backspace_count, cursor_placeholder, notify_config_load, notify_match_load, notify_on_off, hotkey_toggle_on_off, program_overrides)
+JSON5_CLASS(ConfigForParse, match_file_path, max_backspace_count, cursor_placeholder, notify_config_load, notify_match_load, notify_on_off, hotkey_toggle_on_off, hotkey_get_program_name, program_overrides)
 
 Config config;
 

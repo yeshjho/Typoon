@@ -7,6 +7,9 @@
 #include <iterator>
 
 #include "../../common/common.h"
+#include "../../low_level/clipboard.h"
+#include "../../low_level/tray_icon.h"
+#include "../../low_level/window_focus.h"
 #include "../../utils/config.h"
 #include "log.h"
 #include "wnd_proc.h"
@@ -278,8 +281,22 @@ void start_hot_key_watcher(const std::any& data)
                 }
                 break;
 
+            case EHotKeyType::GET_PROGRAM_NAME:
+            {
+                const std::optional<std::wstring>& nameOpt = get_program_name();
+                if (!nameOpt)
+                {
+                    show_notification(L"Failed to get program name", L"See the log file for the error.");
+                    break;
+                }
+
+                set_clipboard_text(nameOpt.value());
+                show_notification(L"Program name copied to clipboard", nameOpt.value());
+                break;
+            }
+
             default:
-                throw;
+                std::unreachable();
             }
 
             return 0;
@@ -294,9 +311,11 @@ void reregister_hot_keys()
     while (UnregisterHotKey(hot_key_hwnd, 0))
     {}
 
-    const auto [toggleOnOfKey, toggleOnOffModifier] = get_config().toggleOnOffHotkey;
+    const auto [toggleOnOffKey, toggleOnOffModifier] = get_config().toggleOnOffHotkey;
+    const auto [getProgramNameKey, getProgramNameModifier] = get_config().getProgramNameHotkey;
     std::vector<std::tuple<EHotKeyType, EKey, EModifierKey>> hotKeys{
-        { EHotKeyType::TOGGLE_ON_OFF, toggleOnOfKey, toggleOnOffModifier }
+        { EHotKeyType::TOGGLE_ON_OFF, toggleOnOffKey, toggleOnOffModifier },
+        { EHotKeyType::GET_PROGRAM_NAME, getProgramNameKey, getProgramNameModifier }
     };
 
     hot_keys.clear();
