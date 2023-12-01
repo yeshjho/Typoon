@@ -49,14 +49,25 @@ MatchForParse::operator Match() const
 }
 
 
-std::pair<std::vector<MatchForParse>, std::set<std::filesystem::path>> parse_matches(const std::filesystem::path& file)
+std::pair<std::vector<MatchForParse>, std::set<std::filesystem::path>> parse_matches(const std::filesystem::path& file,
+    const std::vector<std::filesystem::path>& includes, const std::vector<std::filesystem::path>& excludes)
 {
     std::set<std::filesystem::path> importedFiles;
-    return { parse_matches(file, importedFiles), importedFiles };
+    std::vector<MatchForParse> matches = parse_matches(file, importedFiles, includes, excludes);
+
+    for (const std::filesystem::path& includePath : includes)
+    {
+        std::vector<MatchForParse> importedMatches = parse_matches(includePath.is_absolute() ? includePath : (file.parent_path() / includePath),
+            importedFiles, includes, excludes);
+        std::ranges::move(importedMatches, std::back_inserter(matches));
+    }
+
+    return { std::move(matches), std::move(importedFiles) };
 }
 
 
-std::vector<MatchForParse> parse_matches(const std::filesystem::path& file, std::set<std::filesystem::path>& importedFiles)
+std::vector<MatchForParse> parse_matches(const std::filesystem::path& file, std::set<std::filesystem::path>& importedFiles,
+    const std::vector<std::filesystem::path>& includes, const std::vector<std::filesystem::path>& excludes)
 {
     const std::filesystem::path normalizedPath = file.lexically_normal();
     if (auto [_, wasNew] = importedFiles.insert(normalizedPath);
@@ -67,7 +78,7 @@ std::vector<MatchForParse> parse_matches(const std::filesystem::path& file, std:
     }
 
     std::wstring errorString;
-    if (std::ifstream ifs{ file }; ifs.is_open())
+    if (std::ifstream ifs{ file })
     {
         const std::string str{ std::istreambuf_iterator<char>(ifs), std::istreambuf_iterator<char>() };
 
@@ -90,7 +101,13 @@ std::vector<MatchForParse> parse_matches(const std::filesystem::path& file, std:
 
                 for (const std::filesystem::path& importPath : imports.imports)
                 {
-                    std::vector<MatchForParse> importedMatches = parse_matches(importPath.is_absolute() ? importPath : (file.parent_path() / importPath), importedFiles);
+                    const std::filesystem::path& absolutePath = importPath.is_absolute() ? importPath : (file.parent_path() / importPath);
+                    if (std::ranges::find(excludes, absolutePath) != excludes.end())
+                    {
+                        continue;
+                    }
+
+                    std::vector<MatchForParse> importedMatches = parse_matches(absolutePath, importedFiles, includes, excludes);
                     std::ranges::move(importedMatches, std::back_inserter(matches));
                 }
 
@@ -106,10 +123,13 @@ std::vector<MatchForParse> parse_matches(const std::filesystem::path& file, std:
 
     if (errorString.empty())
     {
-        errorString = json5_error_to_string({ json5::error::could_not_open });
+        char msg[256]{ 0, };
+        strerror_s(msg, errno);
+        errorString = { std::begin(msg), std::begin(msg) + std::strlen(msg) + 1 };
     }
-    logger.Log(ELogLevel::ERROR, "Matches file is invalid.", errorString);
-    show_notification(L"Match File Parse Error", errorString);
+
+    logger.Log(ELogLevel::ERROR, file, "Match file is invalid.", errorString);
+    show_notification(L"Match File Parse Error", L"File: " + file.generic_wstring() + L"Error: " + errorString);
 
     return {};
 }

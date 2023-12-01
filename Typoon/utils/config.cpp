@@ -12,6 +12,55 @@
 #include "./string.h"
 
 
+struct ProgramOverrideForParse
+{
+    std::vector<std::string> programs;
+    bool disable = false;
+    std::filesystem::path match_file_path;
+    std::vector<std::filesystem::path> includes;
+    std::vector<std::filesystem::path> excludes;
+
+    operator ProgramOverride() &&
+    {
+        makePathAbsolute(match_file_path);
+        for (std::filesystem::path& include : includes)
+        {
+            makePathAbsolute(include);
+        }
+        for (std::filesystem::path& exclude : excludes)
+        {
+            makePathAbsolute(exclude);
+        }
+        ProgramOverride programOverride{
+            {},
+            disable,
+            std::move(match_file_path),
+            std::move(includes),
+            std::move(excludes)
+        };
+        programOverride.programs.reserve(programs.size());
+        std::ranges::transform(programs, std::back_inserter(programOverride.programs),
+            [](const std::string& program)
+            {
+                return to_u16_string(program);
+            });
+        return programOverride;
+    }
+
+private:
+    static void makePathAbsolute(std::filesystem::path& path)
+    {
+        if (!path.empty() && path.is_relative())
+        {
+            path = (get_app_data_path() / path).lexically_normal();
+        }
+    }
+};
+
+
+JSON5_CLASS(ProgramOverrideForParse, programs, disable, match_file_path, includes, excludes)
+
+
 struct ConfigForParse
 {
     std::filesystem::path match_file_path = "match/matches.json5";
@@ -23,11 +72,13 @@ struct ConfigForParse
     bool notify_on_off = false;
 
     HotKeyForParse hotkey_toggle_on_off = { .ctrl = true, .shift = true, .alt = true, .key = EKey::S };
+
+    std::vector<ProgramOverrideForParse> program_overrides;
     
-    operator Config() const &&
+    operator Config() &&
     {
-        return {
-            match_file_path,
+        Config config{
+            std::move(match_file_path),
             max_backspace_count,
             { cursor_placeholder.begin(), cursor_placeholder.end() },
             notify_config_load,
@@ -35,11 +86,19 @@ struct ConfigForParse
             notify_on_off,
             { hotkey_toggle_on_off.key, get_combined_modifier(hotkey_toggle_on_off) }
         };
+
+        std::transform(std::move_iterator{ program_overrides.begin() }, std::move_iterator{ program_overrides.end() }, std::back_inserter(config.programOverrides),
+            [](ProgramOverrideForParse&& programOverrideForParse) -> ProgramOverride
+            {
+                return std::move(programOverrideForParse);
+            });
+
+        return config;
     }
 };
 
 
-JSON5_CLASS(ConfigForParse, match_file_path, max_backspace_count, cursor_placeholder, notify_config_load, notify_match_load, notify_on_off, hotkey_toggle_on_off)
+JSON5_CLASS(ConfigForParse, match_file_path, max_backspace_count, cursor_placeholder, notify_config_load, notify_match_load, notify_on_off, hotkey_toggle_on_off, program_overrides)
 
 Config config;
 
@@ -68,7 +127,7 @@ void read_config_file(const std::filesystem::path& filePath)
 
     if (configForParse.match_file_path.is_relative())
     {
-        configForParse.match_file_path = get_app_data_path() / configForParse.match_file_path;
+        configForParse.match_file_path = (get_app_data_path() / configForParse.match_file_path).lexically_normal();
     }
 
     if (!std::filesystem::exists(configForParse.match_file_path))

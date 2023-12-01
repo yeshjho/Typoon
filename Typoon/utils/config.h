@@ -4,6 +4,18 @@
 #include "../low_level/hotkey.h"
 
 
+struct ProgramOverride
+{
+    std::vector<std::wstring> programs;
+    bool disable;
+    std::filesystem::path matchFilePath;
+    std::vector<std::filesystem::path> includes;
+    std::vector<std::filesystem::path> excludes;
+
+    bool operator==(const ProgramOverride& other) const = default;
+};
+
+
 struct Config
 {
     std::filesystem::path matchFilePath;
@@ -15,6 +27,8 @@ struct Config
     bool notifyOnOff;
 
     std::pair<EKey, EModifierKey> toggleOnOffHotkey;
+
+    std::vector<ProgramOverride> programOverrides;
 };
 
 
