@@ -13,6 +13,7 @@
   <ItemGroup>
     <ClCompile Include="imm\imm_simulator.cpp" />
     <ClCompile Include="input_multicast\input_multicast.cpp" />
+    <ClCompile Include="match\trigger_trees_per_program.cpp" />
     <ClCompile Include="parse\parse_keys.cpp" />
     <ClCompile Include="platform\windows\clipboard.cpp" />
     <ClCompile Include="platform\windows\command.cpp" />
@@ -27,6 +28,7 @@
     <ClCompile Include="platform\windows\file_change_watcher.cpp" />
     <ClCompile Include="platform\windows\input_watcher.cpp" />
     <ClCompile Include="platform\windows\main.cpp" />
+    <ClCompile Include="platform\windows\window_focus.cpp" />
     <ClCompile Include="platform\windows\wnd_proc.cpp" />
     <ClCompile Include="utils\config.cpp" />
     <ClCompile Include="utils\logger.cpp" />
@@ -44,8 +46,10 @@
     <ClInclude Include="low_level\hotkey.h" />
     <ClInclude Include="low_level\input_watcher.h" />
     <ClInclude Include="low_level\tray_icon.h" />
+    <ClInclude Include="low_level\window_focus.h" />
     <ClInclude Include="match\match.h" />
     <ClInclude Include="match\trigger_tree.h" />
+    <ClInclude Include="match\trigger_trees_per_program.h" />
     <ClInclude Include="parse\parse_keys.h" />
     <ClInclude Include="parse\parse_match.h" />
     <ClInclude Include="platform\windows\log.h" />

@@ -5,9 +5,10 @@
 #include "../../low_level/filesystem.h"
 #include "../../low_level/hotkey.h"
 #include "../../low_level/tray_icon.h"
+#include "../../low_level/window_focus.h"
 
 #include "../../common/common.h"
-#include "../../match/trigger_tree.h"
+#include "../../match/trigger_trees_per_program.h"
 #include "../../utils/config.h"
 
 #include "log.h"
@@ -64,28 +65,50 @@ try
     show_tray_icon(std::make_tuple(hInstance, window));
 
     read_config_file(get_config_file_path());
-    setup_trigger_tree(get_config().matchFilePath);
+    setup_trigger_trees(get_config().matchFilePath);
+    update_trigger_tree_program_overrides(get_config().programOverrides);
     start_hot_key_watcher(window);
 
+    FileChangeWatcher matchChangeWatcher;
+    const auto lambdaReinitializeMatchChangeWatcher = [&matchChangeWatcher]()
+        {
+            matchChangeWatcher.Reset();
+            for (const auto& [file, trees] : trigger_trees_by_match_file)
+            {
+                if (!trees.empty())
+                {
+                    matchChangeWatcher.AddWatchingFile(file);
+                }
+            }
+        };
+
     FileChangeWatcher configChangeWatcher{
-        [window, prevMatchFilePath = get_config().matchFilePath, prevCursorPlaceholder = get_config().cursorPlaceholder](const std::filesystem::path&) mutable
+        [window, 
+        prevMatchFilePath = get_config().matchFilePath, 
+        prevCursorPlaceholder = get_config().cursorPlaceholder,
+        prevProgramOverrides = get_config().programOverrides,
+        &lambdaReinitializeMatchChangeWatcher](const std::filesystem::path&) mutable
         {
             read_config_file(get_config_file_path());
 
             const Config& config = get_config();
-            if (const bool didMatchFilePathChange = prevMatchFilePath != config.matchFilePath;
-                didMatchFilePathChange || prevCursorPlaceholder != config.cursorPlaceholder)
+            if (prevMatchFilePath != config.matchFilePath)
             {
                 prevMatchFilePath = config.matchFilePath;
+                get_trigger_tree(DEFAULT_PROGRAM_NAME)->ReconstructWith(config.matchFilePath);
+            }
+
+            if (prevCursorPlaceholder != config.cursorPlaceholder)
+            {
                 prevCursorPlaceholder = config.cursorPlaceholder;
-                if (didMatchFilePathChange)
-                {
-                    reconstruct_trigger_tree_with(config.matchFilePath);
-                }
-                else
-                {
-                    reconstruct_trigger_tree();
-                }
+                reconstruct_all_trigger_trees();
+            }
+
+            if (prevProgramOverrides != config.programOverrides)
+            {
+                prevProgramOverrides = config.programOverrides;
+                update_trigger_tree_program_overrides(config.programOverrides);
+                reconstruct_all_trigger_trees(lambdaReinitializeMatchChangeWatcher);
             }
 
             PostMessage(window, CONFIG_CHANGED_MESSAGE, 0, 0);
@@ -98,28 +121,50 @@ try
     };
     configChangeWatcher.AddWatchingFile(get_config_file_path());
 
-    FileChangeWatcher matchChangeWatcher;
-    std::function<void(const std::filesystem::path&)> matchFileChangeCallback;
-    matchFileChangeCallback = [&matchChangeWatcher, &matchFileChangeCallback](const std::filesystem::path&)
-    {
-        reconstruct_trigger_tree({}, [&matchChangeWatcher, &matchFileChangeCallback]()
+    const auto onMatchFileChanged = [&lambdaReinitializeMatchChangeWatcher](const std::filesystem::path& fileChanged)
+        {
+            const std::deque<TriggerTree*>& treesToReconstruct = trigger_trees_by_match_file[fileChanged];
+            if (treesToReconstruct.empty())
             {
-                matchChangeWatcher.Reset();
-                for (const std::filesystem::path& file : match_files_in_use)
-                {
-                    matchChangeWatcher.AddWatchingFile(file);
-                }
+                return;
             }
-        );
-    };
-    matchFileChangeCallback({});
-    matchChangeWatcher.SetOnChanged(matchFileChangeCallback);
+            
+            for (TriggerTree* triggerTree : treesToReconstruct | std::views::take(treesToReconstruct.size() - 1))
+            {
+                triggerTree->Reconstruct();
+            }
+
+            treesToReconstruct.back()->Reconstruct({}, [&lambdaReinitializeMatchChangeWatcher]()
+            {
+                lambdaReinitializeMatchChangeWatcher();
+            });
+        };
+    matchChangeWatcher.SetOnChanged(onMatchFileChanged);
+    reconstruct_all_trigger_trees(lambdaReinitializeMatchChangeWatcher);
+
+    if (get_config().notifyMatchLoad)
+    {
+        show_notification(L"Match File Load Complete!", L"The match file is parsed and ready to go", true);
+    }
 
     if (!turn_on(window))
     {
         return -1;
     }
 
+    CoInitialize(nullptr);
+
+    GUITHREADINFO gti{ .cbSize = sizeof(GUITHREADINFO) };
+    if (GetGUIThreadInfo(0, &gti))
+    {
+        const HWND foregroundWindow = gti.hwndFocus;
+        DWORD processId;
+        if (GetWindowThreadProcessId(foregroundWindow, &processId))
+        {
+            check_for_window_focus_change(processId);
+        }
+    }
+    
     MSG msg;
     while (GetMessage(&msg, nullptr, 0, 0))
     {
@@ -141,9 +186,11 @@ try
         DispatchMessage(&msg);
     }
 
+    CoUninitialize();
+
     turn_off();
 
-    teardown_trigger_tree();
+    teardown_trigger_trees();
     end_hot_key_watcher();
     remove_tray_icon();
 
