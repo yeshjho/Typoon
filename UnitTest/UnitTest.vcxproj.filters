@@ -69,6 +69,9 @@
     <ClCompile Include="dummy\platform\command.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="..\Typoon\match\trigger_trees_per_program.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="util\config.h">

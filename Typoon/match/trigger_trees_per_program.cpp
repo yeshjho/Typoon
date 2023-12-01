@@ -33,6 +33,11 @@ void setup_trigger_trees(const std::filesystem::path& defaultMatchFile)
 void teardown_trigger_trees()
 {
     std::erase_if(input_listeners, [](const std::pair<std::string, InputListener>& pair) { return pair.first == "trigger_tree"; });
+    trigger_trees.clear();
+    trigger_tree_by_program.clear();
+    current_program.clear();
+    current_trigger_tree = nullptr;
+    default_match_file.clear();
 }
 
 
