@@ -9,6 +9,7 @@
 
 #include "../../common/common.h"
 #include "../../match/trigger_trees_per_program.h"
+#include "../../parse/parse_match.h"
 #include "../../utils/config.h"
 
 #include "log.h"
@@ -101,6 +102,7 @@ try
             if (prevCursorPlaceholder != config.cursorPlaceholder)
             {
                 prevCursorPlaceholder = config.cursorPlaceholder;
+                invalidate_all_matches_cache();
                 reconstruct_all_trigger_trees();
             }
 
@@ -123,6 +125,8 @@ try
 
     const auto onMatchFileChanged = [&lambdaReinitializeMatchChangeWatcher](const std::filesystem::path& fileChanged)
         {
+            invalidate_matches_cache(fileChanged);
+
             const std::deque<TriggerTree*>& treesToReconstruct = trigger_trees_by_match_file[fileChanged];
             if (treesToReconstruct.empty())
             {
