@@ -71,7 +71,7 @@ try
     start_hot_key_watcher(window);
 
     FileChangeWatcher matchChangeWatcher;
-    const auto lambdaReinitializeMatchChangeWatcher = [&matchChangeWatcher]()
+    const auto lambdaAfterTreeReconstruct = [&matchChangeWatcher]()
         {
             matchChangeWatcher.Reset();
             for (const auto& [file, trees] : trigger_trees_by_match_file)
@@ -81,6 +81,11 @@ try
                     matchChangeWatcher.AddWatchingFile(file);
                 }
             }
+
+            if (get_config().notifyMatchLoad)
+            {
+                show_notification(L"Match File Load Complete!", L"The match file is parsed and ready to go", true);
+            }
         };
 
     FileChangeWatcher configChangeWatcher{
@@ -88,7 +93,7 @@ try
         prevMatchFilePath = get_config().matchFilePath, 
         prevCursorPlaceholder = get_config().cursorPlaceholder,
         prevProgramOverrides = get_config().programOverrides,
-        &lambdaReinitializeMatchChangeWatcher](const std::filesystem::path&) mutable
+        &lambdaAfterTreeReconstruct](const std::filesystem::path&) mutable
         {
             read_config_file(get_config_file_path());
 
@@ -110,7 +115,7 @@ try
             {
                 prevProgramOverrides = config.programOverrides;
                 update_trigger_tree_program_overrides(config.programOverrides);
-                reconstruct_all_trigger_trees(lambdaReinitializeMatchChangeWatcher);
+                reconstruct_all_trigger_trees(lambdaAfterTreeReconstruct);
             }
 
             PostMessage(window, CONFIG_CHANGED_MESSAGE, 0, 0);
@@ -123,7 +128,7 @@ try
     };
     configChangeWatcher.AddWatchingFile(get_config_file_path());
 
-    const auto onMatchFileChanged = [&lambdaReinitializeMatchChangeWatcher](const std::filesystem::path& fileChanged)
+    const auto onMatchFileChanged = [&lambdaAfterTreeReconstruct](const std::filesystem::path& fileChanged)
         {
             invalidate_matches_cache(fileChanged);
 
@@ -138,18 +143,13 @@ try
                 triggerTree->Reconstruct();
             }
 
-            treesToReconstruct.back()->Reconstruct({}, [&lambdaReinitializeMatchChangeWatcher]()
+            treesToReconstruct.back()->Reconstruct({}, [&lambdaAfterTreeReconstruct]()
             {
-                lambdaReinitializeMatchChangeWatcher();
+                lambdaAfterTreeReconstruct();
             });
         };
     matchChangeWatcher.SetOnChanged(onMatchFileChanged);
-    reconstruct_all_trigger_trees(lambdaReinitializeMatchChangeWatcher);
-
-    if (get_config().notifyMatchLoad)
-    {
-        show_notification(L"Match File Load Complete!", L"The match file is parsed and ready to go", true);
-    }
+    reconstruct_all_trigger_trees(lambdaAfterTreeReconstruct);
 
     if (!turn_on(window))
     {
@@ -181,6 +181,11 @@ try
 
         case CLIPBOARD_PASTE_DONE_MESSAGE:
             pop_clipboard_state_with_delay([seq = GetClipboardSequenceNumber()]() { return seq == GetClipboardSequenceNumber(); });
+            break;
+
+        case RELOAD_ALL_MATCHES_MESSAGE:
+            invalidate_all_matches_cache();
+            reconstruct_all_trigger_trees(lambdaAfterTreeReconstruct);
             break;
 
         default:
