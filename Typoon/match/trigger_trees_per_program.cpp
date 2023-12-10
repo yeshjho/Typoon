@@ -13,6 +13,8 @@ TriggerTree* current_trigger_tree = nullptr;
 
 std::filesystem::path default_match_file;
 
+std::atomic<std::atomic<size_t>*> latest_reconstruction_counter = nullptr;
+
 
 void setup_trigger_trees(const std::filesystem::path& defaultMatchFile)
 {
@@ -76,13 +78,58 @@ void set_current_program(const std::wstring& program)
 }
 
 
-void reconstruct_all_trigger_trees(const std::function<void()>& onFinished)
+template <typename T>
+void reconstruct(T& treesToReconstruct, std::function<void()> onFinished)
 {
-    for (TriggerTree& triggerTree : trigger_trees | std::views::take(trigger_tree_by_program.size() - 1))
+    if (treesToReconstruct.empty())
     {
-        triggerTree.Reconstruct();
+        return;
     }
-    trigger_trees.back().Reconstruct({}, onFinished);
+
+    // Why are we allocating a new atomic every time?
+    // Consider this: a reconstruction is triggered, affecting tree A, B, C.
+    // Before the reconstruction is finished, another reconstruction is triggered, affecting tree A, B, D.
+    // If we use the same atomic, the second reconstruction will be affected by the first one.
+    // We can't blindly halt all construction either since tree C still needs to be reconstructed.
+    auto* counter = new std::atomic<size_t>{ treesToReconstruct.size() };
+    latest_reconstruction_counter = counter;
+
+    const auto lambdaOnConstructionFinished = [onFinished = std::move(onFinished), counter]()
+        {
+            if (--(*counter) == 0)
+            {
+                if (onFinished && latest_reconstruction_counter == counter)
+                {
+                    onFinished();
+                }
+
+                delete counter;
+            }
+        };
+
+    for (auto& triggerTree : treesToReconstruct)
+    {
+        if constexpr (std::is_pointer_v<std::remove_reference_t<decltype(triggerTree)>>)
+        {
+            triggerTree->Reconstruct({}, lambdaOnConstructionFinished);
+        }
+        else
+        {
+            triggerTree.Reconstruct({}, lambdaOnConstructionFinished);
+        }
+    }
+}
+
+
+void reconstruct_all_trigger_trees(std::function<void()> onFinished)
+{
+    reconstruct(trigger_trees, std::move(onFinished));
+}
+
+
+void reconstruct_trigger_trees_with_file(const std::filesystem::path& matchFile, std::function<void()> onFinished)
+{
+    reconstruct(trigger_trees_by_match_file[matchFile], std::move(onFinished));
 }
 
 

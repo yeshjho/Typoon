@@ -131,22 +131,7 @@ try
     const auto onMatchFileChanged = [&lambdaAfterTreeReconstruct](const std::filesystem::path& fileChanged)
         {
             invalidate_matches_cache(fileChanged);
-
-            const std::deque<TriggerTree*>& treesToReconstruct = trigger_trees_by_match_file[fileChanged];
-            if (treesToReconstruct.empty())
-            {
-                return;
-            }
-            
-            for (TriggerTree* triggerTree : treesToReconstruct | std::views::take(treesToReconstruct.size() - 1))
-            {
-                triggerTree->Reconstruct();
-            }
-
-            treesToReconstruct.back()->Reconstruct({}, [&lambdaAfterTreeReconstruct]()
-            {
-                lambdaAfterTreeReconstruct();
-            });
+            reconstruct_trigger_trees_with_file(fileChanged, lambdaAfterTreeReconstruct);
         };
     matchChangeWatcher.SetOnChanged(onMatchFileChanged);
     reconstruct_all_trigger_trees(lambdaAfterTreeReconstruct);

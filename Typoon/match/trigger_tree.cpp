@@ -115,10 +115,14 @@ void TriggerTree::Reconstruct(std::string_view matchesString, std::function<void
 
     logger.Log(ELogLevel::INFO, mMatchFile, "Trigger tree construction started");
 
-    mTriggerTreeConstructorThread = std::jthread{ [this, matchesString = std::string{ matchesString.begin(), matchesString.end() }, onFinish = std::move(onFinish)](const std::stop_token& stopToken)
+    mTriggerTreeConstructorThread = std::jthread{
+        [this,
+        matchesString = std::string{ matchesString.begin(), matchesString.end() },
+        onFinish = std::move(onFinish),
+        didCallOnFinish = false](const std::stop_token& stopToken) mutable
     {
     try {
-#define STOP if (stopToken.stop_requested()) { return; }
+        #define STOP if (stopToken.stop_requested()) { if (onFinish && !didCallOnFinish) { didCallOnFinish = true; onFinish(); } return; }
 
         STOP
         std::vector<MatchForParse> matchesParsed;
@@ -360,8 +364,9 @@ void TriggerTree::Reconstruct(std::string_view matchesString, std::function<void
 
         mTreeHeight = height;
         mIsConstructingTriggerTree.store(false);
-        if (onFinish)
+        if (onFinish && !didCallOnFinish)
         {
+            didCallOnFinish = true;
             onFinish();
         }
 
@@ -374,12 +379,22 @@ void TriggerTree::Reconstruct(std::string_view matchesString, std::function<void
         logger.Log(ELogLevel::ERROR, mMatchFile, "Exception while constructing trigger tree", e.what());
         show_notification(L"Match File Load Failed!",
             L"An exception occurred while parsing the match file.\nPlease report this with a log file.", false);
+        if (onFinish && !didCallOnFinish)
+        {
+            didCallOnFinish = true;
+            onFinish();
+        }
     }
     catch (...)
     {
         logger.Log(ELogLevel::ERROR, mMatchFile, "Unknown exception while constructing trigger tree");
         show_notification(L"Match File Load Failed!",
             L"An exception occurred while parsing the match file.\nPlease report this with a log file.", false);
+        if (onFinish && !didCallOnFinish)
+        {
+            didCallOnFinish = true;
+            onFinish();
+        }
     }
     } };
 }
