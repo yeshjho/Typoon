@@ -14,11 +14,12 @@ constexpr UINT WM_TRAY_ICON = WM_USER + 1;
 
 constexpr int IDM_TOGGLE_ON_OFF = 1;
 constexpr int IDM_OPEN_CONFIG = 100;
-constexpr int IDM_OPEN_MATCH = 101;
+constexpr int IDM_OPEN_MATCH = IDM_OPEN_CONFIG + 1;
+constexpr int IDM_RELOAD_ALL_MATCH_FILES = IDM_OPEN_MATCH + 1;
 constexpr int IDM_EXIT = 1000;
 
 
-HWND tray_icon_hwnd;
+HWND main_window_handle;
 
 std::optional<LRESULT> tray_icon_proc(HWND hWnd, UINT msg, [[maybe_unused]] WPARAM wParam, LPARAM lParam)
 {
@@ -38,7 +39,7 @@ std::optional<LRESULT> tray_icon_proc(HWND hWnd, UINT msg, [[maybe_unused]] WPAR
             }
             else
             {
-                turn_on(tray_icon_hwnd);
+                turn_on(main_window_handle);
             }
             break;
 
@@ -48,6 +49,10 @@ std::optional<LRESULT> tray_icon_proc(HWND hWnd, UINT msg, [[maybe_unused]] WPAR
 
         case IDM_OPEN_MATCH:
             ShellExecute(nullptr, nullptr, get_config().matchFilePath.c_str(), nullptr, nullptr, SW_SHOW);
+            break;
+
+        case IDM_RELOAD_ALL_MATCH_FILES:
+            PostMessage(main_window_handle, RELOAD_ALL_MATCHES_MESSAGE, 0, 0);
             break;
 
         case IDM_EXIT:
@@ -75,6 +80,7 @@ std::optional<LRESULT> tray_icon_proc(HWND hWnd, UINT msg, [[maybe_unused]] WPAR
         InsertMenu(menu, index++, MF_BYPOSITION | MF_STRING, IDM_TOGGLE_ON_OFF, is_turned_on() ? L"Turn Off" : L"Turn On");
         InsertMenu(menu, index++, MF_BYPOSITION | MF_STRING, IDM_OPEN_CONFIG, L"Open Config");
         InsertMenu(menu, index++, MF_BYPOSITION | MF_STRING, IDM_OPEN_MATCH, L"Open Match");
+        InsertMenu(menu, index++, MF_BYPOSITION | MF_STRING, IDM_RELOAD_ALL_MATCH_FILES, L"Reload All Match Files");
         InsertMenu(menu, index++, MF_BYPOSITION | MF_MENUBARBREAK, 0, nullptr);
         InsertMenu(menu, index++, MF_BYPOSITION | MF_STRING, IDM_EXIT, L"Exit");
 
@@ -100,7 +106,7 @@ HICON off_icon;
 void show_tray_icon(const std::any& data)
 {
     const auto [hInstance, hWnd] = std::any_cast<std::tuple<HINSTANCE, HWND>>(data);
-    tray_icon_hwnd = hWnd;
+    main_window_handle = hWnd;
 
     on_icon = static_cast<HICON>(LoadImage(hInstance, MAKEINTRESOURCE(IDI_TYPOON_ICON), IMAGE_ICON,
         GetSystemMetrics(SM_CXSMICON), GetSystemMetrics(SM_CYSMICON), LR_DEFAULTCOLOR));
@@ -135,7 +141,7 @@ void remove_tray_icon()
 {
     NOTIFYICONDATAW iconData{};
     iconData.cbSize = sizeof(NOTIFYICONDATAW);
-    iconData.hWnd = tray_icon_hwnd;
+    iconData.hWnd = main_window_handle;
 
     Shell_NotifyIconW(NIM_DELETE, &iconData);
 
@@ -147,7 +153,7 @@ void set_icon_on(bool isOn)
 {
     NOTIFYICONDATAW iconData{};
     iconData.cbSize = sizeof(NOTIFYICONDATAW);
-    iconData.hWnd = tray_icon_hwnd;
+    iconData.hWnd = main_window_handle;
     iconData.uFlags = NIF_ICON;
     iconData.hIcon = isOn ? on_icon : off_icon;
 
@@ -162,7 +168,7 @@ void show_notification(const std::wstring& title, const std::wstring& body, bool
 {
     NOTIFYICONDATAW iconData{};
     iconData.cbSize = sizeof(NOTIFYICONDATAW);
-    iconData.hWnd = tray_icon_hwnd;
+    iconData.hWnd = main_window_handle;
     iconData.uFlags = NIF_INFO | (isRealtime ? NIF_REALTIME : 0);
     iconData.dwInfoFlags = NIIF_USER | NIIF_LARGE_ICON;
     std::ranges::copy(title, iconData.szInfoTitle);

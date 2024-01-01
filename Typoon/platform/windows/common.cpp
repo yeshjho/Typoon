@@ -45,7 +45,6 @@ void turn_off()
         return;
     }
 
-    halt_trigger_tree_construction();
     end_input_watcher();
     teardown_imm_simulator();
     end_clipboard_storer();

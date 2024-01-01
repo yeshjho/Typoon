@@ -2,10 +2,8 @@
 
 #include <cwctype>
 #include <map>
-#include <thread>
 
 #include "../imm/imm_simulator.h"
-#include "../input_multicast/input_multicast.h"
 #include "../low_level/clipboard.h"
 #include "../low_level/command.h"
 #include "../low_level/fake_input.h"
@@ -17,542 +15,77 @@
 #include "../utils/string.h"
 
 
-struct Letter
+bool Letter::operator==(wchar_t ch) const
 {
-    // These constants uses the unassigned block of the Unicode. (0x0870 ~ 0x089F)
-    /// Constants for special triggers
-    static constexpr wchar_t NON_WORD_LETTER = 0x0870;
-
-    /// Constants for special replacements
-    static constexpr wchar_t LAST_INPUT_LETTER = 0x089F;
-
-
-    wchar_t letter;
-    bool isCaseSensitive;  // Won't be true if `letter` is not cased.
-    bool doNeedFullComposite;  // Won't be true if `letter` is not Korean or not an ending.
-
-    bool operator==(wchar_t ch) const
+    if (letter == NON_WORD_LETTER)
     {
-        if (letter == NON_WORD_LETTER)
-        {
-            return !std::iswalnum(ch);
-        }
-
-        if (isCaseSensitive || !is_cased_alpha(ch))
-        {
-            return letter == ch;
-        }
-
-        return std::towlower(letter) == std::towlower(ch);
+        return !std::iswalnum(ch);
     }
 
-    bool operator==(const Letter& other) const
+    if (isCaseSensitive || !is_cased_alpha(ch))
     {
-        if (letter == other.letter)
-        {
-            return isCaseSensitive == other.isCaseSensitive;
-        }
-
-        // The letters are not strictly the same.
-        if (!isCaseSensitive && !other.isCaseSensitive &&  // If either is case sensitive, we can't perform case insensitive comparison.
-            std::towlower(letter) == std::towlower(other.letter))
-        {
-            return true;
-        }
-
-        return false;
+        return letter == ch;
     }
 
-    // NOTE: We don't need partial ordering, since we're already saying that case insensitive and same-if-lowered `Letter`s are equal.
-    std::strong_ordering operator<=>(const Letter& other) const
-    {
-        if (std::towlower(letter) == std::towlower(other.letter))
-        {
-            // Case sensitive ones come first.
-            return other.isCaseSensitive <=> isCaseSensitive;
-        }
-
-        if (const std::strong_ordering comp = letter <=> other.letter;
-            comp != std::strong_ordering::equal)
-        {
-            return comp;
-        }
-
-        return isCaseSensitive <=> other.isCaseSensitive;
-    }
-};
-
-// A node of the tree. It's essentially a link, since a node doesn't hold any information.
-struct Node
-{
-    int parentIndex = -1;
-    int childStartIndex = -1;
-    int childLength = 0;
-    Letter letter;
-    int endingIndex = -1;
-};
-
-// The last letter of a trigger, contains the information for the replacement string.
-struct Ending
-{
-    enum class EReplaceType
-    {
-        TEXT,
-        IMAGE,
-        COMMAND,
-    };
-
-    int replaceStringIndex = -1;
-    EReplaceType type = EReplaceType::TEXT;
-    unsigned int replaceStringLength = 0;
-    unsigned int backspaceCount = 0;
-    unsigned int cursorMoveCount = 0;
-    bool propagateCase = false;  // Won't be true if the first letter is not cased.
-    Match::EUppercaseStyle uppercaseStyle = Match::EUppercaseStyle::FIRST_LETTER;  // Only used if `propagateCase` is true.
-    bool keepComposite = false;  // Won't be true if the letter is not Korean or need full composite.
-};
-
-// The agents for tracking the current possible triggers.
-struct Agent
-{
-    const Node* node = nullptr;
-    int strokeStartIndex = -1;
-
-    constexpr bool operator==(const Agent& other) const noexcept = default;
-};
-
-// The agents that is 'dead' but can be brought back to life with backspaces.
-struct DeadAgent : Agent
-{
-    int backspacesNeeded = 0;
-};
-
-
-std::filesystem::path match_file;
-
-std::vector<Node> tree;
-unsigned int tree_height;
-std::vector<Ending> endings;
-std::wstring replace_strings;
-
-std::atomic<bool> is_trigger_tree_outdated = true;
-std::atomic<bool> is_constructing_trigger_tree = false;
-
-
-void replace_string(const Ending& ending, const Agent& agent, std::wstring_view stroke, const InputMessage(&inputs)[MAX_INPUT_COUNT], int inputLength, int inputIndex, bool doNeedFullComposite)
-{
-    const auto& [replaceStringIndex, replaceType, replaceStringLength, backspaceCount, cursorMoveCount, 
-        propagateCase, uppercaseStyle, keepComposite] = ending;
-
-    const std::wstring_view originalReplaceString{ replace_strings.data() + replaceStringIndex, replaceStringLength };
-
-    switch (replaceType)
-    {
-    case Ending::EReplaceType::IMAGE:
-    {
-        push_current_clipboard_state();
-        std::vector<FakeInput> fakeInputs{ backspaceCount, FakeInput{ FakeInput::EType::KEY, FakeInput::BACKSPACE_KEY } };
-        if (set_clipboard_image(originalReplaceString))
-        {
-            // Popping the clipboard state is done in main.
-            fakeInputs.emplace_back(FakeInput::EType::HOT_KEY_PASTE);
-        }
-        else
-        {
-            pop_clipboard_state();
-        }
-        send_fake_inputs(fakeInputs, false);
-        return;
-    }
-
-    case Ending::EReplaceType::COMMAND:
-    {
-        std::vector<FakeInput> fakeInputs{ backspaceCount, FakeInput{ FakeInput::EType::KEY, FakeInput::BACKSPACE_KEY } };
-        const auto& [str, ret] = run_command_and_get_output(originalReplaceString);
-        fakeInputs.reserve(fakeInputs.size() + str.size());
-        for (wchar_t c : str)
-        {
-            fakeInputs.emplace_back(FakeInput::EType::LETTER, c);
-        }
-        send_fake_inputs(fakeInputs, false);
-        return;
-    }
-
-    case Ending::EReplaceType::TEXT:
-        break;
-
-    default:
-        std::unreachable();
-    }
-
-    std::wstring replaceString{ originalReplaceString };
-
-    unsigned int additionalCursorMoveCount = 0;
-
-    imm_simulator.ClearComposition();
-
-    for (wchar_t& c : replaceString)
-    {
-        if (c == Letter::LAST_INPUT_LETTER)
-        {
-            c = inputs[inputIndex].letter;
-        }
-    }
-    
-    const std::wstring_view triggerStroke = stroke.substr(agent.strokeStartIndex);
-    if (propagateCase)
-    {
-        const auto triggerFirstCasedLetter = std::ranges::find_if(triggerStroke, [](wchar_t c) { return is_cased_alpha(c); });
-        if (std::iswupper(*triggerFirstCasedLetter))
-        {
-            if (std::ranges::any_of(triggerFirstCasedLetter, triggerStroke.end(), [](wchar_t c) { return is_cased_alpha(c) && std::iswlower(c); }))
-            {
-                // If there is a lowercase letter in the stroke, only the first cased letter is capitalized.
-                if (const auto it = std::ranges::find_if(originalReplaceString, [](wchar_t c) { return is_cased_alpha(c); });
-                    it != originalReplaceString.end())
-                {
-                    switch (uppercaseStyle)
-                    {
-                    case Match::EUppercaseStyle::FIRST_LETTER:
-                        replaceString.at(it - originalReplaceString.begin()) = std::towupper(*it);
-                        break;
-
-                    case Match::EUppercaseStyle::WORDS:
-                    {
-                        bool shouldBeUpper = true;
-                        for (wchar_t& c : replaceString)
-                        {
-                            if (shouldBeUpper && is_cased_alpha(c))
-                            {
-                                c = std::towupper(c);
-                                shouldBeUpper = false;
-                            }
-                            else if (!std::iswalnum(c))
-                            {
-                                shouldBeUpper = true;
-                            }
-                        }
-                        break;
-                    }
-
-                    default:
-                        std::unreachable();
-                    }
-                }
-            }
-            else
-            {
-                // Otherwise, capitalize all the letters.
-                std::ranges::transform(replaceString, replaceString.begin(), std::towupper);
-            }
-        }
-    }
-
-    const std::wstring_view replace{ replaceString };
-    std::vector<FakeInput> fakeInputs;
-    if (doNeedFullComposite)
-    {
-        const wchar_t lastLetter = inputs[inputLength - 1].letter;
-        const bool isLastLetterKorean = is_korean(lastLetter);
-        const bool didCompositionEndByAddingLetters = inputIndex + 1 < inputLength;
-        unsigned int additionalBackspaceCount = std::max(inputLength - inputIndex - 2, 0) + static_cast<unsigned int>(didCompositionEndByAddingLetters);
-        std::wstring lastLetterString{ lastLetter };
-        if (isLastLetterKorean && didCompositionEndByAddingLetters)
-        {
-            const std::wstring lastLetterNormalized = normalize_hangeul(lastLetterString);
-            lastLetterString = hangeul_to_alphabet(lastLetterNormalized, false);
-            // The length of the middle letters + the last letter's decomposition.
-            additionalBackspaceCount += static_cast<unsigned int>(lastLetterNormalized.size()) - 1;
-            for (const wchar_t ch : lastLetterNormalized)
-            {
-                imm_simulator.AddLetter(ch, false);
-            }
-        }
-        const bool shouldToggleHangeul = isLastLetterKorean && !is_hangeul_on;
-
-        // Note that we're not using the backspaceCount from the ending,
-        // since the last letter of the replace string was decomposed to calculate the count (we don't want that here).
-        const unsigned int totalBackspaceCount = tree_height - agent.strokeStartIndex + additionalBackspaceCount;
-        fakeInputs.reserve(
-            totalBackspaceCount + 
-            replaceStringLength + 
-            inputLength - inputIndex - 2 + 
-            static_cast<int>(shouldToggleHangeul) + 
-            (didCompositionEndByAddingLetters ? lastLetterString.size() : size_t{ 0 }));
-
-        std::fill_n(std::back_inserter(fakeInputs), totalBackspaceCount, FakeInput{ FakeInput::EType::KEY, FakeInput::BACKSPACE_KEY });
-
-        // The replace string first
-        std::ranges::transform(replace, std::back_inserter(fakeInputs),
-            [](const wchar_t& ch) { return FakeInput{ FakeInput::EType::LETTER, ch }; });
-        // Then the middle letters
-        // Not using std::transform to avoid begin(i + 1) > end(length - 1)
-        for (int j = inputIndex + 1; j < inputLength - 1; j++)
-        {
-            fakeInputs.emplace_back(FakeInput::EType::LETTER, inputs[j].letter);
-        }
-
-        // Then the last letter's decomposition.
-        // Why decompose and send as a key? If the last letter was in the middle of composing, we need to keep the 'composing' state.
-        if (shouldToggleHangeul)
-        {
-            fakeInputs.emplace_back(FakeInput::EType::KEY, FakeInput::TOGGLE_HANGEUL_KEY);
-            is_hangeul_on = true;
-        }
-        if (didCompositionEndByAddingLetters)
-        {
-            std::ranges::transform(lastLetterString, std::back_inserter(fakeInputs),
-                [type = isLastLetterKorean ? FakeInput::EType::LETTER_AS_KEY : FakeInput::EType::LETTER](const wchar_t& ch)
-                { return FakeInput{ type, ch }; });
-        }
-
-        if (didCompositionEndByAddingLetters && cursorMoveCount > 0)
-        {
-            additionalCursorMoveCount += inputLength - inputIndex - 1;
-        }
-
-        // NOTE: We don't skip the remaining letters since that can be a trigger, too
-        // ex - matches: '가'(full composite) -> '다', '나' -> '라' / input: '가나' / replace should be: '다라'
-    }
-    else if (keepComposite)
-    {
-        const std::wstring lastLetterNormalized = normalize_hangeul(replace.substr(replaceStringLength - 1));
-        const std::wstring lastLetter = hangeul_to_alphabet(lastLetterNormalized, false);
-
-        fakeInputs.reserve(backspaceCount + replaceStringLength + static_cast<int>(!is_hangeul_on) + lastLetter.size() - 1);
-        std::fill_n(std::back_inserter(fakeInputs), backspaceCount, FakeInput{ FakeInput::EType::KEY, FakeInput::BACKSPACE_KEY });
-        std::ranges::transform(replace.substr(0, replaceStringLength - 1), std::back_inserter(fakeInputs),
-            [](const wchar_t& ch) { return FakeInput{ FakeInput::EType::LETTER, ch }; });
-        if (!is_hangeul_on)
-        {
-            fakeInputs.emplace_back(FakeInput::EType::KEY, FakeInput::TOGGLE_HANGEUL_KEY);
-            is_hangeul_on = true;
-        }
-        std::ranges::transform(lastLetter, std::back_inserter(fakeInputs),
-            [](const wchar_t& ch) { return FakeInput{ FakeInput::EType::LETTER_AS_KEY, ch }; });
-        for (const wchar_t ch : lastLetterNormalized)
-        {
-            imm_simulator.AddLetter(ch, false);
-        }
-    }
-    else
-    {
-        fakeInputs.reserve(backspaceCount + replaceStringLength);
-        std::fill_n(std::back_inserter(fakeInputs), backspaceCount, FakeInput{ FakeInput::EType::KEY, FakeInput::BACKSPACE_KEY });
-        std::ranges::transform(replace, std::back_inserter(fakeInputs),
-            [](const wchar_t& ch) { return FakeInput{ FakeInput::EType::LETTER, ch }; });
-    }
-
-    std::fill_n(std::back_inserter(fakeInputs), cursorMoveCount + additionalCursorMoveCount, FakeInput{ FakeInput::EType::KEY, FakeInput::LEFT_ARROW_KEY });
-
-    for (FakeInput& fakeInput : fakeInputs)
-    {
-        if (fakeInput.type == FakeInput::EType::LETTER && fakeInput.letter == '\n')
-        {
-            fakeInput = { FakeInput::EType::KEY, FakeInput::ENTER_KEY };
-        }
-    }
-
-    send_fake_inputs(fakeInputs, false);
+    return std::towlower(letter) == std::towlower(ch);
 }
 
 
-void on_input(const InputMessage(&inputs)[MAX_INPUT_COUNT], int length, bool clearAllAgents)
+bool Letter::operator==(const Letter& other) const
 {
-    static std::vector<Agent> agents{};
-    static std::vector<Agent> nextIterationAgents{};
-    static std::deque<DeadAgent> deadAgents{};
-    static std::wstring stroke{};
-    static bool shouldResetAgents = false;
-    static Agent root;
-
-    if (is_constructing_trigger_tree.load())
+    if (letter == other.letter)
     {
-        shouldResetAgents = true;
-        return;
+        return isCaseSensitive == other.isCaseSensitive;
     }
 
-    if (shouldResetAgents || is_trigger_tree_outdated.load())
+    // The letters are not strictly the same.
+    if (!isCaseSensitive && !other.isCaseSensitive &&  // If either is case sensitive, we can't perform case insensitive comparison.
+        std::towlower(letter) == std::towlower(other.letter))
     {
-        shouldResetAgents = false;
-        is_trigger_tree_outdated.store(false);
-
-        agents.clear();
-        nextIterationAgents.clear();
-        stroke.clear();
-        agents.reserve(tree_height);
-        nextIterationAgents.reserve(tree_height);
-        stroke.resize(std::max(tree_height, 1U), 0);
-        root = { &tree.front(), static_cast<int>(tree_height) };
+        return true;
     }
 
-    if (clearAllAgents)
+    return false;
+}
+
+
+// NOTE: We don't need partial ordering, since we're already saying that case insensitive and same-if-lowered `Letter`s are equal.
+std::strong_ordering Letter::operator<=>(const Letter& other) const
+{
+    if (std::towlower(letter) == std::towlower(other.letter))
     {
-        agents.clear();
-        deadAgents.clear();
+        // Case sensitive ones come first.
+        return other.isCaseSensitive <=> isCaseSensitive;
     }
 
-    for (int i = 0; i < length; i++)
+    if (const std::strong_ordering comp = letter <=> other.letter;
+        comp != std::strong_ordering::equal)
     {
-        logger.Log(ELogLevel::DEBUG, "input:", inputs[i].letter, static_cast<int>(inputs[i].isBeingComposed));
+        return comp;
     }
 
-    if (length >= 0 && inputs[0].letter == L'\b')
+    return isCaseSensitive <=> other.isCaseSensitive;
+}
+
+
+TriggerTree::TriggerTree(std::filesystem::path matchFile, std::vector<std::filesystem::path> includes, std::vector<std::filesystem::path> excludes)
+    : mMatchFile(std::move(matchFile))
+    , mIncludes(std::move(includes))
+    , mExcludes(std::move(excludes))
+{}
+
+
+TriggerTree::~TriggerTree()
+{
+    HaltConstruction();
+    for (const std::filesystem::path& file : mImportedFiles)
     {
-        std::ranges::shift_right(stroke, 1);
-
-        // The input size is bigger than 1 only if letters are composed in the imm simulator.
-        // But a backspace can't be used to finish composing(other than clearing one completely),
-        // we don't need to check further.
-        for (const auto [node, strokeStartIndex] : agents)
-        {
-            if (node->parentIndex >= 0)
-            {
-                nextIterationAgents.emplace_back(&tree.at(node->parentIndex), strokeStartIndex + 1);
-            }
-        }
-        agents.clear();
-        std::swap(agents, nextIterationAgents);
-
-        std::erase_if(deadAgents,
-            [](DeadAgent& deadAgent)
-            {
-                deadAgent.backspacesNeeded--;
-                if (deadAgent.backspacesNeeded <= 0)
-                {
-                    agents.emplace_back(deadAgent);
-                    return true;
-                }
-                return false;
-            }
-        );
-
-        return;
-    }
-
-    // returns true if an ending was found
-    const auto lambdaAdvanceAgent = [length, inputs](const Agent& agent, wchar_t inputLetter, bool isBeingComposed, int inputIndex)
-    {
-        if (is_trigger_tree_outdated.load())
-        {
-            // Pretend a trigger was found so that the invalid agents are cleared & short-circuit the remaining checks.
-            return true;
-        }
-
-        const Node& node = *agent.node;
-        // TODO: Maybe use binary search(std::equal_range)? Should modify the spaceship operator too, then.
-
-        bool didFindMatchingChild = false;
-        for (int childIndex = node.childStartIndex; childIndex < node.childStartIndex + node.childLength; childIndex++)
-        {
-            const Node& child = tree.at(childIndex);
-            if (child.letter != inputLetter)
-            {
-                continue;
-            }
-
-            Agent nextAgent{ &child, agent.strokeStartIndex - 1 };
-            if (child.endingIndex < 0)
-            {
-                // If the letter is being composed, only check for the triggers, don't advance the agents.
-                // ex - Typing '갃' should match '가' in the middle of the composition.
-                // But we should not advance the agents since doing so would fail to match any Korean letters which are composed more than 1 letter.
-                if (!isBeingComposed)
-                {
-                    nextIterationAgents.emplace_back(nextAgent);
-                    didFindMatchingChild = true;
-                }
-                // NOTE: multiple matches can happen(ex - case-sensitive one and non- one), hence not breaking
-                continue;
-            }
-
-            const bool doNeedFullComposite = child.letter.doNeedFullComposite;
-            if (doNeedFullComposite && isBeingComposed)
-            {
-                continue;
-            }
-
-            replace_string(endings.at(child.endingIndex), nextAgent, stroke, inputs, length, inputIndex, doNeedFullComposite);
-
-            return true;
-        }
-
-        if (!didFindMatchingChild && agent != root)
-        {
-            deadAgents.emplace_back(agent);
-        }
-        return false;
-    };
-
-    for (int i = 0; i < length; i++)
-    {
-        const auto [inputLetter, isBeingComposed] = inputs[i];
-
-        if (!isBeingComposed)
-        {
-            std::ranges::shift_left(stroke, 1);
-            stroke.back() = inputLetter;
-        }
-
-        // Check for triggers in the root node first.
-        bool isTriggerFound = lambdaAdvanceAgent(root, inputLetter, isBeingComposed, i);
-        if (!isTriggerFound)
-        {
-            for (const Agent& agent : agents)
-            {
-                isTriggerFound = lambdaAdvanceAgent(agent, inputLetter, isBeingComposed, i);
-                if (isTriggerFound)
-                {
-                    break;
-                }
-            }
-        }
-
-        if (isTriggerFound)
-        {
-            nextIterationAgents.clear();
-            deadAgents.clear();
-        }
-
-        if (!isBeingComposed)
-        {
-            std::erase_if(deadAgents, [](DeadAgent& deadAgent) { return ++deadAgent.backspacesNeeded > get_config().maxBackspaceCount; });
-        }
-
-        if (!isBeingComposed || isTriggerFound)
-        {
-            agents.clear();
-            std::swap(agents, nextIterationAgents);
-        }
+        std::erase(trigger_trees_by_match_file.at(file), this);
     }
 }
 
 
-void reconstruct_trigger_tree_with(std::filesystem::path matchFile)
-{
-    match_file = std::move(matchFile);
-    reconstruct_trigger_tree();
-}
-
-
-void setup_trigger_tree(std::filesystem::path matchFile)
-{
-    match_file = std::move(matchFile);
-    input_listeners.emplace_back("trigger_tree", on_input);
-}
-
-
-void teardown_trigger_tree()
-{
-    on_input({}, 0, true);
-
-    std::erase_if(input_listeners, [](const std::pair<std::string, InputListener>& pair) { return pair.first == "trigger_tree"; });
-}
-
-
-std::jthread trigger_tree_constructor_thread;
-
-void reconstruct_trigger_tree(std::string_view matchesString, std::function<void()> onFinish)
+void TriggerTree::Reconstruct(std::string_view matchesString, std::function<void()> onFinish)
 {
     struct EndingMetaData
     {
@@ -576,28 +109,40 @@ void reconstruct_trigger_tree(std::string_view matchesString, std::function<void
         EndingMetaData endingMetaData{};  // only valid if children is empty
     };
 
-    halt_trigger_tree_construction();
-    is_trigger_tree_outdated.store(true);
-    is_constructing_trigger_tree.store(true);
+    HaltConstruction();
+    mIsTriggerTreeOutdated.store(true);
+    mIsConstructingTriggerTree.store(true);
 
-    logger.Log("Trigger tree construction started");
+    logger.Log(ELogLevel::INFO, mMatchFile, "Trigger tree construction started");
 
-    trigger_tree_constructor_thread = std::jthread{ [matchesString, onFinish = std::move(onFinish)](const std::stop_token& stopToken)
+    mTriggerTreeConstructorThread = std::jthread{
+        [this,
+        matchesString = std::string{ matchesString.begin(), matchesString.end() },
+        onFinish = std::move(onFinish),
+        didCallOnFinish = false](const std::stop_token& stopToken) mutable
     {
     try {
-#define STOP if (stopToken.stop_requested()) { return; }
+        #define STOP if (stopToken.stop_requested()) { if (onFinish && !didCallOnFinish) { didCallOnFinish = true; onFinish(); } return; }
 
         STOP
         std::vector<MatchForParse> matchesParsed;
         if (matchesString.empty())
         {
-            auto&& [matches, files] = parse_matches(match_file);
+            auto&& [matches, files] = parse_matches(mMatchFile, mIncludes, mExcludes);
             matchesParsed = std::move(matches);
-            match_files_in_use = std::move(files);
+            for (const std::filesystem::path& file : mImportedFiles)
+            {
+                std::erase(trigger_trees_by_match_file.at(file), this);
+            }
+            mImportedFiles = std::move(files);
+            for (const std::filesystem::path& file : mImportedFiles)
+            {
+                trigger_trees_by_match_file[file].emplace_back(this);
+            }
         }
         else
         {
-            matchesParsed = parse_matches(matchesString);
+            matchesParsed = parse_matches(std::string_view{ matchesString });
         }
         STOP
         std::vector<Match> matches;
@@ -747,9 +292,9 @@ void reconstruct_trigger_tree(std::string_view matchesString, std::function<void
 
         // TODO: Warn with triggersOverwritten
 
-        tree.clear();
-        endings.clear();
-        replace_strings.clear();
+        mTree.clear();
+        mEndings.clear();
+        mReplaceStrings.clear();
         
         /// Second iteration. Actually build the tree which will be used at runtime.
         std::queue<TempNode*> nodes;
@@ -758,30 +303,30 @@ void reconstruct_trigger_tree(std::string_view matchesString, std::function<void
         // Traverse the tree in level-order, so that all the links of a node to be contiguous.
         while (!nodes.empty())
         {
-            const int index = static_cast<int>(tree.size());
+            const int index = static_cast<int>(mTree.size());
 
             TempNode* node = nodes.front();
             nodes.pop();
-            tree.emplace_back(Node{ .parentIndex = node->parentIndex });
+            mTree.emplace_back(Node{ .parentIndex = node->parentIndex });
             if (node->letter)
             {
-                tree.back().letter = *node->letter;
+                mTree.back().letter = *node->letter;
             }
             height = std::max(height, node->height);
             STOP
 
             if (node->children.empty())
             {
-                tree.back().endingIndex = static_cast<int>(endings.size());
+                mTree.back().endingIndex = static_cast<int>(mEndings.size());
 
                 // Improving on the duplicate detection turned out to be a NP-hard problem, it's known as the 'shortest common superstring problem'.
                 // Since the memory usage is not the first priority, it'll be fine with a simple solution like this.
                 int replaceStringIndex = -1;
-                if (const size_t result = replace_strings.find(node->endingMetaData.replace);
+                if (const size_t result = mReplaceStrings.find(node->endingMetaData.replace);
                     result == std::wstring::npos)
                 {
-                    replaceStringIndex = static_cast<int>(replace_strings.size());
-                    replace_strings.append(node->endingMetaData.replace);
+                    replaceStringIndex = static_cast<int>(mReplaceStrings.size());
+                    mReplaceStrings.append(node->endingMetaData.replace);
                 }
                 else
                 {
@@ -791,13 +336,13 @@ void reconstruct_trigger_tree(std::string_view matchesString, std::function<void
                 Ending ending = node->endingMetaData.tempEnding;
                 ending.replaceStringIndex = replaceStringIndex;
                 ending.replaceStringLength = static_cast<int>(node->endingMetaData.replace.size());
-                endings.emplace_back(ending);
+                mEndings.emplace_back(ending);
                 STOP
             }
 
             if (node->parentIndex >= 0)
             {
-                Node& parent = tree.at(node->parentIndex);
+                Node& parent = mTree.at(node->parentIndex);
                 if (parent.childStartIndex < 0)
                 {
                     parent.childStartIndex = index;
@@ -817,50 +362,453 @@ void reconstruct_trigger_tree(std::string_view matchesString, std::function<void
             STOP
         }
 
-        tree_height = height;
-        is_constructing_trigger_tree.store(false);
-        if (onFinish)
+        mTreeHeight = height;
+        mIsConstructingTriggerTree.store(false);
+        if (onFinish && !didCallOnFinish)
         {
+            didCallOnFinish = true;
             onFinish();
         }
 
-        logger.Log("Trigger tree construction finished");
-        if (get_config().notifyMatchLoad)
-        {
-            show_notification(L"Match File Load Complete!", L"The match file is parsed and ready to go", true);
-        }
+        logger.Log(ELogLevel::INFO, mMatchFile, "Trigger tree construction finished");
 
 #undef STOP
     }
     catch (const std::exception& e)
     {
-        logger.Log(ELogLevel::ERROR, "Exception while constructing trigger tree", e.what());
+        logger.Log(ELogLevel::ERROR, mMatchFile, "Exception while constructing trigger tree", e.what());
         show_notification(L"Match File Load Failed!",
             L"An exception occurred while parsing the match file.\nPlease report this with a log file.", false);
+        if (onFinish && !didCallOnFinish)
+        {
+            didCallOnFinish = true;
+            onFinish();
+        }
     }
     catch (...)
     {
-        logger.Log(ELogLevel::ERROR, "Unknown exception while constructing trigger tree");
+        logger.Log(ELogLevel::ERROR, mMatchFile, "Unknown exception while constructing trigger tree");
         show_notification(L"Match File Load Failed!",
             L"An exception occurred while parsing the match file.\nPlease report this with a log file.", false);
+        if (onFinish && !didCallOnFinish)
+        {
+            didCallOnFinish = true;
+            onFinish();
+        }
     }
     } };
 }
 
-void halt_trigger_tree_construction()
+
+void TriggerTree::ReconstructWith(std::filesystem::path matchFile)
 {
-    trigger_tree_constructor_thread.request_stop();
-    if (trigger_tree_constructor_thread.joinable())
+    mMatchFile = std::move(matchFile);
+    Reconstruct();
+}
+
+
+void TriggerTree::HaltConstruction()
+{
+    mTriggerTreeConstructorThread.request_stop();
+    if (mTriggerTreeConstructorThread.joinable())
     {
-        trigger_tree_constructor_thread.join();
+        mTriggerTreeConstructorThread.join();
     }
 }
 
 
-void wait_for_trigger_tree_construction()
+void TriggerTree::WaitForConstruction() const
 {
-    while (is_constructing_trigger_tree.load())
+    while (mIsConstructingTriggerTree.load())
     {
         std::this_thread::sleep_for(std::chrono::milliseconds{ 1 });
     }
+}
+
+
+void TriggerTree::ResetAgents()
+{
+    mShouldResetAgents = true;
+}
+
+
+void TriggerTree::OnInput(const InputMessage(&inputs)[MAX_INPUT_COUNT], int length, bool clearAllAgents)
+{
+    if (mIsConstructingTriggerTree.load())
+    {
+        mShouldResetAgents = true;
+        return;
+    }
+
+    if (mShouldResetAgents || mIsTriggerTreeOutdated.load())
+    {
+        mShouldResetAgents = false;
+        mIsTriggerTreeOutdated.store(false);
+
+        mAgents.clear();
+        mNextIterationAgents.clear();
+        mStroke.clear();
+        mAgents.reserve(mTreeHeight);
+        mNextIterationAgents.reserve(mTreeHeight);
+        mStroke.resize(std::max(mTreeHeight, 1U), 0);
+        mRootAgent = { &mTree.front(), static_cast<int>(mTreeHeight) };
+    }
+
+    if (clearAllAgents)
+    {
+        mAgents.clear();
+        mDeadAgents.clear();
+    }
+
+    for (int i = 0; i < length; i++)
+    {
+        logger.Log(ELogLevel::DEBUG, "input:", inputs[i].letter, static_cast<int>(inputs[i].isBeingComposed));
+    }
+
+    if (length >= 0 && inputs[0].letter == L'\b')
+    {
+        std::ranges::shift_right(mStroke, 1);
+
+        // The input size is bigger than 1 only if letters are composed in the imm simulator.
+        // But a backspace can't be used to finish composing(other than clearing one completely),
+        // we don't need to check further.
+        for (const auto [node, strokeStartIndex] : mAgents)
+        {
+            if (node->parentIndex >= 0)
+            {
+                mNextIterationAgents.emplace_back(&mTree.at(node->parentIndex), strokeStartIndex + 1);
+            }
+        }
+        mAgents.clear();
+        std::swap(mAgents, mNextIterationAgents);
+
+        std::erase_if(mDeadAgents,
+            [this](DeadAgent& deadAgent)
+            {
+                deadAgent.backspacesNeeded--;
+                if (deadAgent.backspacesNeeded <= 0)
+                {
+                    mAgents.emplace_back(deadAgent);
+                    return true;
+                }
+                return false;
+            }
+        );
+
+        return;
+    }
+
+    // returns true if an ending was found
+    const auto lambdaAdvanceAgent = [this, length, inputs](const Agent& agent, wchar_t inputLetter, bool isBeingComposed, int inputIndex)
+        {
+            if (mIsTriggerTreeOutdated.load())
+            {
+                // Pretend a trigger was found so that the invalid agents are cleared & short-circuit the remaining checks.
+                return true;
+            }
+
+            const Node& node = *agent.node;
+            // TODO: Maybe use binary search(std::equal_range)? Should modify the spaceship operator too, then.
+
+            bool didFindMatchingChild = false;
+            for (int childIndex = node.childStartIndex; childIndex < node.childStartIndex + node.childLength; childIndex++)
+            {
+                const Node& child = mTree.at(childIndex);
+                if (child.letter != inputLetter)
+                {
+                    continue;
+                }
+
+                Agent nextAgent{ &child, agent.strokeStartIndex - 1 };
+                if (child.endingIndex < 0)
+                {
+                    // If the letter is being composed, only check for the triggers, don't advance the agents.
+                    // ex - Typing '갃' should match '가' in the middle of the composition.
+                    // But we should not advance the agents since doing so would fail to match any Korean letters which are composed more than 1 letter.
+                    if (!isBeingComposed)
+                    {
+                        mNextIterationAgents.emplace_back(nextAgent);
+                        didFindMatchingChild = true;
+                    }
+                    // NOTE: multiple matches can happen(ex - case-sensitive one and non- one), hence not breaking
+                    continue;
+                }
+
+                const bool doNeedFullComposite = child.letter.doNeedFullComposite;
+                if (doNeedFullComposite && isBeingComposed)
+                {
+                    continue;
+                }
+
+                replaceString(mEndings.at(child.endingIndex), nextAgent, mStroke, inputs, length, inputIndex, doNeedFullComposite);
+
+                return true;
+            }
+
+            if (!didFindMatchingChild && agent != mRootAgent)
+            {
+                mDeadAgents.emplace_back(agent);
+            }
+            return false;
+        };
+
+    for (int i = 0; i < length; i++)
+    {
+        const auto [inputLetter, isBeingComposed] = inputs[i];
+
+        if (!isBeingComposed)
+        {
+            std::ranges::shift_left(mStroke, 1);
+            mStroke.back() = inputLetter;
+        }
+
+        // Check for triggers in the root node first.
+        bool isTriggerFound = lambdaAdvanceAgent(mRootAgent, inputLetter, isBeingComposed, i);
+        if (!isTriggerFound)
+        {
+            for (const Agent& agent : mAgents)
+            {
+                isTriggerFound = lambdaAdvanceAgent(agent, inputLetter, isBeingComposed, i);
+                if (isTriggerFound)
+                {
+                    break;
+                }
+            }
+        }
+
+        if (isTriggerFound)
+        {
+            mNextIterationAgents.clear();
+            mDeadAgents.clear();
+        }
+
+        if (!isBeingComposed)
+        {
+            std::erase_if(mDeadAgents, [](DeadAgent& deadAgent) { return ++deadAgent.backspacesNeeded > get_config().maxBackspaceCount; });
+        }
+
+        if (!isBeingComposed || isTriggerFound)
+        {
+            mAgents.clear();
+            std::swap(mAgents, mNextIterationAgents);
+        }
+    }
+}
+
+
+void TriggerTree::replaceString(const Ending& ending, const Agent& agent, std::wstring_view stroke, const InputMessage(&inputs)[MAX_INPUT_COUNT], int inputLength, int inputIndex, bool doNeedFullComposite)
+{
+    const auto& [replaceStringIndex, replaceType, replaceStringLength, backspaceCount, cursorMoveCount,
+        propagateCase, uppercaseStyle, keepComposite] = ending;
+
+    const std::wstring_view originalReplaceString{ mReplaceStrings.data() + replaceStringIndex, replaceStringLength };
+
+    switch (replaceType)
+    {
+    case Ending::EReplaceType::IMAGE:
+    {
+        push_current_clipboard_state();
+        std::vector<FakeInput> fakeInputs{ backspaceCount, FakeInput{ FakeInput::EType::KEY, FakeInput::BACKSPACE_KEY } };
+        if (set_clipboard_image(originalReplaceString))
+        {
+            // Popping the clipboard state is done in main.
+            fakeInputs.emplace_back(FakeInput::EType::HOT_KEY_PASTE);
+        }
+        else
+        {
+            pop_clipboard_state();
+        }
+        send_fake_inputs(fakeInputs, false);
+        return;
+    }
+
+    case Ending::EReplaceType::COMMAND:
+    {
+        std::vector<FakeInput> fakeInputs{ backspaceCount, FakeInput{ FakeInput::EType::KEY, FakeInput::BACKSPACE_KEY } };
+        const auto& [str, ret] = run_command_and_get_output(originalReplaceString);
+        fakeInputs.reserve(fakeInputs.size() + str.size());
+        for (wchar_t c : str)
+        {
+            fakeInputs.emplace_back(FakeInput::EType::LETTER, c);
+        }
+        send_fake_inputs(fakeInputs, false);
+        return;
+    }
+
+    case Ending::EReplaceType::TEXT:
+        break;
+
+    default:
+        std::unreachable();
+    }
+
+    std::wstring replaceString{ originalReplaceString };
+
+    unsigned int additionalCursorMoveCount = 0;
+
+    imm_simulator.ClearComposition();
+
+    for (wchar_t& c : replaceString)
+    {
+        if (c == Letter::LAST_INPUT_LETTER)
+        {
+            c = inputs[inputIndex].letter;
+        }
+    }
+
+    const std::wstring_view triggerStroke = stroke.substr(agent.strokeStartIndex);
+    if (propagateCase)
+    {
+        const auto triggerFirstCasedLetter = std::ranges::find_if(triggerStroke, [](wchar_t c) { return is_cased_alpha(c); });
+        if (std::iswupper(*triggerFirstCasedLetter))
+        {
+            if (std::ranges::any_of(triggerFirstCasedLetter, triggerStroke.end(), [](wchar_t c) { return is_cased_alpha(c) && std::iswlower(c); }))
+            {
+                // If there is a lowercase letter in the stroke, only the first cased letter is capitalized.
+                if (const auto it = std::ranges::find_if(originalReplaceString, [](wchar_t c) { return is_cased_alpha(c); });
+                    it != originalReplaceString.end())
+                {
+                    switch (uppercaseStyle)
+                    {
+                    case Match::EUppercaseStyle::FIRST_LETTER:
+                        replaceString.at(it - originalReplaceString.begin()) = std::towupper(*it);
+                        break;
+
+                    case Match::EUppercaseStyle::WORDS:
+                    {
+                        bool shouldBeUpper = true;
+                        for (wchar_t& c : replaceString)
+                        {
+                            if (shouldBeUpper && is_cased_alpha(c))
+                            {
+                                c = std::towupper(c);
+                                shouldBeUpper = false;
+                            }
+                            else if (!std::iswalnum(c))
+                            {
+                                shouldBeUpper = true;
+                            }
+                        }
+                        break;
+                    }
+
+                    default:
+                        std::unreachable();
+                    }
+                }
+            }
+            else
+            {
+                // Otherwise, capitalize all the letters.
+                std::ranges::transform(replaceString, replaceString.begin(), std::towupper);
+            }
+        }
+    }
+
+    const std::wstring_view replace{ replaceString };
+    std::vector<FakeInput> fakeInputs;
+    if (doNeedFullComposite)
+    {
+        const wchar_t lastLetter = inputs[inputLength - 1].letter;
+        const bool isLastLetterKorean = is_korean(lastLetter);
+        const bool didCompositionEndByAddingLetters = inputIndex + 1 < inputLength;
+        unsigned int additionalBackspaceCount = std::max(inputLength - inputIndex - 2, 0) + static_cast<unsigned int>(didCompositionEndByAddingLetters);
+        std::wstring lastLetterString{ lastLetter };
+        if (isLastLetterKorean && didCompositionEndByAddingLetters)
+        {
+            const std::wstring lastLetterNormalized = normalize_hangeul(lastLetterString);
+            lastLetterString = hangeul_to_alphabet(lastLetterNormalized, false);
+            // The length of the middle letters + the last letter's decomposition.
+            additionalBackspaceCount += static_cast<unsigned int>(lastLetterNormalized.size()) - 1;
+            for (const wchar_t ch : lastLetterNormalized)
+            {
+                imm_simulator.AddLetter(ch, false);
+            }
+        }
+        const bool shouldToggleHangeul = isLastLetterKorean && !is_hangeul_on;
+
+        // Note that we're not using the backspaceCount from the ending,
+        // since the last letter of the replace string was decomposed to calculate the count (we don't want that here).
+        const unsigned int totalBackspaceCount = mTreeHeight - agent.strokeStartIndex + additionalBackspaceCount;
+        fakeInputs.reserve(
+            totalBackspaceCount +
+            replaceStringLength +
+            inputLength - inputIndex - 2 +
+            static_cast<int>(shouldToggleHangeul) +
+            (didCompositionEndByAddingLetters ? lastLetterString.size() : size_t{ 0 }));
+
+        std::fill_n(std::back_inserter(fakeInputs), totalBackspaceCount, FakeInput{ FakeInput::EType::KEY, FakeInput::BACKSPACE_KEY });
+
+        // The replace string first
+        std::ranges::transform(replace, std::back_inserter(fakeInputs),
+            [](const wchar_t& ch) { return FakeInput{ FakeInput::EType::LETTER, ch }; });
+        // Then the middle letters
+        // Not using std::transform to avoid begin(i + 1) > end(length - 1)
+        for (int j = inputIndex + 1; j < inputLength - 1; j++)
+        {
+            fakeInputs.emplace_back(FakeInput::EType::LETTER, inputs[j].letter);
+        }
+
+        // Then the last letter's decomposition.
+        // Why decompose and send as a key? If the last letter was in the middle of composing, we need to keep the 'composing' state.
+        if (shouldToggleHangeul)
+        {
+            fakeInputs.emplace_back(FakeInput::EType::KEY, FakeInput::TOGGLE_HANGEUL_KEY);
+            is_hangeul_on = true;
+        }
+        if (didCompositionEndByAddingLetters)
+        {
+            std::ranges::transform(lastLetterString, std::back_inserter(fakeInputs),
+                [type = isLastLetterKorean ? FakeInput::EType::LETTER_AS_KEY : FakeInput::EType::LETTER](const wchar_t& ch)
+                { return FakeInput{ type, ch }; });
+        }
+
+        if (didCompositionEndByAddingLetters && cursorMoveCount > 0)
+        {
+            additionalCursorMoveCount += inputLength - inputIndex - 1;
+        }
+
+        // NOTE: We don't skip the remaining letters since that can be a trigger, too
+        // ex - matches: '가'(full composite) -> '다', '나' -> '라' / input: '가나' / replace should be: '다라'
+    }
+    else if (keepComposite)
+    {
+        const std::wstring lastLetterNormalized = normalize_hangeul(replace.substr(replaceStringLength - 1));
+        const std::wstring lastLetter = hangeul_to_alphabet(lastLetterNormalized, false);
+
+        fakeInputs.reserve(backspaceCount + replaceStringLength + static_cast<int>(!is_hangeul_on) + lastLetter.size() - 1);
+        std::fill_n(std::back_inserter(fakeInputs), backspaceCount, FakeInput{ FakeInput::EType::KEY, FakeInput::BACKSPACE_KEY });
+        std::ranges::transform(replace.substr(0, replaceStringLength - 1), std::back_inserter(fakeInputs),
+            [](const wchar_t& ch) { return FakeInput{ FakeInput::EType::LETTER, ch }; });
+        if (!is_hangeul_on)
+        {
+            fakeInputs.emplace_back(FakeInput::EType::KEY, FakeInput::TOGGLE_HANGEUL_KEY);
+            is_hangeul_on = true;
+        }
+        std::ranges::transform(lastLetter, std::back_inserter(fakeInputs),
+            [](const wchar_t& ch) { return FakeInput{ FakeInput::EType::LETTER_AS_KEY, ch }; });
+        for (const wchar_t ch : lastLetterNormalized)
+        {
+            imm_simulator.AddLetter(ch, false);
+        }
+    }
+    else
+    {
+        fakeInputs.reserve(backspaceCount + replaceStringLength);
+        std::fill_n(std::back_inserter(fakeInputs), backspaceCount, FakeInput{ FakeInput::EType::KEY, FakeInput::BACKSPACE_KEY });
+        std::ranges::transform(replace, std::back_inserter(fakeInputs),
+            [](const wchar_t& ch) { return FakeInput{ FakeInput::EType::LETTER, ch }; });
+    }
+
+    std::fill_n(std::back_inserter(fakeInputs), cursorMoveCount + additionalCursorMoveCount, FakeInput{ FakeInput::EType::KEY, FakeInput::LEFT_ARROW_KEY });
+
+    for (FakeInput& fakeInput : fakeInputs)
+    {
+        if (fakeInput.type == FakeInput::EType::LETTER && fakeInput.letter == '\n')
+        {
+            fakeInput = { FakeInput::EType::KEY, FakeInput::ENTER_KEY };
+        }
+    }
+
+    send_fake_inputs(fakeInputs, false);
 }

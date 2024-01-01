@@ -1,7 +1,7 @@
 #include "test_util.h"
 
 #include "../../Typoon/utils/string.h"
-#include "../../Typoon/match/trigger_tree.h"
+#include "../../Typoon/match/trigger_trees_per_program.h"
 #include "config.h"
 #include "text_editor_simulator.h"
 
@@ -37,7 +37,13 @@ void simulate_type(std::wstring_view text)
 
 void reconstruct_trigger_tree_with_u8string(std::u8string_view text)
 {
-    reconstruct_trigger_tree(std::string_view{ reinterpret_cast<const char*>(&text.front()), text.size() });
+    get_trigger_tree(DEFAULT_PROGRAM_NAME)->Reconstruct(std::string_view{ reinterpret_cast<const char*>(&text.front()), text.size() });
+}
+
+
+void wait_for_trigger_tree_construction()
+{
+    get_trigger_tree(DEFAULT_PROGRAM_NAME)->WaitForConstruction();
 }
 
 
@@ -56,7 +62,8 @@ void check_normalization(std::wstring_view original, std::wstring_view normalize
 void start_match_test_case(const Config& config)
 {
     set_config(config);
-    setup_trigger_tree("");
+    setup_trigger_trees("");
+    set_current_program(DEFAULT_PROGRAM_NAME);
     setup_imm_simulator();
     text_editor_simulator.Reset();
 }
@@ -64,6 +71,6 @@ void start_match_test_case(const Config& config)
 
 void end_match_test_case()
 {
-    teardown_trigger_tree();
+    teardown_trigger_trees();
     teardown_imm_simulator();
 }

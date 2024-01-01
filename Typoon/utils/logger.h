@@ -7,6 +7,7 @@
 #include <queue>
 #include <ranges>
 #undef ERROR
+#undef DEBUG
 
 
 namespace _impl

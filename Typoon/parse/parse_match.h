@@ -54,7 +54,9 @@ struct GroupForParse : OptionContainerForParse
 JSON5_ENUM(OptionContainerForParse::EUppercaseStyle, first_letter, capitalize_words)
 
 
-std::pair<std::vector<MatchForParse>, std::set<std::filesystem::path>> parse_matches(const std::filesystem::path& file);
-std::vector<MatchForParse> parse_matches(const std::filesystem::path& file, std::set<std::filesystem::path>& importedFiles);
+std::pair<std::vector<MatchForParse>, std::set<std::filesystem::path>> parse_matches(const std::filesystem::path& file,
+    const std::vector<std::filesystem::path>& includes, const std::vector<std::filesystem::path>& excludes);
+void invalidate_matches_cache(const std::filesystem::path& file);
+void invalidate_all_matches_cache();
 // For unit tests
 std::vector<MatchForParse> parse_matches(std::string_view matchesString);
