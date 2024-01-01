@@ -10,7 +10,7 @@
 #include "log.h"
 
 
-std::optional<std::wstring> get_program_name(const std::any& data)
+std::optional<std::wstring> get_current_focus_program_name(const std::any& data)
 {
     DWORD processId;
     if (!data.has_value())
@@ -80,7 +80,7 @@ std::optional<std::wstring> get_program_name(const std::any& data)
 void check_for_window_focus_change(const std::any& data)
 {
     const DWORD processId = std::any_cast<DWORD>(data);
-    const std::optional<std::wstring>& nameOpt = get_program_name(processId);
+    const std::optional<std::wstring>& nameOpt = get_current_focus_program_name(processId);
     if (!nameOpt)
     {
         return;

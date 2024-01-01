@@ -283,7 +283,7 @@ void start_hot_key_watcher(const std::any& data)
 
             case EHotKeyType::GET_PROGRAM_NAME:
             {
-                const std::optional<std::wstring>& nameOpt = get_program_name();
+                const std::optional<std::wstring>& nameOpt = get_current_focus_program_name();
                 if (!nameOpt)
                 {
                     show_notification(L"Failed to get program name", L"See the log file for the error.");
