@@ -28,9 +28,11 @@ Refer to the [wiki](https://github.com/yeshjho/Typoon/wiki/How-to-Use).
 
 - Run command: You can replace a text with the output of a command.
 
-- File Watcher: Detects the change of the config file and the match file, and apply those changes automatically.
+- Per-program configuration: Can be automatically turned on/off and use different matches depending on the currently focused program.
 
-- Cursor Position: You can set where the cursor would be after the replacement happens.
+- File watcher: Detects the change of the config file and the match file, and apply those changes automatically.
+
+- Cursor position: You can set where the cursor would be after the replacement happens.
 
 - JSON5: The config file and the match file use the [JSON5](https://json5.org/) format. This project uses the [C++ implementation](https://github.com/P-i-N/json5) of the format. For those who don't know what JSON5 is, it's a JSON but more human-friendly.
 
