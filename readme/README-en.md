@@ -28,7 +28,7 @@ Refer to the [wiki](https://github.com/yeshjho/Typoon/wiki/How-to-Use).
 
 - Run command: You can replace a text with the output of a command.
 
-- Per-program configuration: Can be automatically turned on/off and use different matches depending on the currently focused program.
+- Per-program configuration: Can be automatically turned on/off or use different matches depending on the currently focused program.
 
 - File watcher: Detects the change of the config file and the match file, and apply those changes automatically.
 
