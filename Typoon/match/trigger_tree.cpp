@@ -121,7 +121,6 @@ void TriggerTree::Reconstruct(std::string_view matchesString, std::function<void
         onFinish = std::move(onFinish),
         didCallOnFinish = false](const std::stop_token& stopToken) mutable
     {
-    try {
         #define STOP if (stopToken.stop_requested()) { if (onFinish && !didCallOnFinish) { didCallOnFinish = true; onFinish(); } return; }
 
         STOP
@@ -373,29 +372,6 @@ void TriggerTree::Reconstruct(std::string_view matchesString, std::function<void
         logger.Log(ELogLevel::INFO, mMatchFile, "Trigger tree construction finished");
 
 #undef STOP
-    }
-    catch (const std::exception& e)
-    {
-        logger.Log(ELogLevel::ERROR, mMatchFile, "Exception while constructing trigger tree", e.what());
-        show_notification(L"Match File Load Failed!",
-            L"An exception occurred while parsing the match file.\nPlease report this with a log file.", false);
-        if (onFinish && !didCallOnFinish)
-        {
-            didCallOnFinish = true;
-            onFinish();
-        }
-    }
-    catch (...)
-    {
-        logger.Log(ELogLevel::ERROR, mMatchFile, "Unknown exception while constructing trigger tree");
-        show_notification(L"Match File Load Failed!",
-            L"An exception occurred while parsing the match file.\nPlease report this with a log file.", false);
-        if (onFinish && !didCallOnFinish)
-        {
-            didCallOnFinish = true;
-            onFinish();
-        }
-    }
     } };
 }
 
@@ -494,7 +470,6 @@ void TriggerTree::OnInput(const InputMessage(&inputs)[MAX_INPUT_COUNT], int leng
                 return false;
             }
         );
-
         return;
     }
 

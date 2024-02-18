@@ -18,6 +18,7 @@
     <ClCompile Include="platform\windows\clipboard.cpp" />
     <ClCompile Include="platform\windows\command.cpp" />
     <ClCompile Include="platform\windows\common.cpp" />
+    <ClCompile Include="platform\windows\crash_handler.cpp" />
     <ClCompile Include="platform\windows\hotkey.cpp" />
     <ClCompile Include="platform\windows\log.cpp" />
     <ClCompile Include="platform\windows\tray_icon.cpp" />
@@ -40,6 +41,7 @@
     <ClInclude Include="input_multicast\input_multicast.h" />
     <ClInclude Include="low_level\clipboard.h" />
     <ClInclude Include="low_level\command.h" />
+    <ClInclude Include="low_level\crash_handler.h" />
     <ClInclude Include="low_level\fake_input.h" />
     <ClInclude Include="low_level\filesystem.h" />
     <ClInclude Include="low_level\file_change_watcher.h" />
@@ -117,7 +119,7 @@
     <Link>
       <SubSystem>Windows</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalDependencies>Imm32.lib;gdiplus.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>Imm32.lib;gdiplus.lib;dbghelp.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
@@ -141,7 +143,7 @@
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalDependencies>Imm32.lib;gdiplus.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>Imm32.lib;gdiplus.lib;dbghelp.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

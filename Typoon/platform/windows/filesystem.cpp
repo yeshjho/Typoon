@@ -48,3 +48,16 @@ std::filesystem::path get_log_file_path()
     std::filesystem::create_directories(path.parent_path());
     return path;
 }
+
+
+std::filesystem::path get_crash_file_path()
+{
+    using namespace std::chrono;
+
+    static const auto tz = current_zone();
+
+    const auto now = zoned_time{ tz, system_clock::now() };
+    std::filesystem::path path = get_app_data_path() / "crashes" / std::format(L"{0:%Y-%m-%d %H-%M-%S}.dmp", now);
+    std::filesystem::create_directories(path.parent_path());
+    return path;
+}

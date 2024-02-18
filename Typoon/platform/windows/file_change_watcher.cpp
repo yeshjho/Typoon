@@ -18,8 +18,6 @@ FileChangeWatcher::FileChangeWatcher(std::function<void(const std::filesystem::p
     mThread = std::jthread{
         [this](const std::stop_token& stopToken)
         {
-            try
-            {
             while (true)
             {
                 const DWORD result = WaitForMultipleObjectsEx(static_cast<DWORD>(mEvents.size()), mEvents.data(), false, INFINITE, true);
@@ -79,19 +77,6 @@ FileChangeWatcher::FileChangeWatcher(std::function<void(const std::filesystem::p
 
                     readDirectoryChanges(directoryIndex);
                 }
-            }
-            }
-            catch (const std::exception& e)
-            {
-                logger.Log(ELogLevel::ERROR, "Exception while watching files", e.what());
-                show_notification(L"Exception While Watching Files",
-                    L"An exception occurred while watching files for automatic reload.\nPlease report this with a log file.", false);
-            }
-            catch (...)
-            {
-                logger.Log(ELogLevel::ERROR, "Unknown exception while watching files");
-                show_notification(L"Exception While Watching Files",
-                    L"An exception occurred while watching files for automatic reload.\nPlease report this with a log file.", false);
             }
         }
     };

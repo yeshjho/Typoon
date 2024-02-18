@@ -1,6 +1,7 @@
 #include <Windows.h>
 
 #include "../../low_level/clipboard.h"
+#include "../../low_level/crash_handler.h"
 #include "../../low_level/file_change_watcher.h"
 #include "../../low_level/filesystem.h"
 #include "../../low_level/hotkey.h"
@@ -17,8 +18,9 @@
 
 
 int wWinMain(HINSTANCE hInstance, [[maybe_unused]] HINSTANCE hPrevInstance, [[maybe_unused]] LPWSTR cmdLine, [[maybe_unused]] int cmdShow)
-try
 {
+    initialize_crash_handler();
+
     // Prevent multiple instances
     CreateMutex(nullptr, false, L"Typoon_{91CC86BD-3107-4BFB-88E2-0A9A1280AB4A}");
     if (const DWORD error = GetLastError();
@@ -194,18 +196,4 @@ try
 #endif
 
     return static_cast<int>(msg.wParam);
-}
-catch (const std::exception& e)
-{
-    logger.Log(ELogLevel::FATAL, "Exception in main", e.what());
-    show_notification(L"Fatal Exception",
-        L"An exception occurred and Typoon is shutting down.\nPlease report this with a log file.", false);
-    return -1;
-}
-catch (...)
-{
-    logger.Log(ELogLevel::FATAL, "Unknown exception in main");
-    show_notification(L"Fatal Exception",
-        L"An exception occurred and Typoon is shutting down.\nPlease report this with a log file.", false);
-    return -1;
 }
