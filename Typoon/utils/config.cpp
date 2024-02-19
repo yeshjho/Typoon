@@ -66,6 +66,7 @@ struct ConfigForParse
     std::filesystem::path match_file_path = "match/matches.json5";
     int max_backspace_count = 5;
     std::string cursor_placeholder = "|_|";
+    int stroke_buffer = 15;
 
     bool notify_config_load = true;
     bool notify_match_load = true;
@@ -82,6 +83,7 @@ struct ConfigForParse
             std::move(match_file_path),
             max_backspace_count,
             { cursor_placeholder.begin(), cursor_placeholder.end() },
+            stroke_buffer,
             notify_config_load,
             notify_match_load,
             notify_on_off,
@@ -100,7 +102,8 @@ struct ConfigForParse
 };
 
 
-JSON5_CLASS(ConfigForParse, match_file_path, max_backspace_count, cursor_placeholder, notify_config_load, notify_match_load, notify_on_off, hotkey_toggle_on_off, hotkey_get_program_name, program_overrides)
+JSON5_CLASS(ConfigForParse, match_file_path, max_backspace_count, cursor_placeholder, stroke_buffer, 
+    notify_config_load, notify_match_load, notify_on_off, hotkey_toggle_on_off, hotkey_get_program_name, program_overrides)
 
 Config config;
 

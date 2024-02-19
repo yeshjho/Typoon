@@ -11,6 +11,7 @@
 #include "../../common/common.h"
 #include "../../match/trigger_trees_per_program.h"
 #include "../../parse/parse_match.h"
+#include "../../switch/switch_hangeul_alphabet.h"
 #include "../../utils/config.h"
 
 #include "log.h"
@@ -74,7 +75,9 @@ int wWinMain(HINSTANCE hInstance, [[maybe_unused]] HINSTANCE hPrevInstance, [[ma
     setup_trigger_trees(get_config().matchFilePath);
     update_trigger_tree_program_overrides(get_config().programOverrides);
     start_hot_key_watcher(window);
+    setup_switcher();
 
+    // TODO: Factor out non-platform-dependent code.
     FileChangeWatcher matchChangeWatcher;
     const auto lambdaAfterTreeReconstruct = [&matchChangeWatcher]()
         {
@@ -192,6 +195,7 @@ int wWinMain(HINSTANCE hInstance, [[maybe_unused]] HINSTANCE hPrevInstance, [[ma
     teardown_trigger_trees();
     end_hot_key_watcher();
     remove_tray_icon();
+    teardown_switcher();
 
 #ifdef _DEBUG
     fclose(fDummy);

@@ -84,6 +84,9 @@
     <ClCompile Include="platform\windows\crash_handler.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="switch\switch_hangeul_alphabet.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="utils\logger.h">
@@ -159,6 +162,9 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="low_level\crash_handler.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="switch\switch_hangeul_alphabet.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

@@ -21,6 +21,7 @@ struct Config
     std::filesystem::path matchFilePath;
     int maxBackspaceCount;
     std::wstring cursorPlaceholder;
+    int strokeBuffer;
 
     bool notifyConfigLoad;
     bool notifyMatchLoad;

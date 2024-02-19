@@ -31,6 +31,7 @@
     <ClCompile Include="platform\windows\main.cpp" />
     <ClCompile Include="platform\windows\window_focus.cpp" />
     <ClCompile Include="platform\windows\wnd_proc.cpp" />
+    <ClCompile Include="switch\switch_hangeul_alphabet.cpp" />
     <ClCompile Include="utils\config.cpp" />
     <ClCompile Include="utils\logger.cpp" />
     <ClCompile Include="utils\string.cpp" />
@@ -57,6 +58,7 @@
     <ClInclude Include="platform\windows\log.h" />
     <ClInclude Include="platform\windows\wnd_proc.h" />
     <ClInclude Include="resource.h" />
+    <ClInclude Include="switch\switch_hangeul_alphabet.h" />
     <ClInclude Include="utils\config.h" />
     <ClInclude Include="utils\json5_util.h" />
     <ClInclude Include="utils\logger.h" />
