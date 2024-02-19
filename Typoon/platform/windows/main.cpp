@@ -21,6 +21,11 @@ int wWinMain(HINSTANCE hInstance, [[maybe_unused]] HINSTANCE hPrevInstance, [[ma
 {
     initialize_crash_handler();
 
+#ifdef _DEBUG
+    logger.AddOutput(std::wcout);
+#endif
+    logger.AddOutput(get_log_file_path());
+
     // Prevent multiple instances
     CreateMutex(nullptr, false, L"Typoon_{91CC86BD-3107-4BFB-88E2-0A9A1280AB4A}");
     if (const DWORD error = GetLastError();
@@ -35,9 +40,7 @@ int wWinMain(HINSTANCE hInstance, [[maybe_unused]] HINSTANCE hPrevInstance, [[ma
     FILE* fDummy;
     freopen_s(&fDummy, "CONOUT$", "w", stdout);
     freopen_s(&fDummy, "CONOUT$", "w", stderr);
-    logger.AddOutput(std::wcout);
 #endif
-    logger.AddOutput(get_log_file_path());
     logger.Log("Program Started");
 
     constexpr WCHAR windowClassName[] = L"TypoonWorker";
