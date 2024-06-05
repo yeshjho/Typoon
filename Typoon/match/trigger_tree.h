@@ -11,12 +11,26 @@
 
 struct Letter
 {
-    // These constants uses the unassigned block of the Unicode. (0x0870 ~ 0x089F)
+    /// These constants use the unassigned code points but not from the Private User Area to avoid conflicts with other software.
+    /// Instead, use those within the Hangeul blocks, since they're unlikely to be assigned in the future. (Last modified in Unicode 5.2, which was released in 2009)
+
+    /// Candidates: [
+    ///         // Hangul Compatibility Jamo
+    ///     0x3130, 0x318F,
+    ///         // Hangul Jamo Extended-A
+    ///     0xA97D, 0xA97E, 0xA97F,
+    ///         // Hangul Compatibility. The least likely to be assigned since there can't be any more composite.
+    ///     (0xD7A4), 0xD7A5, 0xD7A6, 0xD7A7, 0xD7A8, 0xD7A9, 0xD7AA, 0xD7AB, 0xD7AC, 0xD7AD, 0xD7AE, (0xD7AF),
+    ///         // Hangul Jamo Extended-B
+    ///     0xD7C7, 0xD7C8, 0xD7C9, 0xD7CA,
+    ///     0xD7FC, 0xD7FD, 0xD7FE, 0xD7FF
+    /// ]
+
     /// Constants for special triggers
-    static constexpr wchar_t NON_WORD_LETTER = 0x0870;
+    static constexpr wchar_t NON_WORD_LETTER = 0xD7A4;
 
     /// Constants for special replacements
-    static constexpr wchar_t LAST_INPUT_LETTER = 0x089F;
+    static constexpr wchar_t LAST_INPUT_LETTER = 0xD7AF;
 
 
     wchar_t letter;
