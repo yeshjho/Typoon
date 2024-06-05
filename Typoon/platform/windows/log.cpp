@@ -17,7 +17,7 @@ std::wstring get_last_error_string()
         0,
         nullptr
     );
-    std::wstring msg = errorText;
+    std::wstring msg = std::format(L"{0} ({1})", errorText, std::to_wstring(errorCode));
     LocalFree(errorText);
     return msg;
 }
