@@ -23,6 +23,7 @@ struct Config
     std::wstring cursorPlaceholder;
     std::wstring regexCompositeStart;
     std::wstring regexCompositeEnd;
+    int maxStrokeLengthForRegex;
 
     bool notifyConfigLoad;
     bool notifyMatchLoad;

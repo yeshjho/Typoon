@@ -79,6 +79,12 @@ std::strong_ordering Letter::operator<=>(const Letter& other) const
 }
 
 
+RegexPattern::~RegexPattern()
+{
+    pcre2_code_free(mPattern);
+}
+
+
 TriggerTree::TriggerTree(std::filesystem::path matchFile, std::vector<std::filesystem::path> includes, std::vector<std::filesystem::path> excludes)
     : mMatchFile(std::move(matchFile))
     , mIncludes(std::move(includes))
@@ -166,7 +172,10 @@ void TriggerTree::Reconstruct(std::string_view matchesString, std::function<void
         };
         // TODO: Warn about empty triggers or replaces
 
+        mRegexMatches.clear();
+
         /// First iteration. Construct the tree, preprocessing the data to be easy to use.
+        /// Regex matches will be fully processed here.
         TempNode root;
         std::vector<std::pair<const Match*, const std::wstring*>> triggersOverwritten;
         for (const Match& match : matchesFiltered)
@@ -293,14 +302,14 @@ void TriggerTree::Reconstruct(std::string_view matchesString, std::function<void
                     logger.Log(ELogLevel::ERROR, std::format(L"Regex compilation failed: {}\n"
                                                                 "File: {}, Original Trigger: {}, After Preprocess: {}, Error Offset: {}",
                         errMsg, mMatchFile.generic_wstring(), regexTrigger, triggerStr, errOffset));
-
+                    // TODO: Notification
                     pcre2_code_free(pattern);
                     continue;
                 }
 
                 pcre2_jit_compile(pattern, PCRE2_JIT_COMPLETE);  // Don't care if it failed or not. It'll automatically fallback to non-jit if so.
 
-                // TODO: Store
+                mRegexMatches.emplace_back(pattern, doNeedFullComposite, replaceType, replaceStr, doKeepComposite);
 
                 STOP
                 continue;
@@ -479,6 +488,7 @@ void TriggerTree::Reconstruct(std::string_view matchesString, std::function<void
             STOP
         }
 
+        mHasRegexMatches = !mRegexMatches.empty();
         mTreeHeight = height;
         mIsConstructingTriggerTree.store(false);
         if (onFinish && !didCallOnFinish)
@@ -545,6 +555,11 @@ void TriggerTree::OnInput(const InputMessage(&inputs)[MAX_INPUT_COUNT], int leng
         mAgents.reserve(mTreeHeight);
         mNextIterationAgents.reserve(mTreeHeight);
         mStroke.resize(std::max(mTreeHeight, 1U), 0);
+        if (mHasRegexMatches)
+        {
+            mStrokeForRegex.clear();
+            mStrokeForRegex.resize(std::max(get_config().maxStrokeLengthForRegex, 1), 0);
+        }
         mRootAgent = { &mTree.front(), static_cast<int>(mTreeHeight) };
     }
 
@@ -562,6 +577,7 @@ void TriggerTree::OnInput(const InputMessage(&inputs)[MAX_INPUT_COUNT], int leng
     if (length >= 0 && inputs[0].letter == L'\b')
     {
         std::ranges::shift_right(mStroke, 1);
+        std::ranges::shift_right(mStrokeForRegex, 1);
 
         // The input size is bigger than 1 only if letters are composed in the imm simulator.
         // But a backspace can't be used to finish composing(other than clearing one completely),
@@ -645,6 +661,15 @@ void TriggerTree::OnInput(const InputMessage(&inputs)[MAX_INPUT_COUNT], int leng
             return false;
         };
 
+    const auto lambdaCheckRegexMatches = [this, length, inputs](wchar_t inputLetter, bool isBeingComposed, int inputIndex)
+        {
+            for (const auto& [pattern, doNeedFullComposite, replaceType, replaceStr, doKeepComposite] : mRegexMatches)
+            {
+            }
+
+            return false;
+        };
+
     for (int i = 0; i < length; i++)
     {
         const auto [inputLetter, isBeingComposed] = inputs[i];
@@ -653,6 +678,22 @@ void TriggerTree::OnInput(const InputMessage(&inputs)[MAX_INPUT_COUNT], int leng
         {
             std::ranges::shift_left(mStroke, 1);
             mStroke.back() = inputLetter;
+
+            if (mHasRegexMatches)
+            {
+                if (L'가' <= inputLetter && inputLetter <= L'힣')
+                {
+                    std::wstring normalized = Letter::COMPOSITE_ENCLOSURE + normalize_hangeul(std::wstring_view{ &inputLetter, 1 }) + Letter::COMPOSITE_ENCLOSURE;
+                    const size_t size = normalized.size();
+                    std::ranges::shift_left(mStrokeForRegex, size);
+                    normalized.copy(&*(mStrokeForRegex.end() - size), size);
+                }
+                else
+                {
+                    std::ranges::shift_left(mStrokeForRegex, 1);
+                    mStrokeForRegex.back() = inputLetter;
+                }
+            }
         }
 
         // Check for triggers in the root node first.
@@ -667,6 +708,11 @@ void TriggerTree::OnInput(const InputMessage(&inputs)[MAX_INPUT_COUNT], int leng
                     break;
                 }
             }
+        }
+
+        if (!isTriggerFound)
+        {
+            isTriggerFound = lambdaCheckRegexMatches(inputLetter, isBeingComposed, i);
         }
 
         if (isTriggerFound)
@@ -692,7 +738,7 @@ void TriggerTree::OnInput(const InputMessage(&inputs)[MAX_INPUT_COUNT], int leng
 void TriggerTree::replaceString(const Ending& ending, const Agent& agent, std::wstring_view stroke, 
     const InputMessage(&inputs)[MAX_INPUT_COUNT], int inputLength, int inputIndex, bool doNeedFullComposite)
 {
-    const auto& [replaceStringIndex, replaceType, replaceStringLength, backspaceCount, cursorMoveCount,
+    const auto& [replaceType, replaceStringIndex, replaceStringLength, backspaceCount, cursorMoveCount,
         propagateCase, uppercaseStyle, keepComposite] = ending;
 
     const std::wstring_view originalReplaceString{ mReplaceStrings.data() + replaceStringIndex, replaceStringLength };

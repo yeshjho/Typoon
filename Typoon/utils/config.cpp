@@ -68,6 +68,7 @@ struct ConfigForParse
     std::string cursor_placeholder = "|_|";
     std::string regex_composite_start = ">>";
     std::string regex_composite_end = "<<";
+    int max_stroke_length_for_regex = 50;
 
     bool notify_config_load = true;
     bool notify_match_load = true;
@@ -86,6 +87,7 @@ struct ConfigForParse
             { cursor_placeholder.begin(), cursor_placeholder.end() },
             { regex_composite_start.begin(), regex_composite_start.end() },
             { regex_composite_end.begin(), regex_composite_end.end() },
+            max_stroke_length_for_regex,
             notify_config_load,
             notify_match_load,
             notify_on_off,
@@ -104,7 +106,7 @@ struct ConfigForParse
 };
 
 
-JSON5_CLASS(ConfigForParse, match_file_path, max_backspace_count, cursor_placeholder, regex_composite_start, regex_composite_end,
+JSON5_CLASS(ConfigForParse, match_file_path, max_backspace_count, cursor_placeholder, regex_composite_start, regex_composite_end, max_stroke_length_for_regex,
     notify_config_load, notify_match_load, notify_on_off, hotkey_toggle_on_off, hotkey_get_program_name, program_overrides)
 
 Config config;

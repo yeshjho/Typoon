@@ -70,14 +70,45 @@ struct Ending
         COMMAND,
     };
 
-    int replaceStringIndex = -1;
     EReplaceType type = EReplaceType::TEXT;
+    int replaceStringIndex = -1;
     unsigned int replaceStringLength = 0;
-    unsigned int backspaceCount = 0;  // If it's a regex match, need to calculate this after substitution.
-    unsigned int cursorMoveCount = 0;  // If it's a regex match, need to calculate this after substitution.
+    unsigned int backspaceCount = 0;
+    unsigned int cursorMoveCount = 0;
     bool propagateCase = false;  // Won't be true if the first letter is not cased.
     Match::EUppercaseStyle uppercaseStyle = Match::EUppercaseStyle::FIRST_LETTER;  // Only used if `propagateCase` is true.
     bool keepComposite = false;  // Won't be true if the letter is not Korean or need full composite.
+};
+
+
+class pcre2_real_code_16;
+
+class RegexPattern
+{
+public:
+    RegexPattern(pcre2_real_code_16* pattern) : mPattern(pattern) {}
+    ~RegexPattern();
+    RegexPattern(const RegexPattern& other) = default;
+    RegexPattern(RegexPattern&& other) noexcept = default;
+    RegexPattern& operator=(const RegexPattern& other) = default;
+    RegexPattern& operator=(RegexPattern&& other) noexcept = default;
+
+    operator pcre2_real_code_16* () const noexcept { return mPattern; }
+
+
+private:
+    pcre2_real_code_16* mPattern = nullptr;
+};
+
+
+struct RegexMatch
+{
+    RegexPattern pattern = nullptr;
+    bool needFullComposite = false;
+
+    Ending::EReplaceType type = Ending::EReplaceType::TEXT;
+    std::wstring replaceString;
+    bool keepComposite = false;
 };
 
 
@@ -131,12 +162,16 @@ private:
     std::vector<Ending> mEndings;
     std::wstring mReplaceStrings;
 
-    std::vector<Agent> mAgents{};
-    std::vector<Agent> mNextIterationAgents{};
-    std::deque<DeadAgent> mDeadAgents{};
-    std::wstring mStroke{};
+    std::vector<Agent> mAgents;
+    std::vector<Agent> mNextIterationAgents;
+    std::deque<DeadAgent> mDeadAgents;
+    std::wstring mStroke;
     bool mShouldResetAgents = false;
     Agent mRootAgent;
+
+    bool mHasRegexMatches = false;
+    std::vector<RegexMatch> mRegexMatches;
+    std::wstring mStrokeForRegex;
 
     std::atomic<bool> mIsTriggerTreeOutdated = true;
     std::atomic<bool> mIsConstructingTriggerTree = false;
