@@ -64,7 +64,7 @@ void ImmSimulator::AddLetter(wchar_t letter, bool doMulticast)
         // Why emit and set instead of setting right away? There are compositions which only contain medial letters. (ex - 'ㅏ' followed by 'ㄱ')
         // If there is no medial letter, we can also know that the previous composition is finished. (ex - 'ㄱ' followed by 'ㄱ')
         // If the final letters are full(ex - '갃' followed by 'ㄱ') or the letter cannot be combined with the previous final letter(ex - '간' followed by 'ㄱ'),
-        // the composition if finished.
+        // the composition is finished.
         else if (!hasInitial || !hasMedial || !canBeAFinalLetter(letter) || mComposition.final[1] != 0 || !canCombineLetters(mComposition.final[0], letter))
         {
             lambdaAddMessage(composeEmitResetComposition());

@@ -162,28 +162,54 @@ void TriggerTree::Reconstruct(std::string_view matchesString, std::function<void
         {
             const auto& [triggers, originalReplace, replaceImage, replaceCommand,
                 isCaseSensitive, isWord, doPropagateCase, uppercaseStyle, doNeedFullComposite, doKeepComposite] = match;
+
+            std::wstring replaceStr{ originalReplace };
+            if (isWord)
+            {
+                replaceStr.push_back(Letter::LAST_INPUT_LETTER);
+            }
+
+            unsigned int cursorMoveCount = 0;
+            const std::wstring& cursorPlaceholder = get_config().cursorPlaceholder;
+            if (const size_t cursorIndex = originalReplace.find(cursorPlaceholder);
+                cursorIndex != std::wstring::npos)
+            {
+                replaceStr.erase(cursorIndex, cursorPlaceholder.size());
+                cursorMoveCount = static_cast<unsigned int>(replaceStr.size() - cursorIndex);
+            }
+
+            const std::wstring_view replace = replaceStr;
+
+            const Ending::EReplaceType replaceType =
+                !replaceImage.empty() ? Ending::EReplaceType::IMAGE :
+                !replaceCommand.empty() ? Ending::EReplaceType::COMMAND :
+                Ending::EReplaceType::TEXT;
+            const Ending endingBase{
+                .type = replaceType,
+                .cursorMoveCount = cursorMoveCount,
+                // TODO: Abstract the extra conditions of the options and warn the user if ignored
+                .propagateCase = doPropagateCase && !isCaseSensitive && replaceType == Ending::EReplaceType::TEXT,
+                .uppercaseStyle = uppercaseStyle,
+                .keepComposite = doKeepComposite && is_korean(replace.back()) && replaceType == Ending::EReplaceType::TEXT,
+            };
+
+            const EndingMetaData endingMetaDataBase{
+                .replace =
+                    replaceType == Ending::EReplaceType::IMAGE ? replaceImage.generic_wstring() :
+                    replaceType == Ending::EReplaceType::COMMAND ? replaceCommand :
+                    std::wstring{ replace },
+            };
+
             for (const auto& originalTrigger : triggers)
             {
                 std::wstring triggerStr{ originalTrigger };
-                std::wstring replaceStr{ originalReplace };
 
                 if (isWord)
                 {
                     triggerStr.push_back(Letter::NON_WORD_LETTER);
-                    replaceStr.push_back(Letter::LAST_INPUT_LETTER);
-                }
-
-                unsigned int cursorMoveCount = 0;
-                const std::wstring& cursorPlaceholder = get_config().cursorPlaceholder;
-                if (const size_t cursorIndex = originalReplace.find(cursorPlaceholder);
-                    cursorIndex != std::wstring::npos)
-                {
-                    replaceStr.erase(cursorIndex, cursorPlaceholder.size());
-                    cursorMoveCount = static_cast<unsigned int>(replaceStr.size() - cursorIndex);
                 }
 
                 const std::wstring_view trigger = triggerStr;
-                const std::wstring_view replace = replaceStr;
 
                 TempNode* node = &root;
 
@@ -271,30 +297,16 @@ void TriggerTree::Reconstruct(std::string_view matchesString, std::function<void
                     }
                 }
 
-                const Ending::EReplaceType replaceType = 
-                    !replaceImage.empty() ? Ending::EReplaceType::IMAGE :
-                    !replaceCommand.empty() ? Ending::EReplaceType::COMMAND :
-                    Ending::EReplaceType::TEXT;
-                Ending ending{
-                    .type = replaceType,
-                    .backspaceCount = backspaceCount,
-                    .cursorMoveCount = cursorMoveCount,
-                    // TODO: Abstract the extra conditions of the options and warn the user if ignored
-                    .propagateCase = doPropagateCase && !isCaseSensitive && std::ranges::any_of(trigger, [](wchar_t c) { return is_cased_alpha(c); }) && 
-                                     replaceType == Ending::EReplaceType::TEXT,
-                    .uppercaseStyle = uppercaseStyle,
-                    .keepComposite = doKeepComposite && is_korean(replace.back()) && !needFullComposite && cursorMoveCount == 0 && 
-                                     (trigger.size() > 1 || triggerLastLetter != replace.back()) && replaceType == Ending::EReplaceType::TEXT,
-                };
-                node->children[letter] = TempNode{ .endingMetaData = 
-                    EndingMetaData{
-                        .replace = 
-                            replaceType == Ending::EReplaceType::IMAGE ? replaceImage.generic_wstring() :
-                            replaceType == Ending::EReplaceType::COMMAND ? replaceCommand :
-                            std::wstring{ replace },
-                        .tempEnding = ending,
-                    }
-                };
+                // TODO: Abstract the extra conditions of the options and warn the user if ignored
+                Ending ending = endingBase;
+                ending.backspaceCount = backspaceCount;
+                ending.propagateCase &= std::ranges::any_of(trigger, [](wchar_t c) { return is_cased_alpha(c); });
+                ending.keepComposite &= !needFullComposite && cursorMoveCount == 0 && (trigger.size() > 1 || triggerLastLetter != replace.back());
+
+                EndingMetaData endingMetaData = endingMetaDataBase;
+                endingMetaData.tempEnding = ending;
+
+                node->children[letter] = TempNode{ .endingMetaData = endingMetaData };
                 STOP
             }
             STOP
