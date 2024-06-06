@@ -20,7 +20,7 @@ struct Letter
     ///         // Hangul Jamo Extended-A
     ///     0xA97D, 0xA97E, 0xA97F,
     ///         // Hangul Compatibility. The least likely to be assigned since there can't be any more composite.
-    ///     (0xD7A4), 0xD7A5, 0xD7A6, 0xD7A7, 0xD7A8, 0xD7A9, 0xD7AA, 0xD7AB, 0xD7AC, 0xD7AD, 0xD7AE, (0xD7AF),
+    ///     (0xD7A4), 0xD7A5, 0xD7A6, 0xD7A7, 0xD7A8, (0xD7A9), 0xD7AA, 0xD7AB, 0xD7AC, 0xD7AD, 0xD7AE, (0xD7AF),
     ///         // Hangul Jamo Extended-B
     ///     0xD7C7, 0xD7C8, 0xD7C9, 0xD7CA,
     ///     0xD7FC, 0xD7FD, 0xD7FE, 0xD7FF
@@ -31,6 +31,9 @@ struct Letter
 
     /// Constants for special replacements
     static constexpr wchar_t LAST_INPUT_LETTER = 0xD7AF;
+
+    /// Constants for other purposes
+    static constexpr wchar_t COMPOSITE_ENCLOSURE = 0xD7A9;
 
 
     wchar_t letter;
@@ -70,8 +73,8 @@ struct Ending
     int replaceStringIndex = -1;
     EReplaceType type = EReplaceType::TEXT;
     unsigned int replaceStringLength = 0;
-    unsigned int backspaceCount = 0;
-    unsigned int cursorMoveCount = 0;
+    unsigned int backspaceCount = 0;  // If it's a regex match, need to calculate this after substitution.
+    unsigned int cursorMoveCount = 0;  // If it's a regex match, need to calculate this after substitution.
     bool propagateCase = false;  // Won't be true if the first letter is not cased.
     Match::EUppercaseStyle uppercaseStyle = Match::EUppercaseStyle::FIRST_LETTER;  // Only used if `propagateCase` is true.
     bool keepComposite = false;  // Won't be true if the letter is not Korean or need full composite.

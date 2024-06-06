@@ -3,6 +3,8 @@
 #include <cwctype>
 #include <map>
 
+#include <pcre2.h>
+
 #include "../imm/imm_simulator.h"
 #include "../low_level/clipboard.h"
 #include "../low_level/command.h"
@@ -13,6 +15,15 @@
 #include "../utils/config.h"
 #include "../utils/logger.h"
 #include "../utils/string.h"
+
+
+constexpr std::pair<std::wstring_view, std::wstring_view> REGEX_REPLACEMENTS[]{
+    { L"`초성`", L"ㄱㄲㄴㄷㄸㄻㅂㅃㅅ-ㅎ" },
+    { L"`중성`", L"ㅏ-ㅣ" },
+    { L"`종성`", L"ㄱ-ㄷㄹ-ㅂㅄ-ㅈㅊ-ㅎ" },
+    { L"`자음`", L"ㄱ-ㅎ" },
+    { L"`모음`", L"ㅏ-ㅣ" },
+};
 
 
 bool Letter::operator==(wchar_t ch) const
@@ -163,19 +174,24 @@ void TriggerTree::Reconstruct(std::string_view matchesString, std::function<void
             const auto& [triggers, regexTrigger, originalReplace, replaceImage, replaceCommand,
                 isCaseSensitive, isWord, doPropagateCase, uppercaseStyle, doNeedFullComposite, doKeepComposite] = match;
 
+            const bool isRegexMatch = !regexTrigger.empty();
+
             std::wstring replaceStr{ originalReplace };
-            if (isWord)
+            if (isWord && !isRegexMatch)
             {
                 replaceStr.push_back(Letter::LAST_INPUT_LETTER);
             }
 
             unsigned int cursorMoveCount = 0;
-            const std::wstring& cursorPlaceholder = get_config().cursorPlaceholder;
-            if (const size_t cursorIndex = originalReplace.find(cursorPlaceholder);
-                cursorIndex != std::wstring::npos)
+            if (!isRegexMatch)  // Will do this after substitution for regex matches
             {
-                replaceStr.erase(cursorIndex, cursorPlaceholder.size());
-                cursorMoveCount = static_cast<unsigned int>(replaceStr.size() - cursorIndex);
+                const std::wstring& cursorPlaceholder = get_config().cursorPlaceholder;
+                if (const size_t cursorIndex = originalReplace.find(cursorPlaceholder);
+                    cursorIndex != std::wstring::npos)
+                {
+                    replaceStr.erase(cursorIndex, cursorPlaceholder.size());
+                    cursorMoveCount = static_cast<unsigned int>(replaceStr.size() - cursorIndex);
+                }
             }
 
             const std::wstring_view replace = replaceStr;
@@ -188,9 +204,10 @@ void TriggerTree::Reconstruct(std::string_view matchesString, std::function<void
                 .type = replaceType,
                 .cursorMoveCount = cursorMoveCount,
                 // TODO: Abstract the extra conditions of the options and warn the user if ignored
-                .propagateCase = doPropagateCase && !isCaseSensitive && replaceType == Ending::EReplaceType::TEXT,
+                .propagateCase = !isRegexMatch && doPropagateCase && !isCaseSensitive && replaceType == Ending::EReplaceType::TEXT,
                 .uppercaseStyle = uppercaseStyle,
-                .keepComposite = doKeepComposite && is_korean(replace.back()) && replaceType == Ending::EReplaceType::TEXT,
+                // If it's a regex match, we don't know the last letter will be a korean or not, so pass that test.
+                .keepComposite = doKeepComposite && (isRegexMatch || is_korean(replace.back())) && replaceType == Ending::EReplaceType::TEXT,
             };
 
             const EndingMetaData endingMetaDataBase{
@@ -199,6 +216,95 @@ void TriggerTree::Reconstruct(std::string_view matchesString, std::function<void
                     replaceType == Ending::EReplaceType::COMMAND ? replaceCommand :
                     std::wstring{ replace },
             };
+            STOP
+
+            if (isRegexMatch)
+            {
+                const auto lambdaReplaceAll =
+                    [](std::wstring& str, std::wstring_view from, std::wstring_view to)
+                    {
+                        const size_t size = from.size();
+                        size_t index = str.find(from);
+                        while (index != std::wstring::npos)
+                        {
+                            str.replace(index, size, to);
+                            index = str.find(from);
+                        }
+                    };
+
+                std::wstring triggerStr{ regexTrigger };
+                for (const auto& [from, to] : REGEX_REPLACEMENTS)
+                {
+                    lambdaReplaceAll(triggerStr, from, to);
+                    STOP
+                }
+
+                constexpr std::wstring_view compositeEnclosureSv{ &Letter::COMPOSITE_ENCLOSURE, 1 };
+
+                const std::wstring& regexCompositeStart = get_config().regexCompositeStart;
+                const std::wstring& regexCompositeEnd = get_config().regexCompositeEnd;
+                lambdaReplaceAll(triggerStr, regexCompositeEnd, compositeEnclosureSv);
+                
+                const size_t compositeStartSize = regexCompositeStart.size();
+                size_t index = triggerStr.find(regexCompositeStart);
+                while (index != std::wstring::npos)
+                {
+                    triggerStr.replace(index, compositeStartSize, compositeEnclosureSv);
+                    // Need to decompose the composites right after the composite start mark here.
+                    // For example, >>가[`종성`]<< should be converted to (ENC)ㄱㅏ[ㄱ-ㄷㄹ-ㅂㅄ-ㅈㅊ-ㅎ](ENC).
+                    // If we don't do this here, it'll be converted to (ENC)(ENC)ㄱㅏ(ENC)[ㄱ-ㄷㄹ-ㅂㅄ-ㅈㅊ-ㅎ](ENC).
+                    if (index + 1 >= triggerStr.size())
+                    {
+                        break;
+                    }
+                    const wchar_t afterCompositeStart = triggerStr.at(index + 1);
+                    if (L'가' <= afterCompositeStart && afterCompositeStart <= L'힣')
+                    {
+                        triggerStr.replace(index + 1, 1, normalize_hangeul(std::wstring_view{ &afterCompositeStart, 1 }));
+                    }
+                    index = triggerStr.find(regexCompositeStart);
+                    STOP
+                }
+
+                size_t size = triggerStr.size();
+                for (size_t i = 0; i < size; i++)
+                {
+                    const wchar_t c = triggerStr.at(i);
+                    if (L'가' <= c && c <= L'힣')
+                    {
+                        std::wstring normalized = Letter::COMPOSITE_ENCLOSURE + normalize_hangeul(std::wstring_view{ &c, 1 }) + Letter::COMPOSITE_ENCLOSURE;
+                        const size_t normalizedSize = normalized.size();
+                        i += normalizedSize - 1;
+                        size += normalizedSize - 1;
+                        triggerStr.replace(i, 1, std::move(normalized));
+                    }
+                    STOP
+                }
+
+                int errNum;
+                size_t errOffset;
+                pcre2_code* pattern = pcre2_compile(reinterpret_cast<PCRE2_SPTR>(triggerStr.c_str()), PCRE2_ZERO_TERMINATED,
+                    0, &errNum, &errOffset, nullptr);
+                if (!pattern)
+                {
+                    PCRE2_UCHAR buffer[256];
+                    pcre2_get_error_message(errNum, buffer, sizeof(buffer));
+                    std::wstring_view errMsg{ reinterpret_cast<const wchar_t*>(buffer), sizeof(buffer) / sizeof(PCRE2_UCHAR) };
+                    logger.Log(ELogLevel::ERROR, std::format(L"Regex compilation failed: {}\n"
+                                                                "File: {}, Original Trigger: {}, After Preprocess: {}, Error Offset: {}",
+                        errMsg, mMatchFile.generic_wstring(), regexTrigger, triggerStr, errOffset));
+
+                    pcre2_code_free(pattern);
+                    continue;
+                }
+
+                pcre2_jit_compile(pattern, PCRE2_JIT_COMPLETE);  // Don't care if it failed or not. It'll automatically fallback to non-jit if so.
+
+                // TODO: Store
+
+                STOP
+                continue;
+            }
 
             for (const auto& originalTrigger : triggers)
             {
