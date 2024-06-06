@@ -350,4 +350,5 @@ MigrationBackup/
 .ionide/
 
 
-!external/lib/*
+!external/lib/**/*
+!external/lib/**/*
