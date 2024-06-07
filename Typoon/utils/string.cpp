@@ -5,6 +5,7 @@
 #include <uni-algo/conv.h>
 #include <json5/json5_base.hpp>
 
+#include "../imm/composition.h"
 #include "logger.h"
 
 
@@ -91,6 +92,26 @@ std::wstring normalize_hangeul(std::wstring_view str)
 
     return result;
 }
+
+
+std::wstring combine_hangeul(std::wstring_view str)
+{
+    std::wstring result;
+    Composition composition;
+    for (const wchar_t c : str)
+    {
+        composition.AddLetter(c, [&result](wchar_t letter) { result += letter; });
+    }
+
+    if (const wchar_t last = composition.ComposeLetter();
+        last != 0)
+    {
+        result += last;
+    }
+
+    return result;
+}
+
 
 std::wstring alphabet_to_hangeul(std::wstring_view str)
 {
