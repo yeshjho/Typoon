@@ -19,6 +19,10 @@ std::string to_u8_string(const std::wstring& str);
 // ex - '곿까ㅒㄷ' -> 'ㄱㅗㅏㄱㅅㄲㅏㅒㄷ'
 std::wstring normalize_hangeul(std::wstring_view str);
 
+// Exact opposite of `normalize_hangeul`.
+// ex - ㄱㅗㅏㄱㅅㄲㅏㅒㄷ' -> '곿까ㅒㄷ'
+std::wstring combine_hangeul(std::wstring_view str);
+
 std::wstring alphabet_to_hangeul(std::wstring_view str);
 
 std::wstring hangeul_to_alphabet(std::wstring_view normalizedStr, bool isCapsLockOn);
