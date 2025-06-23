@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 #include <deque>
 #include <filesystem>
 #include <functional>
@@ -33,9 +33,9 @@ struct Letter
     static constexpr wchar_t LAST_INPUT_LETTER = 0xD7AF;
 
 
-    wchar_t letter;
-    bool isCaseSensitive;  // Won't be true if `letter` is not cased.
-    bool doNeedFullComposite;  // Won't be true if `letter` is not Korean or not an ending.
+    wchar_t letter = 0;
+    bool isCaseSensitive = false;  // Won't be true if `letter` is not cased.
+    bool doNeedFullComposite = false;  // Won't be true if `letter` is not Korean or not an ending.
 
     bool operator==(wchar_t ch) const;
 

@@ -193,8 +193,16 @@ void TriggerTree::Reconstruct(std::string_view matchesString, std::function<void
                 {
                     const wchar_t ch = *triggerIt;
                     auto [it, isNew] = node->children.try_emplace(
-                        Letter{ ch, isCaseSensitive && is_cased_alpha(ch), false }, 
-                        TempNode{ &match, &originalTrigger, std::wstring{ trigger } });
+                        Letter{
+                            .letter = ch,
+                            .isCaseSensitive = isCaseSensitive && is_cased_alpha(ch),
+                            .doNeedFullComposite = false
+                        },
+                        TempNode{
+                            .match = &match,
+                            .originalTrigger = &originalTrigger,
+                            .trigger = std::wstring{ trigger }
+                        });
                     // Same case with the last letter overwriting, but in a reverse order.
                     // The letters from here are not reachable anyway, so discard them altogether.
                     if (!isNew && it->second.children.empty())
@@ -225,7 +233,11 @@ void TriggerTree::Reconstruct(std::string_view matchesString, std::function<void
 
                 // Since finding a match resets all the agents, we cannot advance further anyway. Therefore overwriting is fine.
                 const bool needFullComposite = doNeedFullComposite && isTriggerLastLetterKorean && !isWord;
-                Letter letter{ triggerLastLetter, isCaseSensitive && is_cased_alpha(triggerLastLetter), needFullComposite };
+                Letter letter{
+                    .letter = triggerLastLetter,
+                    .isCaseSensitive = isCaseSensitive && is_cased_alpha(triggerLastLetter),
+                    .doNeedFullComposite = needFullComposite
+                };
                 if (node->children.contains(letter))
                 {
                     TempNode& duplicate = node->children.at(letter);
@@ -427,7 +439,7 @@ void TriggerTree::OnInput(const InputMessage(&inputs)[MAX_INPUT_COUNT], int leng
         mAgents.reserve(mTreeHeight);
         mNextIterationAgents.reserve(mTreeHeight);
         mStroke.resize(std::max(mTreeHeight, 1U), 0);
-        mRootAgent = { &mTree.front(), static_cast<int>(mTreeHeight) };
+        mRootAgent = { .node = &mTree.front(), .strokeStartIndex = static_cast<int>(mTreeHeight) };
     }
 
     if (clearAllAgents)
@@ -494,7 +506,7 @@ void TriggerTree::OnInput(const InputMessage(&inputs)[MAX_INPUT_COUNT], int leng
                     continue;
                 }
 
-                Agent nextAgent{ &child, agent.strokeStartIndex - 1 };
+                Agent nextAgent{ .node = &child, .strokeStartIndex = agent.strokeStartIndex - 1 };
                 if (child.endingIndex < 0)
                 {
                     // If the letter is being composed, only check for the triggers, don't advance the agents.
