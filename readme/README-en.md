@@ -48,6 +48,7 @@ Refer to the [wiki](https://github.com/yeshjho/Typoon/wiki/How-to-Use).
     
 #### Options for both
 - Word: Gets triggered only when the text is separated to be a word.
+- Kor/Eng Insensitive: Gets triggered even if you type a Korean trigger in English mode and vice versa.
 
 For detailed explanations and examples of these options, refer to the [wiki](https://github.com/yeshjho/Typoon/wiki/%EC%82%AC%EC%9A%A9-%EB%B0%A9%EB%B2%95#%EC%98%B5%EC%85%98).
 
