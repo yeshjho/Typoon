@@ -1,7 +1,7 @@
-<?xml version="1.0" encoding="UTF-8"?>
+﻿<?xml version="1.0" encoding="UTF-8"?>
 <Wix xmlns="http://schemas.microsoft.com/wix/2006/wi">
     <Product Id="*" Name="Typoon" Language="!(loc.Language)" Version="$(var.VersionNumber)" Manufacturer="Joonho Hwang" UpgradeCode="eefadce2-887c-4f86-b767-59c8c5e6a710">
-        <Package InstallerVersion="400" Compressed="yes" InstallScope="perMachine" Comments="Typoon  Copyright (C) 2023  Joonho Hwang" Platform="x64" />
+        <Package InstallerVersion="400" Compressed="yes" InstallScope="perMachine" Comments="Typoon  Copyright (C) 2023-2025  Joonho Hwang" Platform="x64" />
 
         <MajorUpgrade DowngradeErrorMessage="!(loc.NoDowngrade)" AllowSameVersionUpgrades="yes" />
         <MediaTemplate EmbedCab="yes"/>
