@@ -1,4 +1,4 @@
-#include "trigger_tree.h"
+﻿#include "trigger_tree.h"
 
 #include <cwctype>
 #include <map>
@@ -160,8 +160,27 @@ void TriggerTree::Reconstruct(std::string_view matchesString, std::function<void
         std::vector<std::pair<const Match*, const std::wstring*>> triggersOverwritten;
         for (const Match& match : matchesFiltered)
         {
-            const auto& [triggers, originalReplace, replaceImage, replaceCommand,
-                isCaseSensitive, isWord, doPropagateCase, uppercaseStyle, doNeedFullComposite, doKeepComposite] = match;
+            const auto& [originalTriggers, originalReplace, replaceImage, replaceCommand,
+                isCaseSensitive, isWord, doPropagateCase, uppercaseStyle, 
+                doNeedFullComposite, doKeepComposite, isKorEngInsensitive] = match;
+
+            std::vector<std::wstring> triggers;
+            if (isKorEngInsensitive)
+            {
+                triggers.reserve(originalTriggers.size() * 2);
+                for (const std::wstring& originalTrigger : originalTriggers)
+                {
+                    // A trigger could be mixed with Korean and English letters.
+                    triggers.emplace_back(alphabet_to_hangeul(originalTrigger));
+                    triggers.emplace_back(hangeul_to_alphabet(originalTrigger, false));
+                }
+            }
+            else
+            {
+                // A copy that could be avoided, but I think it's OK because normally there won't be many triggers,
+                // and each of them won't be too long.
+                triggers = originalTriggers;
+            }
 
             std::wstring replaceStr{ originalReplace };
             if (isWord)
@@ -258,10 +277,10 @@ void TriggerTree::Reconstruct(std::string_view matchesString, std::function<void
                 STOP
 
                 // Since finding a match resets all the agents, we cannot advance further anyway. Therefore overwriting is fine.
-                const bool needFullComposite = doNeedFullComposite && isTriggerLastLetterKorean && !isWord;
+                const bool needFullComposite = doNeedFullComposite && isTriggerLastLetterKorean && !isWord && !isKorEngInsensitive;
                 Letter letter{
                     .letter = triggerLastLetter,
-                    .isCaseSensitive = isCaseSensitive && is_cased_alpha(triggerLastLetter),
+                    .isCaseSensitive = isCaseSensitive && is_cased_alpha(triggerLastLetter) && !isKorEngInsensitive,
                     .doNeedFullComposite = needFullComposite
                 };
                 if (node->children.contains(letter))
