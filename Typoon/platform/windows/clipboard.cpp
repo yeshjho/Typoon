@@ -1,4 +1,4 @@
-#include "../../low_level/clipboard.h"
+﻿#include "../../low_level/clipboard.h"
 
 #include <Windows.h>
 #include <gdiplus.h>
@@ -171,7 +171,7 @@ std::thread clipboard_state_restorer;
 void pop_clipboard_state_with_delay(std::function<bool()> predicate)
 {
     // We never know how long does the simulated paste take. This is the best we can do.
-    constexpr std::chrono::milliseconds delay{ 500 };
+    static constexpr std::chrono::milliseconds delay{ 500 };
     if (clipboard_state_restorer.joinable())
     {
         clipboard_state_restorer.join();
