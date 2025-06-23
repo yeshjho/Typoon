@@ -1,4 +1,4 @@
-#include "trigger_tree.h"
+﻿#include "trigger_tree.h"
 
 #include <cwctype>
 #include <map>
@@ -621,6 +621,8 @@ void TriggerTree::replaceString(const Ending& ending, const Agent& agent, std::w
 
     const std::wstring_view originalReplaceString{ mReplaceStrings.data() + replaceStringIndex, replaceStringLength };
 
+    imm_simulator.ClearComposition();
+
     switch (replaceType)
     {
     case Ending::EReplaceType::IMAGE:
@@ -663,8 +665,6 @@ void TriggerTree::replaceString(const Ending& ending, const Agent& agent, std::w
     std::wstring replaceString{ originalReplaceString };
 
     unsigned int additionalCursorMoveCount = 0;
-
-    imm_simulator.ClearComposition();
 
     for (wchar_t& c : replaceString)
     {
