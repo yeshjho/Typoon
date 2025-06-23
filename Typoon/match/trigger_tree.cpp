@@ -1,4 +1,4 @@
-﻿#include "trigger_tree.h"
+#include "trigger_tree.h"
 
 #include <cwctype>
 #include <map>
@@ -171,7 +171,7 @@ void TriggerTree::Reconstruct(std::string_view matchesString, std::function<void
                 for (const std::wstring& originalTrigger : originalTriggers)
                 {
                     // A trigger could be mixed with Korean and English letters.
-                    triggers.emplace_back(alphabet_to_hangeul(originalTrigger));
+                    triggers.emplace_back(combine_hangeul(alphabet_to_hangeul(originalTrigger)));
                     triggers.emplace_back(hangeul_to_alphabet(originalTrigger, false));
                 }
             }

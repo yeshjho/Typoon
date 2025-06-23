@@ -1,4 +1,4 @@
-#include "./string.h"
+﻿#include "./string.h"
 
 #include <cwctype>
 
@@ -100,7 +100,7 @@ std::wstring combine_hangeul(std::wstring_view str)
     Composition composition;
     for (const wchar_t c : str)
     {
-        composition.AddLetter(c, [&result](wchar_t letter) { result += letter; });
+        composition.AddLetter(c, [&result](wchar_t letter) { if (letter != 0) result += letter; });
     }
 
     if (const wchar_t last = composition.ComposeLetter();
