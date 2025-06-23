@@ -1,4 +1,4 @@
-#include "imm_simulator.h"
+﻿#include "imm_simulator.h"
 
 #include "../utils/logger.h"
 
@@ -9,22 +9,21 @@ void ImmSimulator::AddLetter(wchar_t letter, bool doMulticast)
     int messageLength = 0;
     const auto lambdaAddMessage = [&messages, &messageLength](const InputMessage& message)
     {
-        if (messageLength >= MAX_INPUT_COUNT)
-        {
-            throw;
-        }
-
         if (message.letter != 0)
         {
+            if (messageLength >= MAX_INPUT_COUNT)
+            {
+                throw;
+            }
             messages[messageLength++] = message;
         }
     };
 
-    mComposition.AddLetter(letter, [&lambdaAddMessage](wchar_t letter) { lambdaAddMessage({ letter, false }); });
+    mComposition.AddLetter(letter, [&lambdaAddMessage](wchar_t letter) { lambdaAddMessage({ .letter = letter, .isBeingComposed = false }); });
 
     if (doMulticast)
     {
-        lambdaAddMessage({ mComposition.ComposeLetter(), true });
+        lambdaAddMessage({ .letter = mComposition.ComposeLetter(), .isBeingComposed = true });
         multicastInput(messages, messageLength);
     }
 
@@ -44,11 +43,11 @@ InputMessage ImmSimulator::composeEmitResetComposition()
 {
     const wchar_t letter = mComposition.ComposeLetter();
     ClearComposition();
-    return { letter, false };
+    return { .letter = letter, .isBeingComposed = false };
 }
 
 
-void ImmSimulator::multicastInput(const InputMessage(&messages)[MAX_INPUT_COUNT], int length)
+void ImmSimulator::multicastInput(const InputMessage(&messages)[MAX_INPUT_COUNT], int length) const
 {
     mInputMulticastFunc(messages, length);
 }

@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 #include "composition.h"
 #include "../input_multicast/input_multicast.h"
 
@@ -24,7 +24,7 @@ public:
 private:
     InputMessage composeEmitResetComposition();
 
-    void multicastInput(const InputMessage (&messages)[MAX_INPUT_COUNT], int length);
+    void multicastInput(const InputMessage (&messages)[MAX_INPUT_COUNT], int length) const;
 
 
 private:
