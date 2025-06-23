@@ -1,4 +1,4 @@
-#include "parse_match.h"
+﻿#include "parse_match.h"
 
 #include "../low_level/tray_icon.h"
 #include "../utils/json5_util.h"
@@ -14,6 +14,7 @@ OptionContainerForParse& OptionContainerForParse::operator|=(const OptionContain
     uppercase_style = other.uppercase_style == EUppercaseStyle::first_letter ? uppercase_style : other.uppercase_style;
     full_composite |= other.full_composite;
     keep_composite |= other.keep_composite;
+    kor_eng_insensitive |= other.kor_eng_insensitive;
 
     return *this;
 }
@@ -31,6 +32,7 @@ MatchForParse::operator Match() const
         .uppercaseStyle = static_cast<Match::EUppercaseStyle>(uppercase_style),
         .doNeedFullComposite = full_composite,
         .doKeepComposite = keep_composite,
+        .isKorEngInsensitive = kor_eng_insensitive,
     };
 
     if (!triggers.empty())
@@ -45,6 +47,7 @@ MatchForParse::operator Match() const
     {
         match.triggers.emplace_back(to_u16_string(trigger));
     }
+
     return match;
 }
 

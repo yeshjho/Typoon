@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 #include <filesystem>
 #include <string>
 #include <set>
@@ -25,10 +25,11 @@ struct OptionContainerForParse
     EUppercaseStyle uppercase_style = EUppercaseStyle::first_letter;
     bool full_composite = false;
     bool keep_composite = false;
+    bool kor_eng_insensitive = false;
 
     OptionContainerForParse& operator|=(const OptionContainerForParse& other);
 
-    JSON5_MEMBERS(case_sensitive, word, propagate_case, uppercase_style, full_composite, keep_composite)
+    JSON5_MEMBERS(case_sensitive, word, propagate_case, uppercase_style, full_composite, keep_composite, kor_eng_insensitive)
 };
 
 struct MatchForParse : OptionContainerForParse

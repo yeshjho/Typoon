@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 #include <string>
 #include <vector>
 
@@ -22,4 +22,5 @@ struct Match
     EUppercaseStyle uppercaseStyle;
     bool doNeedFullComposite;
     bool doKeepComposite;
+    bool isKorEngInsensitive;
 };
