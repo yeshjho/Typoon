@@ -21,6 +21,9 @@ public:
 
     void RedirectInputMulticast(std::function<void(const InputMessage(&messages)[MAX_INPUT_COUNT], int length)> func) { mInputMulticastFunc = std::move(func); }
 
+    // Mainly for unit tests.
+    const Composition& GetComposition() const { return mComposition; }
+
 private:
     InputMessage composeEmitResetComposition();
 

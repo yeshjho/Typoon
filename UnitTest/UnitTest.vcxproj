@@ -87,6 +87,7 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="..\Typoon\imm\composition.cpp" />
     <ClCompile Include="..\Typoon\imm\imm_simulator.cpp" />
     <ClCompile Include="..\Typoon\input_multicast\input_multicast.cpp" />
     <ClCompile Include="..\Typoon\match\trigger_tree.cpp" />

@@ -1,4 +1,4 @@
-#include "text_editor_simulator.h"
+﻿#include "text_editor_simulator.h"
 
 #include "../../Typoon/utils/string.h"
 
@@ -112,7 +112,7 @@ void TextEditorSimulator::Reset()
 
 std::wstring TextEditorSimulator::GetText() const
 {
-    if (const wchar_t letterBeingComposed = mImmSimulator.ComposeLetter();
+    if (const wchar_t letterBeingComposed = mImmSimulator.GetComposition().ComposeLetter();
         letterBeingComposed == 0)
     {
         return mText;
@@ -128,7 +128,7 @@ std::wstring TextEditorSimulator::GetText() const
 
 bool TextEditorSimulator::IsLetterAtCursorInComposition() const
 {
-    return mImmSimulator.ComposeLetter() != 0;
+    return mImmSimulator.GetComposition().ComposeLetter() != 0;
 }
 
 
