@@ -17,7 +17,7 @@ std::string to_u8_string(const std::wstring& str);
 
 // Separate all the letters in each Korean letter into consonants and vowels.
 // ex - '곿까ㅒㄷ' -> 'ㄱㅗㅏㄱㅅㄲㅏㅒㄷ'
-std::wstring normalize_hangeul(std::wstring_view str);
+std::wstring decompose_hangeul(std::wstring_view str);
 
 // Exact opposite of `normalize_hangeul`.
 // ex - ㄱㅗㅏㄱㅅㄲㅏㅒㄷ' -> '곿까ㅒㄷ'

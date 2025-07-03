@@ -8,7 +8,7 @@
 
 void simulate_type(std::wstring_view text)
 {
-    const std::wstring toType = normalize_hangeul(text);
+    const std::wstring toType = decompose_hangeul(text);
     for (wchar_t letter : toType)
     {
         if (letter == FakeInput::TOGGLE_HANGEUL_KEY)
@@ -55,7 +55,7 @@ void check_text_editor_simulator(const TextState& textState)
 
 void check_normalization(std::wstring_view original, std::wstring_view normalized)
 {
-    CHECK(normalize_hangeul(original) == normalized);
+    CHECK(decompose_hangeul(original) == normalized);
 }
 
 
