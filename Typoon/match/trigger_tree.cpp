@@ -1,4 +1,4 @@
-#include "trigger_tree.h"
+﻿#include "trigger_tree.h"
 
 #include <cwctype>
 #include <map>
@@ -172,7 +172,7 @@ void TriggerTree::Reconstruct(std::string_view matchesString, std::function<void
                 {
                     // A trigger could be mixed with Korean and English letters.
                     triggers.emplace_back(combine_hangeul(alphabet_to_hangeul(originalTrigger)));
-                    triggers.emplace_back(hangeul_to_alphabet(normalize_hangeul(originalTrigger), false));
+                    triggers.emplace_back(hangeul_to_alphabet(decompose_hangeul(originalTrigger), false));
                 }
             }
             else
@@ -272,7 +272,7 @@ void TriggerTree::Reconstruct(std::string_view matchesString, std::function<void
                 // The backspace count should be adjusted accordingly.
                 if (isTriggerLastLetterKorean)
                 {
-                    backspaceCount += static_cast<int>(normalize_hangeul(std::wstring_view{ &triggerLastLetter, 1 }).size()) - 1;
+                    backspaceCount += static_cast<int>(decompose_hangeul(std::wstring_view{ &triggerLastLetter, 1 }).size()) - 1;
                 }
                 STOP
 
@@ -735,7 +735,7 @@ void TriggerTree::replaceString(const Ending& ending, const Agent& agent, std::w
         std::wstring lastLetterString{ lastLetter };
         if (isLastLetterKorean && didCompositionEndByAddingLetters)
         {
-            const std::wstring lastLetterNormalized = normalize_hangeul(lastLetterString);
+            const std::wstring lastLetterNormalized = decompose_hangeul(lastLetterString);
             lastLetterString = hangeul_to_alphabet(lastLetterNormalized, false);
             // The length of the middle letters + the last letter's decomposition.
             additionalBackspaceCount += static_cast<unsigned int>(lastLetterNormalized.size()) - 1;
@@ -792,7 +792,7 @@ void TriggerTree::replaceString(const Ending& ending, const Agent& agent, std::w
     }
     else if (keepComposite)
     {
-        const std::wstring lastLetterNormalized = normalize_hangeul(replace.substr(replaceStringLength - 1));
+        const std::wstring lastLetterNormalized = decompose_hangeul(replace.substr(replaceStringLength - 1));
         const std::wstring lastLetter = hangeul_to_alphabet(lastLetterNormalized, false);
 
         fakeInputs.reserve(backspaceCount + replaceStringLength + static_cast<int>(!is_hangeul_on) + lastLetter.size() - 1);

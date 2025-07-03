@@ -10,7 +10,7 @@
 
 void imm_simulator_test(std::wstring_view text, std::wstring& result)
 {
-    simulate_type(normalize_hangeul(text));
+    simulate_type(decompose_hangeul(text));
     if (const wchar_t letter = imm_simulator.GetComposition().ComposeLetter();
         letter != 0)
     {

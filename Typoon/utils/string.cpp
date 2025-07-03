@@ -34,7 +34,7 @@ std::string to_u8_string(const std::wstring& str)
 #pragma warning(default:4244)
 }
 
-std::wstring normalize_hangeul(std::wstring_view str)
+std::wstring decompose_hangeul(std::wstring_view str)
 {
     std::wstring result;
     result.reserve(str.size());
