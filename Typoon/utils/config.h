@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 #include <filesystem>
 
 #include "../low_level/hotkey.h"
@@ -16,13 +16,23 @@ struct ProgramOverride
 };
 
 
+struct RegexPreset
+{
+    std::wstring name;
+    std::wstring expand;
+};
+
+
 struct Config
 {
     std::filesystem::path matchFilePath;
     int maxBackspaceCount;
     std::wstring cursorPlaceholder;
+
     std::wstring regexCompositeStart;
     std::wstring regexCompositeEnd;
+    std::wstring regexPresetSurround;
+    std::vector<RegexPreset> regexPresets;
 
     bool notifyConfigLoad;
     bool notifyMatchLoad;

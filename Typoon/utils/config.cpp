@@ -1,4 +1,4 @@
-#include "config.h"
+﻿#include "config.h"
 
 #include <json5/json5_input.hpp>
 #include <json5/json5_output.hpp>
@@ -61,13 +61,40 @@ private:
 JSON5_CLASS(ProgramOverrideForParse, programs, disable, match_file_path, includes, excludes)
 
 
+struct RegexPresetForParse
+{
+    std::string name;
+    std::string expand;
+
+    operator RegexPreset() &&
+    {
+        return { to_u16_string(name), to_u16_string(expand) };
+    }
+};
+
+
+JSON5_CLASS(RegexPresetForParse, name, expand)
+
+
 struct ConfigForParse
 {
     std::filesystem::path match_file_path = "match/matches.json5";
     int max_backspace_count = 5;
     std::string cursor_placeholder = "|_|";
-    std::string regex_composite_start = ">>";
-    std::string regex_composite_end = "<<";
+
+    std::string regex_composite_start = "{{";
+    std::string regex_composite_end = "}}";
+    std::string regex_preset_surround = "`";
+    std::vector<RegexPresetForParse> regex_presets{
+        RegexPresetForParse{ to_u8_string(L"초"), to_u8_string(L"[ㄱㄲㄴㄷㄸㄹㅁㅂㅃㅅ-ㅎ]") },
+        RegexPresetForParse{ to_u8_string(L"중"), to_u8_string(L"[ㅏ-ㅗㅛㅜㅠㅡㅣ]|ㅗㅏ|ㅗㅐ|ㅗㅣ|ㅜㅓ|ㅜㅔ|ㅜㅣ|ㅡㅣ") },
+        RegexPresetForParse{ to_u8_string(L"종"), to_u8_string(L"[ㄱㄲㄴㄷㄹㅁㅂㅅ-ㅈㅊ-ㅎ]|ㄱㅅ|ㄴㅈ|ㄴㅎ|ㄹㄱ|ㄹㅁ|ㄹㅂ|ㄹㅅ|ㄹㅌ|ㄹㅍ|ㄹㅎ|ㅂㅅ") },
+        RegexPresetForParse{ to_u8_string(L"자"), to_u8_string(L"[ㄱㄲㄴㄷㄸㄹㅁㅂㅃㅅ-ㅎ]") },
+        RegexPresetForParse{ to_u8_string(L"모"), to_u8_string(L"[ㅏ-ㅗㅛㅜㅠㅡㅣ]|ㅗㅏ|ㅗㅐ|ㅗㅣ|ㅜㅓ|ㅜㅔ|ㅜㅣ|ㅡㅣ") },
+        RegexPresetForParse{ to_u8_string(L"쌍"), to_u8_string(L"[ㄲㄸㅃㅆㅉ]") },
+        RegexPresetForParse{ to_u8_string(L"겹"), to_u8_string(L"[ㄱㅅ|ㄴㅈ|ㄴㅎ|ㄹㄱ|ㄹㅁ|ㄹㅂ|ㄹㅅ|ㄹㅌ|ㄹㅍ|ㄹㅎ|ㅂㅅ]") },
+        RegexPresetForParse{ to_u8_string(L"이중"), to_u8_string(L"[ㅗㅏ|ㅗㅐ|ㅗㅣ|ㅜㅓ|ㅜㅔ|ㅜㅣ|ㅡㅣ]") },
+    };
 
     bool notify_config_load = true;
     bool notify_match_load = true;
@@ -86,12 +113,21 @@ struct ConfigForParse
             { cursor_placeholder.begin(), cursor_placeholder.end() },
             { regex_composite_start.begin(), regex_composite_start.end() },
             { regex_composite_end.begin(), regex_composite_end.end() },
+            { regex_preset_surround.begin(), regex_preset_surround.end() },
+            {},
             notify_config_load,
             notify_match_load,
             notify_on_off,
             { hotkey_toggle_on_off.key, get_combined_modifier(hotkey_toggle_on_off) },
-            { hotkey_get_program_name.key, get_combined_modifier(hotkey_get_program_name) }
+            { hotkey_get_program_name.key, get_combined_modifier(hotkey_get_program_name) },
+            {}
         };
+
+        std::transform(std::move_iterator{ regex_presets.begin() }, std::move_iterator{ regex_presets.end() }, std::back_inserter(config.regexPresets),
+            [](RegexPresetForParse&& regexPresetForParse) -> RegexPreset
+            {
+                return std::move(regexPresetForParse);
+            });
 
         std::transform(std::move_iterator{ program_overrides.begin() }, std::move_iterator{ program_overrides.end() }, std::back_inserter(config.programOverrides),
             [](ProgramOverrideForParse&& programOverrideForParse) -> ProgramOverride
@@ -104,8 +140,10 @@ struct ConfigForParse
 };
 
 
-JSON5_CLASS(ConfigForParse, match_file_path, max_backspace_count, cursor_placeholder, regex_composite_start, regex_composite_end,
-    notify_config_load, notify_match_load, notify_on_off, hotkey_toggle_on_off, hotkey_get_program_name, program_overrides)
+JSON5_CLASS(ConfigForParse, match_file_path, max_backspace_count, cursor_placeholder, 
+    regex_composite_start, regex_composite_end, regex_preset_surround, regex_presets,
+    notify_config_load, notify_match_load, notify_on_off, 
+    hotkey_toggle_on_off, hotkey_get_program_name, program_overrides)
 
 Config config;
 
