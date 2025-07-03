@@ -11,7 +11,7 @@
 
 struct Letter
 {
-    /// These constants use the unassigned code points but not from the Private User Area to avoid conflicts with other software.
+    /// These constants use the unassigned code points but not from the Private User Area to avoid conflicts with other softwares.
     /// Instead, use those within the Hangeul blocks, since they're unlikely to be assigned in the future. (Last modified in Unicode 5.2, which was released in 2009)
 
     /// Candidates: [
@@ -20,17 +20,20 @@ struct Letter
     ///         // Hangul Jamo Extended-A
     ///     0xA97D, 0xA97E, 0xA97F,
     ///         // Hangul Compatibility. The least likely to be assigned since there can't be any more composite.
-    ///     (0xD7A4), 0xD7A5, 0xD7A6, 0xD7A7, 0xD7A8, 0xD7A9, 0xD7AA, 0xD7AB, 0xD7AC, 0xD7AD, 0xD7AE, (0xD7AF),
+    ///     (0xD7A4), 0xD7A5, 0xD7A6, 0xD7A7, 0xD7A8, (0xD7A9), 0xD7AA, 0xD7AB, 0xD7AC, 0xD7AD, 0xD7AE, (0xD7AF),
     ///         // Hangul Jamo Extended-B
     ///     0xD7C7, 0xD7C8, 0xD7C9, 0xD7CA,
     ///     0xD7FC, 0xD7FD, 0xD7FE, 0xD7FF
     /// ]
 
     /// Constants for special triggers
-    static constexpr wchar_t NON_WORD_LETTER = 0xD7A4;
+    static constexpr wchar_t NON_WORD_LETTER = 0xD7A4;  // Added at the end of 'word' triggers.
 
     /// Constants for special replacements
-    static constexpr wchar_t LAST_INPUT_LETTER = 0xD7AF;
+    static constexpr wchar_t LAST_INPUT_LETTER = 0xD7AF;  // Added at the end of 'word' replaces.
+
+    /// Constants for other purposes
+    static constexpr wchar_t COMPOSITE_BOUNDARY = 0xD7A9;  // Added at the start/end of each decomposed composite in regex triggers.
 
 
     wchar_t letter = 0;
