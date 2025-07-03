@@ -13,6 +13,7 @@ struct Match
 
     
     std::vector<std::wstring> triggers;
+    std::wstring regexTrigger;
     std::wstring replace;
     std::filesystem::path replaceImage;
     std::wstring replaceCommand;

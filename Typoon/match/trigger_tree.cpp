@@ -1,4 +1,4 @@
-﻿#include "trigger_tree.h"
+#include "trigger_tree.h"
 
 #include <cwctype>
 #include <map>
@@ -150,7 +150,7 @@ void TriggerTree::Reconstruct(std::string_view matchesString, std::function<void
         STOP
         std::ranges::filter_view matchesFiltered{ matches, [](const Match& match)
             {
-                return !match.triggers.empty() && (!match.replace.empty() || !match.replaceImage.empty() || !match.replaceCommand.empty());
+                return (!match.triggers.empty() || !match.regexTrigger.empty()) && (!match.replace.empty() || !match.replaceImage.empty() || !match.replaceCommand.empty());
             }
         };
         // TODO: Warn about empty triggers or replaces
@@ -160,7 +160,7 @@ void TriggerTree::Reconstruct(std::string_view matchesString, std::function<void
         std::vector<std::pair<const Match*, const std::wstring*>> triggersOverwritten;
         for (const Match& match : matchesFiltered)
         {
-            const auto& [originalTriggers, originalReplace, replaceImage, replaceCommand,
+            const auto& [originalTriggers, regexTrigger, originalReplace, replaceImage, replaceCommand,
                 isCaseSensitive, isWord, doPropagateCase, uppercaseStyle, 
                 doNeedFullComposite, doKeepComposite, isKorEngInsensitive] = match;
 
@@ -614,7 +614,8 @@ void TriggerTree::OnInput(const InputMessage(&inputs)[MAX_INPUT_COUNT], int leng
 }
 
 
-void TriggerTree::replaceString(const Ending& ending, const Agent& agent, std::wstring_view stroke, const InputMessage(&inputs)[MAX_INPUT_COUNT], int inputLength, int inputIndex, bool doNeedFullComposite)
+void TriggerTree::replaceString(const Ending& ending, const Agent& agent, std::wstring_view stroke, 
+    const InputMessage(&inputs)[MAX_INPUT_COUNT], int inputLength, int inputIndex, bool doNeedFullComposite)
 {
     const auto& [replaceStringIndex, replaceType, replaceStringLength, backspaceCount, cursorMoveCount,
         propagateCase, uppercaseStyle, keepComposite] = ending;

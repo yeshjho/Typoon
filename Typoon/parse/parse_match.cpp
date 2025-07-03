@@ -23,6 +23,7 @@ OptionContainerForParse& OptionContainerForParse::operator|=(const OptionContain
 MatchForParse::operator Match() const
 {
     Match match{
+        .regexTrigger = to_u16_string(regex_trigger),
         .replace = to_u16_string(replace),
         .replaceImage = replace_image,
         .replaceCommand = to_u16_string(replace_command),
