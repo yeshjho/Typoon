@@ -161,8 +161,13 @@ void TriggerTree::Reconstruct(std::string_view matchesString, std::function<void
         for (const Match& match : matchesFiltered)
         {
             const auto& [originalTriggers, regexTrigger, originalReplace, replaceImage, replaceCommand,
-                isCaseSensitive, isWord, doPropagateCase, uppercaseStyle, 
-                doNeedFullComposite, doKeepComposite, isKorEngInsensitive] = match;
+                isCaseSensitive, originalIsWord, doPropagateCase, uppercaseStyle, 
+                doNeedFullComposite, doKeepComposite, originalIsKorEngInsensitive] = match;
+
+            const bool isRegexTrigger = !regexTrigger.empty();
+
+            const bool isWord = originalIsWord && !isRegexTrigger;
+            const bool isKorEngInsensitive = originalIsKorEngInsensitive && !isRegexTrigger;
 
             std::vector<std::wstring> triggers;
             if (isKorEngInsensitive)
