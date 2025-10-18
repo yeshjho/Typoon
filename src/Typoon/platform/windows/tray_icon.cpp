@@ -1,10 +1,10 @@
-#include "../../low_level/tray_icon.h"
+﻿#include "../../low_level/tray_icon.h"
 
 #include <Windows.h>
 
 #include "../../common/common.h"
 #include "../../low_level/filesystem.h"
-#include "../../resource.h"
+#include "../../resource/resource.h"
 #include "../../utils/config.h"
 #include "log.h"
 #include "wnd_proc.h"

@@ -1,4 +1,4 @@
-#include "../../Typoon/low_level/clipboard.h"
+﻿#include "Typoon/low_level/clipboard.h"
 
 
 void push_current_clipboard_state()
