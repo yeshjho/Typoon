@@ -1,4 +1,6 @@
 set(TYPOON_IMPORTED_SRCS
+    ${TYPOON_SRC_DIR}/ime/Composition.cpp
+    ${TYPOON_SRC_DIR}/util/Hangeul.cpp
 )
 
 typoon_add_executable(UnitTests
@@ -19,4 +21,5 @@ source_group(
 
 target_include_directories(UnitTests PRIVATE
     ${PROJECT_SOURCE_DIR}/src
+    ${TYPOON_SRC_DIR}  # Typoon 내부에서의 include를 위해. UnitTests 안에선 Typoon/을 붙이도록 해야 함
 )
