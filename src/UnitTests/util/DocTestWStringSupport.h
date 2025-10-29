@@ -1,29 +1,18 @@
 ﻿#pragma once
 #include <string>
-#include <string_view>
-#include <type_traits>
 
 #include <doctest.h>
-#include <uni-algo/conv.h>
+
+#include "Typoon/util/ToWString.h"
+#include "Typoon/util/Unicode.h"
 
 
-template<std::convertible_to<const std::wstring_view> T>
+template<CanBeString T>
 struct doctest::StringMaker<T>
 {
     static String convert(const T& value)
     {
-        const std::string s = una::utf16to8(value);
-        return String{ s.c_str() };
-    }
-};
-
-
-template<>
-struct doctest::StringMaker<wchar_t>
-{
-    static String convert(const wchar_t& value)
-    {
-        const std::string s = una::utf16to8(std::wstring_view{ &value, 1 });
+        const std::string s = to_u8_string(to_wstring(value));
         return String{ s.c_str() };
     }
 };

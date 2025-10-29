@@ -1,6 +1,8 @@
 set(TYPOON_IMPORTED_SRCS
     ${TYPOON_SRC_DIR}/ime/Composition.cpp
+    ${TYPOON_SRC_DIR}/logger/Logger.cpp
     ${TYPOON_SRC_DIR}/util/Hangeul.cpp
+    ${TYPOON_SRC_DIR}/util/Unicode.cpp
 )
 
 typoon_add_executable(UnitTests
