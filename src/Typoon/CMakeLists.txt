@@ -5,6 +5,7 @@ typoon_add_executable(Typoon
 
 target_link_libraries(Typoon
     PRIVATE
+        reflect-cpp
         Imm32.lib
         gdiplus.lib
         dbghelp.lib

@@ -69,49 +69,69 @@ add_compile_definitions(UNI_ALGO_STATIC_DATA)
 # -------------------------
 # Common flags by compiler (per-target preferred)
 # -------------------------
-function (typoon_target_common_setup target)
+function (typoon_target_common_setup target IS_EXTERNAL)
     if (TYPOON_COMPILER_GNU OR TYPOON_COMPILER_CLANG)
         # Warnings
-        target_compile_options(${target} PRIVATE
-            -Wall -Wextra -Wpedantic
-            -Wcast-align -Wconversion -Wsign-conversion
-            -Wnon-virtual-dtor -Wdouble-promotion
-        )
+        if (IS_EXTERNAL)
+            # Ignore all warnings for external libraries
+            target_compile_options(${target} PRIVATE
+                -Wno-everything
+            )
 
-        # Recommended hardened flags
-        target_compile_options(${target} PRIVATE
-            -fstack-protector-strong  # Stack protection
-            -fno-omit-frame-pointer   # Keep frame pointer for better stack traces
-            -D_FORTIFY_SOURCE=2       # Compile-time and runtime checks for unsafe C library functions
-            -fvisibility=hidden       # Hide symbols by default
-        )
+        else()
+            target_compile_options(${target} PRIVATE
+                -Wall -Wextra -Wpedantic
+                -Wcast-align -Wconversion -Wsign-conversion
+                -Wnon-virtual-dtor -Wdouble-promotion
+            )
 
-        # Disabled warnings in Debug mode
-        target_compile_options(${target} PRIVATE $<$<CONFIG:Debug>:
-            -Wno-unused-variable       # Unused local variable
-            -Wno-unused-parameter      # Unreferenced formal parameter
-        >)
+            # Recommended hardened flags
+            target_compile_options(${target} PRIVATE
+                -fstack-protector-strong  # Stack protection
+                -fno-omit-frame-pointer   # Keep frame pointer for better stack traces
+                -D_FORTIFY_SOURCE=2       # Compile-time and runtime checks for unsafe C library functions
+                -fvisibility=hidden       # Hide symbols by default
+            )
+
+            # Disabled warnings in Debug mode
+            target_compile_options(${target} PRIVATE $<$<CONFIG:Debug>:
+                -Wno-unused-variable       # Unused local variable
+                -Wno-unused-parameter      # Unreferenced formal parameter
+            >)
+
+            if (TYPOON_WARNINGS_AS_ERRORS)
+                target_compile_options(${target} PRIVATE -Werror)
+            endif()
+        endif()
 
         if (TYPOON_ENABLE_LTO)
             target_compile_options(${target} PRIVATE $<$<NOT:$<CONFIG:Debug>>:-flto>)
             target_link_options(${target} PRIVATE $<$<NOT:$<CONFIG:Debug>>:-flto>)
         endif()
 
-        if (TYPOON_WARNINGS_AS_ERRORS)
-            target_compile_options(${target} PRIVATE -Werror)
-        endif()
-
     elseif (TYPOON_COMPILER_MSVC)
         # Warnings
-        target_compile_options(${target} PRIVATE
-            /W4 /permissive-
-        )
+        if (IS_EXTERNAL)
+            # Ignore all warnings for external libraries
+            target_compile_options(${target} PRIVATE
+                /W0
+            )
 
-        # Disabled warnings in Debug mode
-        target_compile_options(${target} PRIVATE $<$<CONFIG:Debug>:
-            /wd4189                 # Unused local variable
-            /wd4100                 # Unreferenced formal parameter
-        >)
+        else()
+            target_compile_options(${target} PRIVATE
+                /W4 /permissive-
+            )
+
+            # Disabled warnings in Debug mode
+            target_compile_options(${target} PRIVATE $<$<CONFIG:Debug>:
+                /wd4189                 # Unused local variable
+                /wd4100                 # Unreferenced formal parameter
+            >)
+
+            if (TYPOON_WARNINGS_AS_ERRORS)
+                target_compile_options(${target} PRIVATE /WX)
+            endif()
+        endif()
 
         if (TYPOON_ENABLE_LTO)
             target_compile_options(${target} PRIVATE $<$<NOT:$<CONFIG:Debug>>:/GL>)
@@ -150,10 +170,6 @@ function (typoon_target_common_setup target)
                 /OPT:REF            # Eliminate unreferenced functions/data
             >
         )
-
-        if (TYPOON_WARNINGS_AS_ERRORS)
-            target_compile_options(${target} PRIVATE /WX)
-        endif()
 
     endif()
 
@@ -220,7 +236,9 @@ function (typoon_add_executable name)
     # Source files
     file(GLOB_RECURSE AUTO_SRCS CONFIGURE_DEPENDS
         "${CMAKE_CURRENT_SOURCE_DIR}/*.h"
+        "${CMAKE_CURRENT_SOURCE_DIR}/*.hpp"
         "${CMAKE_CURRENT_SOURCE_DIR}/*.cpp"
+        "${CMAKE_CURRENT_SOURCE_DIR}/*.c"
         "${CMAKE_CURRENT_SOURCE_DIR}/*.inl"
     )
     set(SRCS ${AUTO_SRCS} ${ARG_SRCS})
@@ -231,12 +249,12 @@ function (typoon_add_executable name)
         set_target_properties(${name} PROPERTIES NO_GROUP_SOURCES "${ARG_NO_GROUP_SOURCES}")
     endif()
 
-    typoon_target_common_setup(${name})
+    typoon_target_common_setup(${name} FALSE)
 endfunction()
 
 function (typoon_add_library name)
     # TYPE: [STATIC]/SHARED/OBJECT
-    cmake_parse_arguments(ARG "" "TYPE" "SRCS;NO_GROUP_SOURCES" ${ARGN})
+    cmake_parse_arguments(ARG "IS_EXTERNAL" "TYPE" "SRCS;NO_GROUP_SOURCES" ${ARGN})
     if (NOT ARG_TYPE)
         # STATIC by default
         set(ARG_TYPE STATIC)
@@ -245,7 +263,9 @@ function (typoon_add_library name)
     # Source files
     file(GLOB_RECURSE AUTO_SRCS CONFIGURE_DEPENDS
         "${CMAKE_CURRENT_SOURCE_DIR}/*.h"
+        "${CMAKE_CURRENT_SOURCE_DIR}/*.hpp"
         "${CMAKE_CURRENT_SOURCE_DIR}/*.cpp"
+        "${CMAKE_CURRENT_SOURCE_DIR}/*.c"
         "${CMAKE_CURRENT_SOURCE_DIR}/*.inl"
     )
     set(SRCS ${AUTO_SRCS} ${ARG_SRCS})
@@ -261,9 +281,12 @@ function (typoon_add_library name)
         target_compile_definitions(${name} PRIVATE "TYPOON_EXPORTS")
     endif()
 
-    typoon_target_common_setup(${name})
+    typoon_target_common_setup(${name} ${ARG_IS_EXTERNAL})
 endfunction()
 
+
+add_subdirectory(external/src/yaml-cpp)
+add_subdirectory(external/src/reflect-cpp)
 
 add_subdirectory(src/Typoon)
 if (TYPOON_BUILD_UNITTEST)
