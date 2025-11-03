@@ -5,6 +5,8 @@
 #include "util/DocTestWStringSupport.h"
 
 
+using typoon::util::to_wstring;
+
 TEST_SUITE("ToWString")
 {
     TEST_CASE("to_wstring")

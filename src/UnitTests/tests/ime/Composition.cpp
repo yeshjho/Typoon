@@ -7,6 +7,8 @@
 #include "util/DocTestWStringSupport.h"
 
 
+using typoon::core::Composition;
+
 namespace
 {
 

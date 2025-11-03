@@ -12,6 +12,9 @@
 #include "util/DocTestWStringSupport.h"
 
 
+using typoon::util::ELogLevel;
+using typoon::util::Logger;
+
 namespace
 {
 

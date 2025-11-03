@@ -4,14 +4,18 @@
 #include "util/Hangeul.h"
 
 
-Composition::Composition(NullableCallback<wchar_t> compositeOutputCallback)
+namespace typoon::core
+{
+
+Composition::Composition(util::NullableCallback<wchar_t> compositeOutputCallback)
     : mCompositeOutputCallback(std::move(compositeOutputCallback))
-{}
+{
+}
 
 void Composition::AddAlphabet(const wchar_t alphabet)
 {
-    const bool isConsonant = is_hangeul_consonant(alphabet);
-    const bool isVowel = is_hangeul_vowel(alphabet);
+    const bool isConsonant = util::is_hangeul_consonant(alphabet);
+    const bool isVowel = util::is_hangeul_vowel(alphabet);
 
     if (alphabet == '\b')
     {
@@ -133,8 +137,8 @@ wchar_t Composition::ComposeLetter() const
     ASSERT(combinedFinal == 0 || FINAL_MAP[combinedFinal - L'ㄱ'] != INVALID);
 
     return L'가' +
-        MEDIAL_COUNT * FINAL_COUNT * INITIAL_MAP[mInitial - L'ㄱ'] +
-        FINAL_COUNT * (combinedMedial - L'ㅏ') +
+        util::MEDIAL_COUNT * util::FINAL_COUNT * INITIAL_MAP[mInitial - L'ㄱ'] +
+        util::FINAL_COUNT * (combinedMedial - L'ㅏ') +
         (combinedFinal ? FINAL_MAP[combinedFinal - L'ㄱ'] + 1 : 0);
 }
 
@@ -175,7 +179,7 @@ bool Composition::CanCombineAlphabets(const wchar_t a, const wchar_t b)
 
 bool Composition::IsValidForFinal(wchar_t consonant)
 {
-    ASSERT(is_hangeul_consonant(consonant));
+    ASSERT(util::is_hangeul_consonant(consonant));
 
     return consonant != L'ㄸ' && consonant != L'ㅃ' && consonant != L'ㅉ';
 }
@@ -320,4 +324,6 @@ void Composition::composeAndResetAndRunCallback()
     {
         mCompositeOutputCallback(letter);
     }
+}
+
 }

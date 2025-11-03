@@ -7,6 +7,9 @@
 #include "util/ToWString.h"
 
 
+namespace typoon::util
+{
+
 enum class ELogLevel : std::uint8_t
 {
     VERBOSE,
@@ -122,4 +125,6 @@ template <CanBeString ... T>
 std::wstring Logger::concatString(T&&... ts)
 {
     return (to_wstring(std::forward<T>(ts)) + ...);
+}
+
 }

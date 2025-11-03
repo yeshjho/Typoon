@@ -2,6 +2,9 @@
 #include "util/Function.h"
 
 
+namespace typoon::core
+{
+
 /**
  * @brief 한글 낱자를 입력받아 조합된 글자로 출력하는 클래스. 두벌식 자판으로 한글을 입력할 때와 동일하게 작동함.
  */
@@ -11,12 +14,12 @@ public:
     /**
      * @param compositeOutputCallback 글자가 조합되어 출력될 때 호출되는 콜백
      */
-    explicit Composition(NullableCallback<wchar_t> compositeOutputCallback = {});
+    explicit Composition(util::NullableCallback<wchar_t> compositeOutputCallback = {});
 
 public:
     /**
      * @brief 낱자를 하나 추가함
-     * @param alphabet 추가할 낱자. 한글이 아니어도 됨. 
+     * @param alphabet 추가할 낱자. 한글이 아니어도 됨.
      * @details 낱자가 추가되어 조합이 끝나면, 즉 기존 글자에 해당 낱자를 더할 수 없을 때, 콜백이 기존 글자와 함께 호출되고 새 글자가 해당 낱자로 시작됨.
      * @note '\b' 문자의 경우 현재 조합이 비어 있을 경우 콜백이 호출되고, 비어 있지 않을 경우 '마지막' 낱자가 제거됨.
      */
@@ -85,5 +88,7 @@ private:
     wchar_t mMedial[2] = { };
     wchar_t mFinal[2] = { };
 
-    NullableCallback<wchar_t> mCompositeOutputCallback;
+    util::NullableCallback<wchar_t> mCompositeOutputCallback;
 };
+
+}

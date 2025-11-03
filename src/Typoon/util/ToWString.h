@@ -6,6 +6,9 @@
 #include "Unicode.h"
 
 
+namespace typoon::util
+{
+
 template<typename T>
 concept CanConstructWString = requires(T t)
 {
@@ -79,4 +82,6 @@ std::wstring to_wstring(T&& t)
     {
         std::unreachable();
     }
+}
+
 }

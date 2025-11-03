@@ -6,6 +6,9 @@
 #include "util/Debugging.h"
 
 
+namespace typoon::util
+{
+
 Logger::Logger(const ELogLevel minLogLevel)
     : mMinLogLevel(minLogLevel)
     , mLogEntryConsumerToken(mPendingLogEntries)
@@ -106,4 +109,6 @@ void Logger::doLog(const LogEntry& logEntry)
             stream->flush();
         }
     }
+}
+
 }
