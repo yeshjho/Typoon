@@ -19,4 +19,9 @@ bool is_hangeul_alphabet(const wchar_t ch)
     return is_hangeul_consonant(ch) || is_hangeul_vowel(ch);
 }
 
+bool is_hangeul(const wchar_t ch)
+{
+    return (L'가' <= ch && ch <= L'힣') || is_hangeul_alphabet(ch);
+}
+
 }

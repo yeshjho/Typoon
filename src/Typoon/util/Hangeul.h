@@ -21,4 +21,9 @@ constexpr wchar_t INITIAL_COUNT = (L'힣' - L'가' + 1) / (MEDIAL_COUNT * FINAL_
  */
 [[nodiscard]] bool is_hangeul_alphabet(wchar_t ch);
 
+/**
+ * @brief 주어진 문자가 한글 글자인지 확인
+ */
+[[nodiscard]] bool is_hangeul(wchar_t ch);
+
 }
