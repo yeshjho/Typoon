@@ -18,6 +18,8 @@ struct Match : Options
     std::filesystem::path replace_image{};
     std::wstring replace_command{};
 
+    [[nodiscard]] bool operator==(const Match&) const = default;
+
     /**
      * @brief 설정된 값들이 올바른지 검사. 옵션 검사 포함
      * @return 에러 리스트

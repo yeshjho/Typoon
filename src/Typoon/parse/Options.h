@@ -21,6 +21,7 @@ struct Options
     bool keep_composite = false;
     bool kor_eng_insensitive = false;
 
+    [[nodiscard]] bool operator==(const Options&) const = default;
     Options& operator|=(const Options& other);
 };
 

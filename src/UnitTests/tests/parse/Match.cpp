@@ -17,7 +17,7 @@ constexpr std::wstring_view CURSOR_PLACEHOLDER = L"|_|";
 
 template<std::ranges::range T = std::initializer_list<MatchValidateError>>
     requires std::convertible_to<std::ranges::range_value_t<T>, MatchValidateError>
-void check_errors(const Match& match, const T& expected)
+void check_errors(const Match& match, const T& expected, const bool isExhaustive = false)
 {
     std::vector<MatchValidateError> errors = match.Validate(CURSOR_PLACEHOLDER);
 
@@ -26,6 +26,11 @@ void check_errors(const Match& match, const T& expected)
         const auto it = std::ranges::find(errors, error);
         CHECK(it != errors.end());
         errors.erase(it);
+    }
+
+    if (isExhaustive)
+    {
+        CHECK(errors.empty());
     }
 }
 
@@ -40,6 +45,16 @@ void check_no_errors(const Match& match, const T& unexpected)
         const auto it = 
             std::ranges::find_if(errors, [errorType](const MatchValidateError& error) { return error.type == errorType; });
         CHECK(it == errors.end());
+    }
+}
+
+void check_fixup(Match& match, const bool shouldBeRecoverable, const Match& expected = {})
+{
+    const bool didRecover = match.TryFixUp(CURSOR_PLACEHOLDER);
+    CHECK(didRecover == shouldBeRecoverable);
+    if (shouldBeRecoverable)
+    {
+        CHECK(match == expected);
     }
 }
 
@@ -205,7 +220,7 @@ TEST_SUITE("Match")
             }
             {
                 const Match match{
-                    .triggers = { L"@", L"@" },
+                    .triggers = { L"@", L"@", L" " },
                     .replace = L"#"
                 };
                 check_no_errors(match, {
@@ -1870,9 +1885,906 @@ TEST_SUITE("Match")
 
     TEST_CASE("TryFixup")
     {
-        SUBCASE("")
+        SUBCASE("NO_TRIGGER")
         {
-            
+            {
+                Match match{
+                    .trigger = L"",
+                    .replace = L"#"
+                };
+                check_errors(match, {
+                    { .type = EMatchValidateErrorType::NO_TRIGGER },
+                }, true);
+
+                check_fixup(match, false);
+            }
+        }
+
+        SUBCASE("EMPTY_TRIGGER")
+        {
+            {
+                Match match{
+                    .trigger = L"",
+                    .triggers = { L"@", L"" , L"@@", L" " },
+                    .replace = L"#"
+                };
+                const Match expected{
+                    .triggers = { L"@", L"@@", L" " },
+                    .replace = L"#"
+                };
+                check_errors(match, {
+                    { .type = EMatchValidateErrorType::EMPTY_TRIGGER, .triggerIndices = { 1 } },
+                }, true);
+
+                check_fixup(match, true, expected);
+            }
+        }
+
+        SUBCASE("TRIGGER_AND_TRIGGERS_BOTH_SET")
+        {
+            {
+                Match match{
+                    .trigger = L"@",
+                    .triggers = { L"@@", L"@@@", L" " },
+                    .replace = L"#"
+                };
+                const Match expected{
+                    .triggers = { L"@", L"@@", L"@@@", L" " },
+                    .replace = L"#"
+                };
+                check_errors(match, {
+                    { .type = EMatchValidateErrorType::TRIGGER_AND_TRIGGERS_BOTH_SET },
+                }, true);
+
+                check_fixup(match, true, expected);
+            }
+        }
+
+        SUBCASE("DUPLICATE_TRIGGERS")
+        {
+            {
+                Match match{
+                    .triggers = { L"@@", L"aaa", L"@@" },
+                    .replace = L"#"
+                };
+                const Match expected{
+                    .triggers = { L"@@", L"aaa" },
+                    .replace = L"#"
+                };
+                check_errors(match, {
+                    { .type = EMatchValidateErrorType::DUPLICATE_TRIGGERS, .triggerIndices = { 2 } },
+                }, true);
+
+                check_fixup(match, true, expected);
+            }
+            {
+                Match match{
+                    .triggers = { L"@@", L"aaa", L"@@", L"@@", L"aaa" },
+                    .replace = L"#"
+                };
+                const Match expected{
+                    .triggers = { L"@@", L"aaa" },
+                    .replace = L"#"
+                };
+                check_errors(match, {
+                    { .type = EMatchValidateErrorType::DUPLICATE_TRIGGERS, .triggerIndices = { 2, 3, 4 } },
+                }, true);
+
+                check_fixup(match, true, expected);
+            }
+        }
+        
+        SUBCASE("NO_REPLACE")
+        {
+            {
+                Match match{
+                    .trigger = L"@"
+                };
+                check_errors(match, {
+                    { .type = EMatchValidateErrorType::NO_REPLACE },
+                }, true);
+
+                check_fixup(match, false);
+            }
+        }
+
+        SUBCASE("MULTIPLE_REPLACE_SET")
+        {
+            {
+                Match match{
+                    .trigger = L"@",
+                    .replace = L"#",
+                    .replace_image = L"image.png"
+                };
+                const Match expected{
+                    .trigger = L"@",
+                    .replace = L"#"
+                };
+                check_errors(match, {
+                    { .type = EMatchValidateErrorType::MULTIPLE_REPLACE_SET },
+                }, true);
+
+                check_fixup(match, true, expected);
+            }
+            {
+                Match match{
+                    .trigger = L"@",
+                    .replace = L"#",
+                    .replace_command = L"cmd"
+                };
+                const Match expected{
+                    .trigger = L"@",
+                    .replace = L"#"
+                };
+                check_errors(match, {
+                    { .type = EMatchValidateErrorType::MULTIPLE_REPLACE_SET },
+                }, true);
+
+                check_fixup(match, true, expected);
+            }
+            {
+                Match match{
+                    .trigger = L"@",
+                    .replace_image = L"image.png",
+                    .replace_command = L"cmd"
+                };
+                const Match expected{
+                    .trigger = L"@",
+                    .replace_image = L"image.png",
+                };
+                check_errors(match, {
+                    { .type = EMatchValidateErrorType::MULTIPLE_REPLACE_SET },
+                }, true);
+
+                check_fixup(match, true, expected);
+            }
+            {
+                Match match{
+                    .trigger = L"@",
+                    .replace = L"#",
+                    .replace_image = L"image.png",
+                    .replace_command = L"cmd"
+                };
+                const Match expected{
+                    .trigger = L"@",
+                    .replace = L"#",
+                };
+                check_errors(match, {
+                    { .type = EMatchValidateErrorType::MULTIPLE_REPLACE_SET },
+                }, true);
+
+                check_fixup(match, true, expected);
+            }
+        }
+
+        SUBCASE("MULTIPLE_CURSOR_PLACEHOLDER")
+        {
+#define CURSOR_PLACEHOLDER L"|_|"
+            {
+                Match match{
+                    .trigger = L"@",
+                    .replace = CURSOR_PLACEHOLDER L"#" CURSOR_PLACEHOLDER
+                };
+                const Match expected{
+                    .trigger = L"@",
+                    .replace = CURSOR_PLACEHOLDER L"#"
+                };
+                check_errors(match, {
+                    { .type = EMatchValidateErrorType::MULTIPLE_CURSOR_PLACEHOLDER },
+                }, true);
+
+                check_fixup(match, true, expected);
+            }
+            {
+                Match match{
+                    .trigger = L"@",
+                    .replace = CURSOR_PLACEHOLDER L"#" CURSOR_PLACEHOLDER CURSOR_PLACEHOLDER
+                };
+                const Match expected{
+                    .trigger = L"@",
+                    .replace = CURSOR_PLACEHOLDER L"#"
+                };
+                check_errors(match, {
+                    { .type = EMatchValidateErrorType::MULTIPLE_CURSOR_PLACEHOLDER },
+                }, true);
+
+                check_fixup(match, true, expected);
+            }
+            {
+                Match match{
+                    .trigger = L"@",
+                    .replace = L"#" CURSOR_PLACEHOLDER L"##" CURSOR_PLACEHOLDER L"###" CURSOR_PLACEHOLDER
+                };
+                const Match expected{
+                    .trigger = L"@",
+                    .replace = L"#" CURSOR_PLACEHOLDER L"##" L"###"
+                };
+                check_errors(match, {
+                    { .type = EMatchValidateErrorType::MULTIPLE_CURSOR_PLACEHOLDER },
+                }, true);
+
+                check_fixup(match, true, expected);
+            }
+#undef CURSOR_PLACEHOLDER
+        }
+
+        SUBCASE("CASE_SENSITIVE_NO_CASED_ALPHABET")
+        {
+            {
+                Match match{
+                    .trigger = L"한글",
+                    .replace = L"#",
+                };
+                match.case_sensitive = true;
+
+                const Match expected{
+                    .trigger = L"한글",
+                    .replace = L"#"
+                };
+                check_errors(match, {
+                    { .type = EMatchValidateErrorType::CASE_SENSITIVE_NO_CASED_ALPHABET, .triggerIndices = { 0 } },
+                }, true);
+
+                check_fixup(match, true, expected);
+            }
+            {
+                Match match{
+                    .triggers = { L"abc", L"가나" },
+                    .replace = L"#"
+                };
+                match.case_sensitive = true;
+
+                const Match expected{
+                    .triggers = { L"abc", L"가나" },
+                    .replace = L"#"
+                };
+                check_errors(match, { 
+                    { .type = EMatchValidateErrorType::CASE_SENSITIVE_NO_CASED_ALPHABET, .triggerIndices = { 1 } },
+                }, true);
+
+                check_fixup(match, true, expected);
+            }
+        }
+
+        SUBCASE("CASE_SENSITIVE_WITH_KOR_ENG_INSENSITIVE")
+        {
+            {
+                Match match{
+                    .trigger = L"abc",
+                    .replace = L"#",
+                };
+                match.case_sensitive = true;
+                match.kor_eng_insensitive = true;
+
+                Match expected{
+                    .trigger = L"abc",
+                    .replace = L"#"
+                };
+                expected.kor_eng_insensitive = true;
+
+                check_errors(match, {
+                    { .type = EMatchValidateErrorType::CASE_SENSITIVE_WITH_KOR_ENG_INSENSITIVE },
+                }, true);
+
+                check_fixup(match, true, expected);
+            }
+        }
+
+        SUBCASE("PROPAGATE_CASE_NON_TEXT_REPLACE")
+        {
+            {
+                Match match{
+                    .trigger = L"abc",
+                    .replace_image = L"#",
+                };
+                match.propagate_case = true;
+
+                const Match expected{
+                    .trigger = L"abc",
+                    .replace_image = L"#",
+                };
+
+                check_errors(match, {
+                    { .type = EMatchValidateErrorType::PROPAGATE_CASE_NON_TEXT_REPLACE },
+                }, true);
+
+                check_fixup(match, true, expected);
+            }
+            {
+                Match match{
+                    .trigger = L"abc",
+                    .replace_command = L"#",
+                };
+                match.propagate_case = true;
+
+                const Match expected{
+                    .trigger = L"abc",
+                    .replace_command = L"#",
+                };
+
+                check_errors(match, {
+                    { .type = EMatchValidateErrorType::PROPAGATE_CASE_NON_TEXT_REPLACE },
+                }, true);
+
+                check_fixup(match, true, expected);
+            }
+        }
+
+        SUBCASE("PROPAGATE_CASE_WITH_CASE_SENSITIVE")
+        {
+            {
+                Match match{
+                    .trigger = L"abc",
+                    .replace = L"#",
+                };
+                match.propagate_case = true;
+                match.case_sensitive = true;
+
+                Match expected{
+                    .trigger = L"abc",
+                    .replace = L"#"
+                };
+                expected.case_sensitive = true;
+
+                check_errors(match, {
+                    { .type = EMatchValidateErrorType::PROPAGATE_CASE_WITH_CASE_SENSITIVE },
+                }, true);
+
+                check_fixup(match, true, expected);
+            }
+        }
+
+        SUBCASE("PROPAGATE_CASE_NO_CASED_ALPHABET")
+        {
+            {
+                Match match{
+                    .trigger = L"한글",
+                    .replace = L"#",
+                };
+                match.propagate_case = true;
+
+                const Match expected{
+                    .trigger = L"한글",
+                    .replace = L"#"
+                };
+                check_errors(match, {
+                    { .type = EMatchValidateErrorType::PROPAGATE_CASE_NO_CASED_ALPHABET, .triggerIndices = { 0 } },
+                }, true);
+
+                check_fixup(match, true, expected);
+            }
+            {
+                Match match{
+                    .triggers = { L"abc", L"가나" },
+                    .replace = L"#"
+                };
+                match.propagate_case = true;
+
+                const Match expected{
+                    .triggers = { L"abc", L"가나" },
+                    .replace = L"#"
+                };
+                check_errors(match, { 
+                    { .type = EMatchValidateErrorType::PROPAGATE_CASE_NO_CASED_ALPHABET, .triggerIndices = { 1 } },
+                }, true);
+
+                check_fixup(match, true, expected);
+            }
+        }
+
+        SUBCASE("FULL_COMPOSITE_LAST_LETTER_NON_HANGEUL")
+        {
+            {
+                Match match{
+                    .triggers = { L"abc", L"123", L"가나" },
+                    .replace = L"#"
+                };
+                match.full_composite = true;
+
+                const Match expected{
+                    .triggers = { L"abc", L"123", L"가나" },
+                    .replace = L"#"
+                };
+
+                check_errors(match, { 
+                    { .type = EMatchValidateErrorType::FULL_COMPOSITE_LAST_LETTER_NON_HANGEUL, .triggerIndices = { 0, 1 } },
+                }, true);
+
+                check_fixup(match, true, expected);
+            }
+            {
+                Match match{
+                    .triggers = { L"가나.", L"abcㅏ", L"你好", L"가나" },
+                    .replace = L"#"
+                };
+                match.full_composite = true;
+
+                const Match expected{
+                    .triggers = { L"가나.", L"abcㅏ", L"你好", L"가나" },
+                    .replace = L"#"
+                };
+
+                check_errors(match, { 
+                    { .type = EMatchValidateErrorType::FULL_COMPOSITE_LAST_LETTER_NON_HANGEUL, .triggerIndices = { 0, 2 } },
+                }, true);
+
+                check_fixup(match, true, expected);
+            }
+            {
+                Match match{
+                    .trigger = L"こんにちは",
+                    .replace = L"#"
+                };
+                match.full_composite = true;
+
+                const Match expected{
+                    .trigger = L"こんにちは",
+                    .replace = L"#"
+                };
+
+                check_errors(match, { 
+                    { .type = EMatchValidateErrorType::FULL_COMPOSITE_LAST_LETTER_NON_HANGEUL, .triggerIndices = { 0 } },
+                }, true);
+
+                check_fixup(match, true, expected);
+            }
+        }
+
+        SUBCASE("FULL_COMPOSITE_WITH_WORD")
+        {
+            {
+                Match match{
+                    .trigger = L"가",
+                    .replace = L"#"
+                };
+                match.full_composite = true;
+                match.word = true;
+
+                Match expected{
+                    .trigger = L"가",
+                    .replace = L"#"
+                };
+                expected.word = true;
+
+                check_errors(match, {
+                    { .type = EMatchValidateErrorType::FULL_COMPOSITE_WITH_WORD },
+                }, true);
+
+                check_fixup(match, true, expected);
+            }
+        }
+
+        SUBCASE("FULL_COMPOSITE_WITH_KOR_ENG_INSENSITIVE")
+        {
+            {
+                Match match{
+                    .trigger = L"가",
+                    .replace = L"#"
+                };
+                match.full_composite = true;
+                match.kor_eng_insensitive = true;
+
+                Match expected{
+                    .trigger = L"가",
+                    .replace = L"#"
+                };
+                expected.kor_eng_insensitive = true;
+
+                check_errors(match, {
+                    { .type = EMatchValidateErrorType::FULL_COMPOSITE_WITH_KOR_ENG_INSENSITIVE },
+                }, true);
+
+                check_fixup(match, true, expected);
+            }
+        }
+        
+        SUBCASE("KEEP_COMPOSITE_NON_TEXT_REPLACE")
+        {
+            {
+                Match match{
+                    .trigger = L"@",
+                    .replace_image = L"#"
+                };
+                match.keep_composite = true;
+
+                const Match expected{
+                    .trigger = L"@",
+                    .replace_image = L"#"
+                };
+
+                check_errors(match, {
+                    { .type = EMatchValidateErrorType::KEEP_COMPOSITE_NON_TEXT_REPLACE },
+                }, true);
+
+                check_fixup(match, true, expected);
+            }
+            {
+                Match match{
+                    .trigger = L"@",
+                    .replace_command = L"#"
+                };
+                match.keep_composite = true;
+
+                const Match expected{
+                    .trigger = L"@",
+                    .replace_command = L"#"
+                };
+
+                check_errors(match, {
+                    { .type = EMatchValidateErrorType::KEEP_COMPOSITE_NON_TEXT_REPLACE },
+                }, true);
+
+                check_fixup(match, true, expected);
+            }
+        }
+        
+        SUBCASE("KEEP_COMPOSITE_LAST_LETTER_NON_HANGEUL")
+        {
+            {
+                Match match{
+                    .trigger = L"@",
+                    .replace = L"가나abc"
+                };
+                match.keep_composite = true;
+
+                const Match expected{
+                    .trigger = L"@",
+                    .replace = L"가나abc"
+                };
+
+                check_errors(match, { 
+                    { .type = EMatchValidateErrorType::KEEP_COMPOSITE_LAST_LETTER_NON_HANGEUL },
+                }, true);
+
+                check_fixup(match, true, expected);
+            }
+            {
+                Match match{
+                    .trigger = L"@",
+                    .replace = L"가나123"
+                };
+                match.keep_composite = true;
+
+                const Match expected{
+                    .trigger = L"@",
+                    .replace = L"가나123"
+                };
+
+                check_errors(match, { 
+                    { .type = EMatchValidateErrorType::KEEP_COMPOSITE_LAST_LETTER_NON_HANGEUL },
+                }, true);
+
+                check_fixup(match, true, expected);
+            }
+            {
+                Match match{
+                    .trigger = L"@",
+                    .replace = L"가나."
+                };
+                match.keep_composite = true;
+
+                const Match expected{
+                    .trigger = L"@",
+                    .replace = L"가나."
+                };
+
+                check_errors(match, { 
+                    { .type = EMatchValidateErrorType::KEEP_COMPOSITE_LAST_LETTER_NON_HANGEUL },
+                }, true);
+
+                check_fixup(match, true, expected);
+            }
+            {
+                Match match{
+                    .trigger = L"@",
+                    .replace = L"가나你好"
+                };
+                match.keep_composite = true;
+
+                const Match expected{
+                    .trigger = L"@",
+                    .replace = L"가나你好"
+                };
+
+                check_errors(match, { 
+                    { .type = EMatchValidateErrorType::KEEP_COMPOSITE_LAST_LETTER_NON_HANGEUL },
+                }, true);
+
+                check_fixup(match, true, expected);
+            }
+            {
+                Match match{
+                    .trigger = L"@",
+                    .replace = L"가나こんにちは"
+                };
+                match.keep_composite = true;
+
+                const Match expected{
+                    .trigger = L"@",
+                    .replace = L"가나こんにちは"
+                };
+
+                check_errors(match, { 
+                    { .type = EMatchValidateErrorType::KEEP_COMPOSITE_LAST_LETTER_NON_HANGEUL },
+                }, true);
+
+                check_fixup(match, true, expected);
+            }
+        }
+        
+        SUBCASE("KEEP_COMPOSITE_WITH_FULL_COMPOSITE")
+        {
+            {
+                Match match{
+                    .trigger = L"가",
+                    .replace = L"나"
+                };
+                match.keep_composite = true;
+                match.full_composite = true;
+
+                Match expected{
+                    .trigger = L"가",
+                    .replace = L"나"
+                };
+                expected.full_composite = true;
+
+                check_errors(match, {
+                    { .type = EMatchValidateErrorType::KEEP_COMPOSITE_WITH_FULL_COMPOSITE },
+                }, true);
+
+                check_fixup(match, true, expected);
+            }
+        }
+        
+        SUBCASE("KEEP_COMPOSITE_CURSOR_NOT_AT_END")
+        {
+#define CURSOR_PLACEHOLDER L"|_|"
+            {
+                Match match{
+                    .trigger = L"@",
+                    .replace = L"가" CURSOR_PLACEHOLDER L"가"
+                };
+                match.keep_composite = true;
+
+                const Match expected{
+                    .trigger = L"@",
+                    .replace = L"가" CURSOR_PLACEHOLDER L"가"
+                };
+
+                check_errors(match, { 
+                    { .type = EMatchValidateErrorType::KEEP_COMPOSITE_CURSOR_NOT_AT_END },
+                }, true);
+
+                check_fixup(match, true, expected);
+            }
+            {
+                Match match{
+                    .trigger = L"@",
+                    .replace = CURSOR_PLACEHOLDER L"가"
+                };
+                match.keep_composite = true;
+
+                const Match expected{
+                    .trigger = L"@",
+                    .replace = CURSOR_PLACEHOLDER L"가"
+                };
+
+                check_errors(match, { 
+                    { .type = EMatchValidateErrorType::KEEP_COMPOSITE_CURSOR_NOT_AT_END },
+                }, true);
+
+                check_fixup(match, true, expected);
+            }
+#undef CURSOR_PLACEHOLDER
+        }
+        
+        SUBCASE("KEEP_COMPOSITE_RECURSIVE - Positive")
+        {
+            {
+                Match match{
+                    .trigger = L"ㄱ",
+                    .replace = L"ㄱ"
+                };
+                match.keep_composite = true;
+
+                const Match expected{
+                    .trigger = L"ㄱ",
+                    .replace = L"ㄱ"
+                };
+
+                check_errors(match, {
+                    { .type = EMatchValidateErrorType::KEEP_COMPOSITE_RECURSIVE, .triggerIndices = { 0 } },
+                }, true);
+
+                check_fixup(match, true, expected);
+            }
+            {
+                Match match{
+                    .trigger = L"ㅆ",
+                    .replace = L"ㅆ"
+                };
+                match.keep_composite = true;
+
+                const Match expected{
+                    .trigger = L"ㅆ",
+                    .replace = L"ㅆ"
+                };
+
+                check_errors(match, {
+                    { .type = EMatchValidateErrorType::KEEP_COMPOSITE_RECURSIVE, .triggerIndices = { 0 } },
+                }, true);
+
+                check_fixup(match, true, expected);
+            }
+            {
+                Match match{
+                    .trigger = L"ㄺ",
+                    .replace = L"ㄺ"
+                };
+                match.keep_composite = true;
+
+                const Match expected{
+                    .trigger = L"ㄺ",
+                    .replace = L"ㄺ"
+                };
+
+                check_errors(match, {
+                    { .type = EMatchValidateErrorType::KEEP_COMPOSITE_RECURSIVE, .triggerIndices = { 0 } },
+                }, true);
+
+                check_fixup(match, true, expected);
+            }
+            {
+                Match match{
+                    .triggers = { L"ㅏ" },
+                    .replace = L"ㅏ"
+                };
+                match.keep_composite = true;
+
+                const Match expected{
+                    .triggers = { L"ㅏ" },
+                    .replace = L"ㅏ"
+                };
+
+                check_errors(match, {
+                    { .type = EMatchValidateErrorType::KEEP_COMPOSITE_RECURSIVE, .triggerIndices = { 0 } },
+                }, true);
+
+                check_fixup(match, true, expected);
+            }
+            {
+                Match match{
+                    .trigger = L"ㅒ",
+                    .replace = L"ㅒ"
+                };
+                match.keep_composite = true;
+
+                const Match expected{
+                    .trigger = L"ㅒ",
+                    .replace = L"ㅒ"
+                };
+
+                check_errors(match, {
+                    { .type = EMatchValidateErrorType::KEEP_COMPOSITE_RECURSIVE, .triggerIndices = { 0 } },
+                }, true);
+
+                check_fixup(match, true, expected);
+            }
+            {
+                Match match{
+                    .trigger = L"ㅙ",
+                    .replace = L"ㅙ"
+                };
+                match.keep_composite = true;
+
+                const Match expected{
+                    .trigger = L"ㅙ",
+                    .replace = L"ㅙ"
+                };
+
+                check_errors(match, {
+                    { .type = EMatchValidateErrorType::KEEP_COMPOSITE_RECURSIVE, .triggerIndices = { 0 } },
+                }, true);
+
+                check_fixup(match, true, expected);
+            }
+            {
+                Match match{
+                    .trigger = L"가",
+                    .replace = L"가"
+                };
+                match.keep_composite = true;
+
+                const Match expected{
+                    .trigger = L"가",
+                    .replace = L"가"
+                };
+
+                check_errors(match, {
+                    { .type = EMatchValidateErrorType::KEEP_COMPOSITE_RECURSIVE, .triggerIndices = { 0 } },
+                }, true);
+
+                check_fixup(match, true, expected);
+            }
+            {
+                Match match{
+                    .trigger = L"뛣",
+                    .replace = L"뛣"
+                };
+                match.keep_composite = true;
+
+                const Match expected{
+                    .trigger = L"뛣",
+                    .replace = L"뛣"
+                };
+
+                check_errors(match, {
+                    { .type = EMatchValidateErrorType::KEEP_COMPOSITE_RECURSIVE, .triggerIndices = { 0 } },
+                }, true);
+
+                check_fixup(match, true, expected);
+            }
+            {
+                Match match{
+                    .trigger = L"뛣",
+                    .replace = L"123뛣"
+                };
+                match.keep_composite = true;
+
+                const Match expected{
+                    .trigger = L"뛣",
+                    .replace = L"123뛣"
+                };
+
+                check_errors(match, {
+                    { .type = EMatchValidateErrorType::KEEP_COMPOSITE_RECURSIVE, .triggerIndices = { 0 } },
+                }, true);
+
+                check_fixup(match, true, expected);
+            }
+            {
+                Match match{
+                    .trigger = L"뛣",
+                    .replace = L"가뛣"
+                };
+                match.keep_composite = true;
+
+                const Match expected{
+                    .trigger = L"뛣",
+                    .replace = L"가뛣"
+                };
+
+                check_errors(match, {
+                    { .type = EMatchValidateErrorType::KEEP_COMPOSITE_RECURSIVE, .triggerIndices = { 0 } },
+                }, true);
+
+                check_fixup(match, true, expected);
+            }
+        }
+    }
+
+    TEST_CASE("TryFixup - Mix up")
+    {
+        SUBCASE("트리거 수정 세트: EMPTY_TRIGGER, TRIGGER_AND_TRIGGERS_BOTH_SET, DUPLICATE_TRIGGERS")
+        {
+            Match match{
+                .trigger = L"@",
+                .triggers = { L"", L"@@", L"@", L"aaa", L"", L"aaa" },
+                .replace = L"#"
+            };
+
+            const Match expected{
+                .triggers = { L"@", L"@@", L"aaa" },
+                .replace = L"#"
+            };
+
+            check_errors(match, {
+                { .type = EMatchValidateErrorType::EMPTY_TRIGGER, .triggerIndices = { 1, 5 } },
+                { .type = EMatchValidateErrorType::TRIGGER_AND_TRIGGERS_BOTH_SET },
+                { .type = EMatchValidateErrorType::DUPLICATE_TRIGGERS, .triggerIndices = { 3, 5, 6 } },
+            }, true);
+
+            check_fixup(match, true, expected);
         }
     }
 }
