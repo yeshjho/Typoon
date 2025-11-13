@@ -10,7 +10,7 @@
 namespace typoon::parse
 {
 
-struct Match : Options
+struct Match : parse::Options
 {
     std::wstring trigger{};
     std::vector<std::wstring> triggers{};

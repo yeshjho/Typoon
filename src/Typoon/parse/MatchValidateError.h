@@ -46,6 +46,7 @@ enum class EMatchValidateErrorType : std::uint8_t
     KEEP_COMPOSITE_RECURSIVE,
 
     /// kor_eng_insensitive
+    KOR_ENG_INSENSITIVE_NO_HANGEUL_OR_LATIN_ALPHABET,
 };
 
 struct MatchValidateError

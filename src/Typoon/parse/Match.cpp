@@ -248,7 +248,16 @@ std::vector<MatchValidateError> Match::Validate(const std::wstring_view cursorPl
     // kor_eng_insensitive
     if (kor_eng_insensitive)
     {
-        
+        lambdaCheckTriggersAndReportError(
+            [](const std::wstring& trigger)
+            {
+                return std::ranges::any_of(trigger, [](const wchar_t c)
+                {
+                    return util::is_hangeul(c) || (L'A' <= c && c <= L'Z') || (L'a' <= c && c <= L'z');
+                });
+            },
+            EMatchValidateErrorType::KOR_ENG_INSENSITIVE_NO_HANGEUL_OR_LATIN_ALPHABET
+        );
     }
 
     return errors;
@@ -350,6 +359,10 @@ bool Match::TryFixUp(const std::wstring_view cursorPlaceholder)
         case EMatchValidateErrorType::KEEP_COMPOSITE_CURSOR_NOT_AT_END:
         case EMatchValidateErrorType::KEEP_COMPOSITE_RECURSIVE:
             keep_composite = false;
+            break;
+
+        case EMatchValidateErrorType::KOR_ENG_INSENSITIVE_NO_HANGEUL_OR_LATIN_ALPHABET:
+            kor_eng_insensitive = false;
             break;
 
         default:

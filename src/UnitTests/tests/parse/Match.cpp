@@ -1,9 +1,9 @@
 ﻿#include <doctest.h>
 
-#include "Typoon/parse/Match.h"
-
 #include <concepts>
 #include <ranges>
+
+#include "Typoon/parse/Match.h"
 
 
 using typoon::parse::EMatchValidateErrorType;
@@ -1881,6 +1881,102 @@ TEST_SUITE("Match")
                 });
             }
         }
+
+        SUBCASE("KOR_ENG_INSENSITIVE_NO_HANGEUL_OR_LATIN_ALPHABET - Positive")
+        {
+            {
+                Match match{
+                    .trigger = L"123 456",
+                    .replace = L"#"
+                };
+                match.kor_eng_insensitive = true;
+
+                check_errors(match, {
+                    { .type = EMatchValidateErrorType::KOR_ENG_INSENSITIVE_NO_HANGEUL_OR_LATIN_ALPHABET, .triggerIndices = { 0 } },
+                });
+            }
+            {
+                Match match{
+                    .triggers = { L",.?;", L"こんにちは", L"你好" },
+                    .replace = L"#"
+                };
+                match.kor_eng_insensitive = true;
+
+                check_errors(match, {
+                    { .type = EMatchValidateErrorType::KOR_ENG_INSENSITIVE_NO_HANGEUL_OR_LATIN_ALPHABET, .triggerIndices = { 0, 1, 2 } },
+                });
+            }
+            {
+                Match match{
+                    .trigger = L"123 456,.?;こんにちは你好",
+                    .replace = L"#"
+                };
+                match.kor_eng_insensitive = true;
+
+                check_errors(match, {
+                    { .type = EMatchValidateErrorType::KOR_ENG_INSENSITIVE_NO_HANGEUL_OR_LATIN_ALPHABET, .triggerIndices = { 0 } },
+                });
+            }
+        }
+
+        SUBCASE("KOR_ENG_INSENSITIVE_NO_HANGEUL_OR_LATIN_ALPHABET - Negative")
+        {
+            {
+                Match match{
+                    .trigger = L"aBc",
+                    .replace = L"#"
+                };
+                match.kor_eng_insensitive = true;
+
+                check_no_errors(match, {
+                    EMatchValidateErrorType::KOR_ENG_INSENSITIVE_NO_HANGEUL_OR_LATIN_ALPHABET,
+                });
+            }
+            {
+                Match match{
+                    .trigger = L"가나",
+                    .replace = L"#"
+                };
+                match.kor_eng_insensitive = true;
+
+                check_no_errors(match, {
+                    EMatchValidateErrorType::KOR_ENG_INSENSITIVE_NO_HANGEUL_OR_LATIN_ALPHABET,
+                });
+            }
+            {
+                Match match{
+                    .triggers = { L"ㄱㄴ", L"ㅏ", L"ㅀㅚ", L"ㄲㄸㅃㅆㅉ" },
+                    .replace = L"#"
+                };
+                match.kor_eng_insensitive = true;
+
+                check_no_errors(match, {
+                    EMatchValidateErrorType::KOR_ENG_INSENSITIVE_NO_HANGEUL_OR_LATIN_ALPHABET,
+                });
+            }
+            {
+                Match match{
+                    .triggers = { L"ㄱㄴ123", L"ㅏ,./", L"ㅀ  \t  ㅚ", L"ㄲ1ㄸ,ㅃこㅆ你ㅉ" },
+                    .replace = L"#"
+                };
+                match.kor_eng_insensitive = true;
+
+                check_no_errors(match, {
+                    EMatchValidateErrorType::KOR_ENG_INSENSITIVE_NO_HANGEUL_OR_LATIN_ALPHABET,
+                });
+            }
+            {
+                Match match{
+                    .triggers = { L"ab123", L"A,./", L"z  \t  Z", L"Q1W,EこR你T" },
+                    .replace = L"#"
+                };
+                match.kor_eng_insensitive = true;
+
+                check_no_errors(match, {
+                    EMatchValidateErrorType::KOR_ENG_INSENSITIVE_NO_HANGEUL_OR_LATIN_ALPHABET,
+                });
+            }
+        }
     }
 
     TEST_CASE("TryFixup")
@@ -2578,7 +2674,7 @@ TEST_SUITE("Match")
 #undef CURSOR_PLACEHOLDER
         }
         
-        SUBCASE("KEEP_COMPOSITE_RECURSIVE - Positive")
+        SUBCASE("KEEP_COMPOSITE_RECURSIVE")
         {
             {
                 Match match{
@@ -2756,6 +2852,64 @@ TEST_SUITE("Match")
 
                 check_errors(match, {
                     { .type = EMatchValidateErrorType::KEEP_COMPOSITE_RECURSIVE, .triggerIndices = { 0 } },
+                }, true);
+
+                check_fixup(match, true, expected);
+            }
+        }
+
+        SUBCASE("KOR_ENG_INSENSITIVE_NO_HANGEUL_OR_LATIN_ALPHABET")
+        {
+            {
+                Match match{
+                    .trigger = L"123 456",
+                    .replace = L"#"
+                };
+                match.kor_eng_insensitive = true;
+
+                const Match expected{
+                    .trigger = L"123 456",
+                    .replace = L"#"
+                };
+
+                check_errors(match, {
+                    { .type = EMatchValidateErrorType::KOR_ENG_INSENSITIVE_NO_HANGEUL_OR_LATIN_ALPHABET, .triggerIndices = { 0 } },
+                }, true);
+
+                check_fixup(match, true, expected);
+            }
+            {
+                Match match{
+                    .triggers = { L",.?;", L"こんにちは", L"你好" },
+                    .replace = L"#"
+                };
+                match.kor_eng_insensitive = true;
+
+                const Match expected{
+                    .triggers = { L",.?;", L"こんにちは", L"你好" },
+                    .replace = L"#"
+                };
+
+                check_errors(match, {
+                    { .type = EMatchValidateErrorType::KOR_ENG_INSENSITIVE_NO_HANGEUL_OR_LATIN_ALPHABET, .triggerIndices = { 0, 1, 2 } },
+                }, true);
+
+                check_fixup(match, true, expected);
+            }
+            {
+                Match match{
+                    .trigger = L"123 456,.?;こんにちは你好",
+                    .replace = L"#"
+                };
+                match.kor_eng_insensitive = true;
+
+                const Match expected{
+                    .trigger = L"123 456,.?;こんにちは你好",
+                    .replace = L"#"
+                };
+
+                check_errors(match, {
+                    { .type = EMatchValidateErrorType::KOR_ENG_INSENSITIVE_NO_HANGEUL_OR_LATIN_ALPHABET, .triggerIndices = { 0 } },
                 }, true);
 
                 check_fixup(match, true, expected);
