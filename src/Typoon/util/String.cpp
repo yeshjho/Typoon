@@ -1,14 +1,12 @@
 ﻿#include "String.h"
 
-#include <cwctype>
-
 
 namespace typoon::util
 {
 
-bool is_cased_alpha(const wchar_t ch)
+bool is_latin_alphabet(const wchar_t c)
 {
-    return std::iswalpha(ch) && (std::iswupper(ch) ^ std::iswlower(ch));
+    return ('a' <= c && c <= 'z') || ('A' <= c && c <= 'Z');
 }
 
 }

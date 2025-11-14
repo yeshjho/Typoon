@@ -64,7 +64,7 @@ std::vector<MatchValidateError> Match::Validate(const std::wstring_view cursorPl
 
     // any_of는 빈 경우 false를 반환하므로 empty 체크
     const std::vector<size_t> noCasedAlphabetTriggerIndices = 
-        lambdaCheckTriggers([](const std::wstring& trigger) { return trigger.empty() || std::ranges::any_of(trigger, util::is_cased_alpha); });
+        lambdaCheckTriggers([](const std::wstring& trigger) { return trigger.empty() || std::ranges::any_of(trigger, util::is_latin_alphabet); });
     const auto lambdaCheckTriggersHaveCasedAlphabetAndReportError =
         [&noCasedAlphabetTriggerIndices, &errors](const EMatchValidateErrorType errorType)
         {
@@ -253,7 +253,7 @@ std::vector<MatchValidateError> Match::Validate(const std::wstring_view cursorPl
             {
                 return std::ranges::any_of(trigger, [](const wchar_t c)
                 {
-                    return util::is_hangeul(c) || (L'A' <= c && c <= L'Z') || (L'a' <= c && c <= L'z');
+                    return util::is_hangeul(c) || util::is_latin_alphabet(c);
                 });
             },
             EMatchValidateErrorType::KOR_ENG_INSENSITIVE_NO_HANGEUL_OR_LATIN_ALPHABET
