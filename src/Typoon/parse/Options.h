@@ -5,14 +5,14 @@
 namespace typoon::parse
 {
 
+enum class EUppercaseStyle : std::uint8_t
+{
+    first_letter,
+    capitalize_words
+};
+
 struct Options
 {
-    enum class EUppercaseStyle : std::uint8_t
-    {
-        first_letter,
-        capitalize_words
-    };
-
     bool case_sensitive = false;
     bool word = false;
     bool propagate_case = false;
