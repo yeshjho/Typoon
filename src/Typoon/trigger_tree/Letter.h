@@ -44,7 +44,7 @@ public:
 
 public:
     Letter() = default;
-    Letter(wchar_t letter, bool isCaseSensitive = false, bool doNeedFullComposite = false);
+    explicit Letter(wchar_t letter, bool isCaseSensitive = false, bool doNeedFullComposite = false);
 
 public:
     [[nodiscard]] bool operator==(wchar_t ch) const;

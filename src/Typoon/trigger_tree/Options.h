@@ -14,10 +14,10 @@ enum class EUppercaseStyle : std::uint8_t
 struct Options
 {
     bool isCaseSensitive = false;
-    bool isWord = false;
+    bool needWord = false;
     bool doPropagateCase = false;
     EUppercaseStyle uppercaseStyle = EUppercaseStyle::FIRST_LETTER;
-    bool isFullComposite = false;
+    bool needFullComposite = false;
     bool doKeepComposite = false;
     bool isKorEngInsensitive = false;
 };

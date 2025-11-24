@@ -1,9 +1,9 @@
 ﻿#include <doctest.h>
 
-#include "Typoon/trigger_tree/Letter.h"
-
 #include <algorithm>
 #include <random>
+
+#include "Typoon/trigger_tree/Letter.h"
 
 #include "util/DocTestWStringSupport.h"
 

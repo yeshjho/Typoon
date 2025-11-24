@@ -75,6 +75,7 @@ TEST_SUITE("Logger")
             std::getline(file, logOutput);
             logOutput.push_back(L'\n');
             check_log(logOutput, ELogLevel::WARNING, expected);
+            std::filesystem::remove(filePath);
         }
 
         SUBCASE("로그 레벨 필터링")
