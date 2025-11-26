@@ -23,10 +23,10 @@ enum class EReplaceType : std::uint8_t
 struct Match
 {
     std::vector<std::wstring> triggers;
-    EReplaceType replaceType;
+    EReplaceType replaceType = EReplaceType::TEXT;
     std::wstring replace;
 
-    core::Options options;
+    core::Options options{};
 };
 
 }
