@@ -70,11 +70,13 @@ TEST_SUITE("Logger")
                 logger.LogWarning(expected);
             }
 
-            std::wifstream file{ filePath };
-            std::wstring logOutput;
-            std::getline(file, logOutput);
-            logOutput.push_back(L'\n');
-            check_log(logOutput, ELogLevel::WARNING, expected);
+            {
+                std::wifstream file{ filePath };
+                std::wstring logOutput;
+                std::getline(file, logOutput);
+                logOutput.push_back(L'\n');
+                check_log(logOutput, ELogLevel::WARNING, expected);
+            }
             std::filesystem::remove(filePath);
         }
 

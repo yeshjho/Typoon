@@ -47,22 +47,33 @@ public:
     explicit Letter(wchar_t letter, bool isCaseSensitive = false, bool doNeedFullComposite = false);
 
 public:
-    [[nodiscard]] bool operator==(wchar_t ch) const;
-    [[nodiscard]] bool operator==(const Letter& other) const;
+    // std::map에서 key값 비교할 때 사용.
+    [[nodiscard]] bool operator<(const Letter& other) const;
 
-    [[nodiscard]] std::strong_ordering operator<=>(const Letter& other) const;
+    // Matcher에서 Input과 비교할 때 사용.
+    [[nodiscard]] bool operator==(wchar_t ch) const;
+    // Matcher에서 Input과 equivalent한 글자들 범위 구할 때 사용.
+    [[nodiscard]] bool operator<(wchar_t ch) const;
+    friend bool operator<(wchar_t ch, const Letter& letter);
+
+    [[nodiscard]] bool operator==(const Letter&) const = default;
 
 public:
     [[nodiscard]] wchar_t GetLetter() const { return mLetter; }
-    [[nodiscard]] bool IsIsCaseSensitive() const { return mIsCaseSensitive; }
+    [[nodiscard]] wchar_t GetLetterLowered() const { return mLetterLowered; }
+    [[nodiscard]] bool IsCaseSensitive() const { return mIsCaseSensitive; }
     [[nodiscard]] bool DoNeedFullComposite() const { return mDoNeedFullComposite; }
+    [[nodiscard]] bool IsSpecial() const { return mIsSpecial; }
 
 private:
-    wchar_t mLetter = 0;
-    wchar_t mLetterLowered = 0;
-    bool mIsCased = false;
     bool mIsCaseSensitive = false;
+    wchar_t mLetterLowered = 0;
+    wchar_t mLetter = 0;  // mIsCaseSensitive가 false이면 mLetterLowered와 동일
     bool mDoNeedFullComposite = false;
+    bool mIsSpecial = false;
 };
+
+
+[[nodiscard]] bool operator<(wchar_t ch, const Letter& letter);
 
 }

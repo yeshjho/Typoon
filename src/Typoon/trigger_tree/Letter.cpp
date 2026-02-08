@@ -1,7 +1,9 @@
 ﻿#include "Letter.h"
 
 #include <cwctype>
+#include <tuple>
 
+#include "util/Assert.h"
 #include "util/String.h"
 
 
@@ -9,12 +11,25 @@ namespace typoon::core
 {
 
 Letter::Letter(const wchar_t letter, const bool isCaseSensitive, const bool doNeedFullComposite)
-    : mLetter(letter)
+    : mIsCaseSensitive(isCaseSensitive && util::is_latin_alphabet(letter))
     , mLetterLowered(std::towlower(letter))
-    , mIsCased(util::is_latin_alphabet(letter))
-    , mIsCaseSensitive(isCaseSensitive && mIsCased)
+    , mLetter(mIsCaseSensitive ? letter : mLetterLowered)
     , mDoNeedFullComposite(doNeedFullComposite)
-{}
+    , mIsSpecial(letter == NON_WORD_LETTER)
+{
+}
+
+bool Letter::operator<(const Letter& other) const
+{
+    // 특수 문자 (같은 특수문자끼리는 값순으로 정렬) <
+    // A(대소문자 구별) < a(대소문자 구별 안 함) < a(대소문자 구별) <
+    // B(대소문자 구별) < b(대소문자 구별 안 함) < b(대소문자 구별) ...
+
+    return
+        std::make_tuple(!mIsSpecial, mLetterLowered, mLetter, mIsCaseSensitive)
+        <
+        std::make_tuple(!other.mIsSpecial, other.mLetterLowered, other.mLetter, other.mIsCaseSensitive);
+}
 
 bool Letter::operator==(const wchar_t ch) const
 {
@@ -31,43 +46,61 @@ bool Letter::operator==(const wchar_t ch) const
     return mLetterLowered == std::towlower(ch);
 }
 
-bool Letter::operator==(const Letter& other) const
+bool Letter::operator<(const wchar_t ch) const
 {
-    if (mLetter == other.mLetter)
+    ASSERT(Letter{ ch }.mIsSpecial == false);
+
+    // 특수 문자인 경우 항상 true 반환 (특수 문자는 == 체크에서만 사용)
+    //            A와 equivalent
+    // ┌----------------------------------┐
+    // A(대소문자 구별) < a(대소문자 구별 안 함) < a(대소문자 구별)
+    //                  └----------------------------------┘
+    //                              a와 equivalent
+
+    if (mIsSpecial)
     {
-        // 대소문자 구별 여부도 equality에 영향을 미침
-        return mIsCaseSensitive == other.mIsCaseSensitive;
+        return true;
     }
 
-    if (mIsCaseSensitive || other.mIsCaseSensitive)
+    if (const std::strong_ordering letterLoweredComp = mLetterLowered <=> std::towlower(ch);
+        letterLoweredComp != std::strong_ordering::equal)
+    {
+        return letterLoweredComp == std::strong_ordering::less;
+    }
+
+    if (mIsCaseSensitive)
+    {
+        return mLetter < ch;
+    }
+    else
+    {
+        return false;
+    }
+}
+
+bool operator<(const wchar_t ch, const Letter& letter)
+{
+    ASSERT(Letter{ ch }.mIsSpecial == false);
+
+    if (letter.mIsSpecial)
     {
         return false;
     }
 
-    return mLetterLowered == other.mLetterLowered;
-}
-
-std::strong_ordering Letter::operator<=>(const Letter& other) const
-{
-    // 대소문자 구별하지 않고 같은 문자 -> 대소문자 구별 여부 -> 실제 문자 순으로 정렬
-
-    if (mIsCased)
+    if (const std::strong_ordering letterLoweredComp = std::towlower(ch) <=> letter.mLetterLowered;
+        letterLoweredComp != std::strong_ordering::equal)
     {
-        if (const std::strong_ordering comp = mLetterLowered <=> other.mLetterLowered;
-            comp != std::strong_ordering::equal)
-        {
-            return comp;
-        }
-
-        // 대소문자 구별하는 경우가 앞에 오도록하기 위해 other <=> self
-        if (const std::strong_ordering comp = other.mIsCaseSensitive <=> mIsCaseSensitive;
-            comp != std::strong_ordering::equal)
-        {
-            return comp;
-        }
+        return letterLoweredComp == std::strong_ordering::less;
     }
 
-    return mLetter <=> other.mLetter;
+    if (letter.mIsCaseSensitive)
+    {
+        return ch < letter.mLetter;
+    }
+    else
+    {
+        return false;
+    }
 }
 
 }
