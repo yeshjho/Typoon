@@ -15,6 +15,7 @@ OptionContainerForParse& OptionContainerForParse::operator|=(const OptionContain
     full_composite |= other.full_composite;
     keep_composite |= other.keep_composite;
     kor_eng_insensitive |= other.kor_eng_insensitive;
+    paste_to_replace |= other.paste_to_replace;
 
     return *this;
 }
@@ -33,6 +34,7 @@ MatchForParse::operator Match() const
         .doNeedFullComposite = full_composite,
         .doKeepComposite = keep_composite,
         .isKorEngInsensitive = kor_eng_insensitive,
+        .doPasteToReplace = paste_to_replace,
     };
 
     if (!triggers.empty())

@@ -162,7 +162,7 @@ void TriggerTree::Reconstruct(std::string_view matchesString, std::function<void
         {
             const auto& [originalTriggers, originalReplace, replaceImage, replaceCommand,
                 isCaseSensitive, isWord, doPropagateCase, uppercaseStyle, 
-                doNeedFullComposite, doKeepComposite, isKorEngInsensitive] = match;
+                doNeedFullComposite, doKeepComposite, isKorEngInsensitive, doPasteToReplace] = match;
 
             std::vector<std::wstring> triggers;
             if (isKorEngInsensitive)
@@ -209,7 +209,8 @@ void TriggerTree::Reconstruct(std::string_view matchesString, std::function<void
                 // TODO: Abstract the extra conditions of the options and warn the user if ignored
                 .propagateCase = doPropagateCase && !isCaseSensitive && replaceType == Ending::EReplaceType::TEXT,
                 .uppercaseStyle = uppercaseStyle,
-                .keepComposite = doKeepComposite && is_korean(replace.back()) && replaceType == Ending::EReplaceType::TEXT,
+                .keepComposite = doKeepComposite && is_korean(replace.back()) && replaceType == Ending::EReplaceType::TEXT && !doPasteToReplace,
+                .pasteToReplace = doPasteToReplace || replaceType == Ending::EReplaceType::IMAGE,
             };
 
             const EndingMetaData endingMetaDataBase{
@@ -617,7 +618,7 @@ void TriggerTree::OnInput(const InputMessage(&inputs)[MAX_INPUT_COUNT], int leng
 void TriggerTree::replaceString(const Ending& ending, const Agent& agent, std::wstring_view stroke, const InputMessage(&inputs)[MAX_INPUT_COUNT], int inputLength, int inputIndex, bool doNeedFullComposite)
 {
     const auto& [replaceStringIndex, replaceType, replaceStringLength, backspaceCount, cursorMoveCount,
-        propagateCase, uppercaseStyle, keepComposite] = ending;
+        propagateCase, uppercaseStyle, keepComposite, pasteToReplace] = ending;
 
     const std::wstring_view originalReplaceString{ mReplaceStrings.data() + replaceStringIndex, replaceStringLength };
 
@@ -646,10 +647,20 @@ void TriggerTree::replaceString(const Ending& ending, const Agent& agent, std::w
     {
         std::vector<FakeInput> fakeInputs{ backspaceCount, FakeInput{ FakeInput::EType::KEY, FakeInput::BACKSPACE_KEY } };
         const auto& [str, ret] = run_command_and_get_output(originalReplaceString);
-        fakeInputs.reserve(fakeInputs.size() + str.size());
-        for (wchar_t c : str)
+        if (pasteToReplace)
         {
-            fakeInputs.emplace_back(FakeInput::EType::LETTER, c);
+            push_current_clipboard_state();
+            set_clipboard_text(str);
+            // Popping the clipboard state is done in main.
+            fakeInputs.emplace_back(FakeInput::EType::HOT_KEY_PASTE);
+        }
+        else
+        {
+            fakeInputs.reserve(fakeInputs.size() + str.size());
+            for (wchar_t c : str)
+            {
+                fakeInputs.emplace_back(FakeInput::EType::LETTER, c);
+            }
         }
         send_fake_inputs(fakeInputs, false);
         return;
@@ -819,6 +830,28 @@ void TriggerTree::replaceString(const Ending& ending, const Agent& agent, std::w
     }
 
     std::fill_n(std::back_inserter(fakeInputs), cursorMoveCount + additionalCursorMoveCount, FakeInput{ FakeInput::EType::KEY, FakeInput::LEFT_ARROW_KEY });
+
+    if (pasteToReplace)
+    {
+        const auto firstLetter = std::ranges::find(fakeInputs, FakeInput::EType::LETTER, &FakeInput::type);
+        const auto end = fakeInputs.end();
+        if (firstLetter != end)
+        {
+            const auto lastLetter = std::find_if(firstLetter, end, [](const FakeInput& input) { return input.type != FakeInput::EType::LETTER; });
+            std::wstring str;
+            str.reserve(std::distance(firstLetter, lastLetter));
+            for (auto it = firstLetter; it != lastLetter; ++it)
+            {
+                str += it->letter;
+            }
+
+            push_current_clipboard_state();
+            set_clipboard_text(str);
+            // Popping the clipboard state is done in main.
+            *firstLetter = FakeInput{ .type = FakeInput::EType::HOT_KEY_PASTE };
+            fakeInputs.erase(firstLetter + 1, lastLetter);
+        }
+    }
 
     for (FakeInput& fakeInput : fakeInputs)
     {

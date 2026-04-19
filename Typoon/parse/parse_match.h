@@ -26,10 +26,11 @@ struct OptionContainerForParse
     bool full_composite = false;
     bool keep_composite = false;
     bool kor_eng_insensitive = false;
+    bool paste_to_replace = false;
 
     OptionContainerForParse& operator|=(const OptionContainerForParse& other);
 
-    JSON5_MEMBERS(case_sensitive, word, propagate_case, uppercase_style, full_composite, keep_composite, kor_eng_insensitive)
+    JSON5_MEMBERS(case_sensitive, word, propagate_case, uppercase_style, full_composite, keep_composite, kor_eng_insensitive, paste_to_replace)
 };
 
 struct MatchForParse : OptionContainerForParse

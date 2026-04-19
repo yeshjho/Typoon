@@ -74,7 +74,8 @@ struct Ending
     unsigned int cursorMoveCount = 0;
     bool propagateCase = false;  // Won't be true if the first letter is not cased.
     Match::EUppercaseStyle uppercaseStyle = Match::EUppercaseStyle::FIRST_LETTER;  // Only used if `propagateCase` is true.
-    bool keepComposite = false;  // Won't be true if the letter is not Korean or need full composite.
+    bool keepComposite = false;  // Won't be true if the letter is not Korean or need full composite or `pasteToReplace` is true.
+    bool pasteToReplace = false;
 };
 
 

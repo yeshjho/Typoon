@@ -23,4 +23,5 @@ struct Match
     bool doNeedFullComposite;
     bool doKeepComposite;
     bool isKorEngInsensitive;
+    bool doPasteToReplace;
 };
