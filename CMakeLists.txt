@@ -285,9 +285,6 @@ function (typoon_add_library name)
 endfunction()
 
 
-add_subdirectory(external/src/yaml-cpp)
-add_subdirectory(external/src/reflect-cpp)
-
 add_subdirectory(src/Typoon)
 if (TYPOON_BUILD_UNITTEST)
     add_subdirectory(src/UnitTests)
