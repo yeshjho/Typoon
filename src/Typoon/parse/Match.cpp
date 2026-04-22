@@ -243,6 +243,11 @@ std::vector<MatchValidateError> Match::Validate(const std::wstring_view cursorPl
                 EMatchValidateErrorType::KEEP_COMPOSITE_RECURSIVE
             );
         }
+
+        if (paste_to_replace)
+        {
+            errors.emplace_back(MatchValidateError{ .type = EMatchValidateErrorType::KEEP_COMPOSITE_WITH_PASTE_TO_REPLACE });
+        }
     }
 
     // kor_eng_insensitive
@@ -358,6 +363,7 @@ bool Match::TryFixUp(const std::wstring_view cursorPlaceholder)
         case EMatchValidateErrorType::KEEP_COMPOSITE_WITH_FULL_COMPOSITE:  // full_composite 우선
         case EMatchValidateErrorType::KEEP_COMPOSITE_CURSOR_NOT_AT_END:
         case EMatchValidateErrorType::KEEP_COMPOSITE_RECURSIVE:
+        case EMatchValidateErrorType::KEEP_COMPOSITE_WITH_PASTE_TO_REPLACE:  // paste_to_replace 우선
             keep_composite = false;
             break;
 

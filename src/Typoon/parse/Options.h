@@ -20,6 +20,7 @@ struct Options
     bool full_composite = false;
     bool keep_composite = false;
     bool kor_eng_insensitive = false;
+    bool paste_to_replace = false;
 
     [[nodiscard]] bool operator==(const Options&) const = default;
     Options& operator|=(const Options& other);

@@ -44,9 +44,12 @@ enum class EMatchValidateErrorType : std::uint8_t
     KEEP_COMPOSITE_WITH_FULL_COMPOSITE,
     KEEP_COMPOSITE_CURSOR_NOT_AT_END,
     KEEP_COMPOSITE_RECURSIVE,
+    KEEP_COMPOSITE_WITH_PASTE_TO_REPLACE,
 
     /// kor_eng_insensitive
     KOR_ENG_INSENSITIVE_NO_HANGEUL_OR_LATIN_ALPHABET,
+
+    /// paste_to_replace
 };
 
 struct MatchValidateError

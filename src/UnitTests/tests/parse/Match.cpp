@@ -1882,6 +1882,58 @@ TEST_SUITE("Match")
             }
         }
 
+        SUBCASE("KEEP_COMPOSITE_WITH_PASTE_TO_REPLACE - Positive")
+        {
+            {
+                Match match{
+                    .trigger = L"@",
+                    .replace = L"#"
+                };
+                match.keep_composite = true;
+                match.paste_to_replace = true;
+
+                check_errors(match, {
+                    { .type = EMatchValidateErrorType::KEEP_COMPOSITE_WITH_PASTE_TO_REPLACE },
+                });
+            }
+        }
+
+        SUBCASE("KEEP_COMPOSITE_WITH_PASTE_TO_REPLACE - Negative")
+        {
+            {
+                Match match{
+                    .trigger = L"@",
+                    .replace = L"#"
+                };
+
+                check_no_errors(match, {
+                    EMatchValidateErrorType::KEEP_COMPOSITE_WITH_PASTE_TO_REPLACE,
+                });
+            }
+            {
+                Match match{
+                    .trigger = L"@",
+                    .replace = L"#"
+                };
+                match.keep_composite = true;
+
+                check_no_errors(match, {
+                    EMatchValidateErrorType::KEEP_COMPOSITE_WITH_PASTE_TO_REPLACE,
+                });
+            }
+            {
+                Match match{
+                    .trigger = L"@",
+                    .replace = L"#"
+                };
+                match.paste_to_replace = true;
+
+                check_no_errors(match, {
+                    EMatchValidateErrorType::KEEP_COMPOSITE_WITH_PASTE_TO_REPLACE,
+                });
+            }
+        }
+
         SUBCASE("KOR_ENG_INSENSITIVE_NO_HANGEUL_OR_LATIN_ALPHABET - Positive")
         {
             {
@@ -2852,6 +2904,30 @@ TEST_SUITE("Match")
 
                 check_errors(match, {
                     { .type = EMatchValidateErrorType::KEEP_COMPOSITE_RECURSIVE, .triggerIndices = { 0 } },
+                }, true);
+
+                check_fixup(match, true, expected);
+            }
+        }
+
+        SUBCASE("KEEP_COMPOSITE_WITH_PASTE_TO_REPLACE")
+        {
+            {
+                Match match{
+                    .trigger = L"가",
+                    .replace = L"나"
+                };
+                match.keep_composite = true;
+                match.paste_to_replace = true;
+
+                Match expected{
+                    .trigger = L"가",
+                    .replace = L"나"
+                };
+                expected.paste_to_replace = true;
+
+                check_errors(match, {
+                    { .type = EMatchValidateErrorType::KEEP_COMPOSITE_WITH_PASTE_TO_REPLACE },
                 }, true);
 
                 check_fixup(match, true, expected);
