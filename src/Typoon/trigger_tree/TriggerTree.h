@@ -13,12 +13,22 @@ namespace typoon::core
 struct Node
 {
     Letter letter{};
+
     int parentIndex = -1;
+
     int childStartIndex = -1;
-    int childLength = 0;
+    int specialChildCount = 0;
+    int childCount = 0;
+
     int endingIndex = -1;
 
     [[nodiscard]] bool operator==(const Node&) const = default;
+};
+
+struct NodeComp
+{
+    [[nodiscard]] bool operator()(const Node& node, const wchar_t ch) const { return node.letter < ch; }
+    [[nodiscard]] bool operator()(const wchar_t ch, const Node& node) const { return ch < node.letter; }
 };
 
 struct Ending

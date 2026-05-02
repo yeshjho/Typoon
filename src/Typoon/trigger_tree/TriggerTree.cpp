@@ -253,7 +253,11 @@ TriggerTree::TriggerTree(const std::span<const core::Match> matches, const std::
             {
                 parent.childStartIndex = index;
             }
-            parent.childLength++;
+            if (tempNode->letter->IsSpecial())
+            {
+                parent.specialChildCount++;
+            }
+            parent.childCount++;
         }
 
         treeHeight = std::max(treeHeight, tempNode->height);
