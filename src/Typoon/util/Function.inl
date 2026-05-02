@@ -3,14 +3,12 @@
 
 namespace typoon::util
 {
-
-template<typename ...TArgType>
-void NullableCallback<TArgType...>::operator()(TArgType... args) const
-{
-    if (*this)
+    template<typename ...TArgType>
+    void NullableCallback<TArgType...>::operator()(TArgType... args) const
     {
-        std::function<void(TArgType...)>::operator()(std::forward<TArgType>(args)...);
+        if (*this)
+        {
+            std::function<void(TArgType...)>::operator()(std::forward<TArgType>(args)...);
+        }
     }
-}
-
 }

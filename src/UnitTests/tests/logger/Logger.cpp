@@ -17,24 +17,22 @@ using typoon::util::Logger;
 
 namespace
 {
+    void check_log(const std::wstring& log, const ELogLevel expectedLogLevel, const std::wstring_view expected)
+    {
+        std::wistringstream ss{ log };
+        ss.ignore(std::numeric_limits<std::streamsize>::max(), L']');  // 타임스탬프 무시
+        ss.ignore(2);  // "] "
 
-void check_log(const std::wstring& log, const ELogLevel expectedLogLevel, const std::wstring_view expected)
-{
-    std::wistringstream ss{ log };
-    ss.ignore(std::numeric_limits<std::streamsize>::max(), L']');  // 타임스탬프 무시
-    ss.ignore(2);  // "] "
+        std::wstring logLevel;
+        std::getline(ss, logLevel, L']');
+        REQUIRE(logLevel == Logger::LOG_LEVEL_STRINGS[std::to_underlying(expectedLogLevel)]);
 
-    std::wstring logLevel;
-    std::getline(ss, logLevel, L']');
-    REQUIRE(logLevel == Logger::LOG_LEVEL_STRINGS[std::to_underlying(expectedLogLevel)]);
+        ss.ignore(1);  // " "
 
-    ss.ignore(1);  // " "
-
-    const std::streampos pos = ss.tellg();
-    const std::wstring_view content = std::wstring_view{ log }.substr(pos, log.size() - static_cast<size_t>(pos) - 1);  // 마지막 \n 무시
-    CHECK(content == expected);
-}
-
+        const std::streampos pos = ss.tellg();
+        const std::wstring_view content = std::wstring_view{ log }.substr(pos, log.size() - static_cast<size_t>(pos) - 1);  // 마지막 \n 무시
+        CHECK(content == expected);
+    }
 }
 
 

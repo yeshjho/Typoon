@@ -16,10 +16,9 @@ using typoon::core::TriggerTreeBuildError;
 
 namespace
 {
-
-constexpr std::wstring_view CURSOR_PLACEHOLDER = L"|_|";
-
+    constexpr std::wstring_view CURSOR_PLACEHOLDER = L"|_|";
 }
+
 
 TEST_SUITE("TriggerTree")
 {
@@ -34,7 +33,7 @@ TEST_SUITE("TriggerTree")
                 },
             };
 
-            const auto lambdaOnError = [](std::span<const TriggerTreeBuildError> error) { CHECK(false); };
+            const auto lambdaOnError = [](std::span<const TriggerTreeBuildError> /*error*/) { CHECK(false); };
 
             const TriggerTree tt{ matches, CURSOR_PLACEHOLDER, lambdaOnError };
 
@@ -43,56 +42,64 @@ TEST_SUITE("TriggerTree")
                     .letter = Letter{},
                     .parentIndex = -1,
                     .childStartIndex = 1,
-                    .childLength = 1,
+                    .specialChildCount = 0,
+                    .childCount = 1,
                     .endingIndex = -1,
                 },
                 Node{
                     .letter = Letter{ L'a' },
                     .parentIndex = 0,
                     .childStartIndex = 2,
-                    .childLength = 1,
+                    .specialChildCount = 0,
+                    .childCount = 1,
                     .endingIndex = -1,
                 },
                 Node{
                     .letter = Letter{ L'b' },
                     .parentIndex = 1,
                     .childStartIndex = 3,
-                    .childLength = 2,
+                    .specialChildCount = 0,
+                    .childCount = 2,
                     .endingIndex = -1,
                 },
                 Node{
                     .letter = Letter{ L'c' },
                     .parentIndex = 2,
                     .childStartIndex = 5,
-                    .childLength = 1,
+                    .specialChildCount = 0,
+                    .childCount = 1,
                     .endingIndex = -1,
                 },
                 Node{
                     .letter = Letter{ L'z' },
                     .parentIndex = 2,
                     .childStartIndex = 6,
-                    .childLength = 1,
+                    .specialChildCount = 0,
+                    .childCount = 1,
                     .endingIndex = -1,
                 },
                 Node{
                     .letter = Letter{ L'd' },
                     .parentIndex = 3,
                     .childStartIndex = 7,
-                    .childLength = 1,
+                    .specialChildCount = 0,
+                    .childCount = 1,
                     .endingIndex = -1,
                 },
                 Node{
                     .letter = Letter{ L'x' },
                     .parentIndex = 4,
                     .childStartIndex = -1,
-                    .childLength = 0,
+                    .specialChildCount = 0,
+                    .childCount = 0,
                     .endingIndex = 0,
                 },
                 Node{
                     .letter = Letter{ L'e' },
                     .parentIndex = 5,
                     .childStartIndex = -1,
-                    .childLength = 0,
+                    .specialChildCount = 0,
+                    .childCount = 0,
                     .endingIndex = 1,
                 },
             };
@@ -115,6 +122,20 @@ TEST_SUITE("TriggerTree")
             CHECK(tt.treeHeight == 5);
             CHECK(std::ranges::equal(tt.endings, expectedEndings));
             CHECK(tt.compiledReplaceStrings == L"def");
+        }
+    }
+
+    TEST_CASE("")
+    {
+        SUBCASE("")
+        {
+            // 예) sensitive: abcd
+            //   insensitive: abc
+            // type: abc -> abc / type: ABC -> abc니까 공존 불가능
+            // 
+            // 예) sensitive: abcd
+            //   insensitive: abcde
+            // type: ABCDE -> abcde / type: abcd -> abcd니까 공존 가능
         }
     }
 }

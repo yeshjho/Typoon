@@ -11,40 +11,38 @@ using typoon::core::Composition;
 
 namespace
 {
-
-void check_compose_letter(const std::wstring_view alphabets, const wchar_t expected)
-{
-    // 이 subcase에서는 ComposeLetter() 함수만을 확인할 것이기 때문에 조합된 글자가 출력되는 일이 없어야 함.
-    const auto lambdaErrorOnCallback = [](wchar_t) { REQUIRE(false); };
-    Composition composition{ lambdaErrorOnCallback };
-
-    for (const wchar_t alphabet : alphabets)
+    void check_compose_letter(const std::wstring_view alphabets, const wchar_t expected)
     {
-        composition.AddAlphabet(alphabet);
+        // 이 subcase에서는 ComposeLetter() 함수만을 확인할 것이기 때문에 조합된 글자가 출력되는 일이 없어야 함.
+        const auto lambdaErrorOnCallback = [](wchar_t) { REQUIRE(false); };
+        Composition composition{ lambdaErrorOnCallback };
+
+        for (const wchar_t alphabet : alphabets)
+        {
+            composition.AddAlphabet(alphabet);
+        }
+
+        CHECK(composition.ComposeLetter() == expected);
     }
 
-    CHECK(composition.ComposeLetter() == expected);
-}
-
-void check_add_alphabet(const std::wstring_view alphabets, const std::wstring_view expected)
-{
-    std::wstring result;
-
-    Composition composition{ [&result](const wchar_t c) { result.push_back(c); } };
-
-    for (const wchar_t alphabet : alphabets)
+    void check_add_alphabet(const std::wstring_view alphabets, const std::wstring_view expected)
     {
-        composition.AddAlphabet(alphabet);
-    }
-    if (const wchar_t lastLetter = composition.ComposeLetter();
-        lastLetter != 0)
-    {
-        result.push_back(lastLetter);
-    }
+        std::wstring result;
 
-    CHECK(result == expected);
-}
+        Composition composition{ [&result](const wchar_t c) { result.push_back(c); } };
 
+        for (const wchar_t alphabet : alphabets)
+        {
+            composition.AddAlphabet(alphabet);
+        }
+        if (const wchar_t lastLetter = composition.ComposeLetter();
+            lastLetter != 0)
+        {
+            result.push_back(lastLetter);
+        }
+
+        CHECK(result == expected);
+    }
 }
 
 

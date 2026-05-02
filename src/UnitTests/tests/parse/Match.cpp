@@ -12,52 +12,50 @@ using typoon::parse::MatchValidateError;
 
 namespace
 {
+    constexpr std::wstring_view CURSOR_PLACEHOLDER = L"|_|";
 
-constexpr std::wstring_view CURSOR_PLACEHOLDER = L"|_|";
-
-template<std::ranges::range T = std::initializer_list<MatchValidateError>>
-    requires std::convertible_to<std::ranges::range_value_t<T>, MatchValidateError>
-void check_errors(const Match& match, const T& expected, const bool isExhaustive = false)
-{
-    std::vector<MatchValidateError> errors = match.Validate(CURSOR_PLACEHOLDER);
-
-    for (const MatchValidateError& error : expected)
+    template<std::ranges::range T = std::initializer_list<MatchValidateError>>
+        requires std::convertible_to<std::ranges::range_value_t<T>, MatchValidateError>
+    void check_errors(const Match& match, const T& expected, const bool isExhaustive = false)
     {
-        const auto it = std::ranges::find(errors, error);
-        CHECK(it != errors.end());
-        errors.erase(it);
+        std::vector<MatchValidateError> errors = match.Validate(CURSOR_PLACEHOLDER);
+
+        for (const MatchValidateError& error : expected)
+        {
+            const auto it = std::ranges::find(errors, error);
+            CHECK(it != errors.end());
+            errors.erase(it);
+        }
+
+        if (isExhaustive)
+        {
+            CHECK(errors.empty());
+        }
     }
 
-    if (isExhaustive)
+    template<std::ranges::range T = std::initializer_list<EMatchValidateErrorType>>
+        requires std::convertible_to<std::ranges::range_value_t<T>, EMatchValidateErrorType>
+    void check_no_errors(const Match& match, const T& unexpected)
     {
-        CHECK(errors.empty());
+        std::vector<MatchValidateError> errors = match.Validate(CURSOR_PLACEHOLDER);
+
+        for (const EMatchValidateErrorType& errorType : unexpected)
+        {
+            const auto it = 
+                std::ranges::find_if(errors, [errorType](const MatchValidateError& error) { return error.type == errorType; });
+            CHECK(it == errors.end());
+        }
     }
-}
 
-template<std::ranges::range T = std::initializer_list<EMatchValidateErrorType>>
-    requires std::convertible_to<std::ranges::range_value_t<T>, EMatchValidateErrorType>
-void check_no_errors(const Match& match, const T& unexpected)
-{
-    std::vector<MatchValidateError> errors = match.Validate(CURSOR_PLACEHOLDER);
-
-    for (const EMatchValidateErrorType& errorType : unexpected)
+    void check_fixup(Match& match, const bool shouldBeRecoverable, const Match& expected = {})
     {
-        const auto it = 
-            std::ranges::find_if(errors, [errorType](const MatchValidateError& error) { return error.type == errorType; });
-        CHECK(it == errors.end());
+        const bool didRecover = match.TryFixUp(CURSOR_PLACEHOLDER);
+        CHECK(didRecover == shouldBeRecoverable);
+        if (shouldBeRecoverable)
+        {
+            CHECK(match == expected);
+        }
     }
-}
-
-void check_fixup(Match& match, const bool shouldBeRecoverable, const Match& expected = {})
-{
-    const bool didRecover = match.TryFixUp(CURSOR_PLACEHOLDER);
-    CHECK(didRecover == shouldBeRecoverable);
-    if (shouldBeRecoverable)
-    {
-        CHECK(match == expected);
-    }
-}
-
 }
 
 TEST_SUITE("Match")
