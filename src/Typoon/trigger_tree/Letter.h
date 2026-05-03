@@ -1,6 +1,17 @@
 ﻿#pragma once
 #include <compare>
 
+#ifdef __cpp_lib_inplace_vector 
+#include <inplace_vector>
+#else
+#include <vector>
+namespace std
+{
+    template<typename T, size_t N>
+    using inplace_vector = std::vector<T>;
+}
+#endif
+
 
 namespace typoon::core
 {
@@ -47,15 +58,24 @@ namespace typoon::core
 
     public:
         // std::map에서 key값 비교할 때 사용.
-        [[nodiscard]] bool operator<(const Letter& other) const;
+        bool operator<(const Letter& other) const;
 
         // Matcher에서 Input과 비교할 때 사용.
-        [[nodiscard]] bool operator==(wchar_t ch) const;
+        bool operator==(wchar_t ch) const;
+
+        // 이 Letter의 wchar_t와의 동등관계에 대한 포함집합 Letter들을 반환. 즉 이 Letter와 ==한 모든 wchar_t에 대해 똑같이 ==한 Letter들의 모음.
+        // mDoNeedFullComposite은 ==(wchar_t)에 영향을 미치지 않으므로 여기에서도 제외됨.
+        // 트리거의 도달 가능성 여부를 판단할 때 사용.
+        [[nodiscard]] std::inplace_vector<Letter, 2> GetSupersetLetters() const;
+        // GetSupersetLetters 참고. 부분집합을 반환.
+        // 단, NON_WORD_LETTER의 경우 원소가 너무 많고, 사용 용도에 있어 의미가 없기 때문에 빈 배열을 반환함.
+        [[nodiscard]] std::inplace_vector<Letter, 3> GetSubsetLetters() const;
+
         // Matcher에서 Input과 equivalent한 글자들 범위 구할 때 사용.
-        [[nodiscard]] bool operator<(wchar_t ch) const;
+        bool operator<(wchar_t ch) const;
         friend bool operator<(wchar_t ch, const Letter& letter);
 
-        [[nodiscard]] bool operator==(const Letter&) const = default;
+        bool operator==(const Letter&) const = default;
 
     public:
         [[nodiscard]] wchar_t GetLetter() const { return mLetter; }
@@ -73,5 +93,5 @@ namespace typoon::core
     };
 
 
-    [[nodiscard]] bool operator<(wchar_t ch, const Letter& letter);
+    bool operator<(wchar_t ch, const Letter& letter);
 }

@@ -45,6 +45,45 @@ namespace typoon::core
         return mLetterLowered == std::towlower(ch);
     }
 
+    std::inplace_vector<Letter, 2> Letter::GetSupersetLetters() const
+    {
+        if (mLetter == NON_WORD_LETTER)
+        {
+            return { *this };
+        }
+
+        if (!std::iswalnum(mLetter))
+        {
+            return { *this, Letter{ NON_WORD_LETTER } };
+        }
+
+        if (!util::is_latin_alphabet(mLetter) || !mIsCaseSensitive)
+        {
+            return { *this };
+        }
+        else
+        {
+            return { *this, Letter{ mLetter, false } };
+        }
+    }
+
+    std::inplace_vector<Letter, 3> Letter::GetSubsetLetters() const
+    {
+        if (mLetter == NON_WORD_LETTER)
+        {
+            return {};
+        }
+
+        if (!std::iswalnum(mLetter) || !util::is_latin_alphabet(mLetter) || mIsCaseSensitive)
+        {
+            return { *this };
+        }
+        else
+        {
+            return { *this, Letter{ std::towupper(mLetter), true }, Letter{ mLetterLowered, true } };
+        }
+    }
+
     bool Letter::operator<(const wchar_t ch) const
     {
         ASSERT(Letter{ ch }.mIsSpecial == false);

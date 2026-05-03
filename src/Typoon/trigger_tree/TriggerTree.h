@@ -52,7 +52,9 @@ namespace typoon::core
      */
     struct TriggerTree
     {
-        explicit TriggerTree(std::span<const core::Match> matches, std::wstring_view cursorPlaceholder, 
+        explicit TriggerTree(
+            std::span<const core::Match> matches, 
+            std::wstring_view cursorPlaceholder, 
             const util::NullableCallback<std::span<const TriggerTreeBuildError>>& errorCallback = nullptr);
 
 
@@ -60,10 +62,5 @@ namespace typoon::core
         unsigned int treeHeight = 0;
         std::vector<Ending> endings{};
         std::wstring compiledReplaceStrings{};
-
-
-    private:
-        static std::vector<std::wstring> tryModifyTriggers(const core::Match& match, const core::Options& options);
-        static std::pair<std::wstring, unsigned int> tryModifyReplaceAndGetCursorMoveCount(const core::Match& match, const core::Options& options, std::wstring_view cursorPlaceholder);
     };
 }

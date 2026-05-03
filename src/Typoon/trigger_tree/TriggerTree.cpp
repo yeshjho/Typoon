@@ -1,47 +1,229 @@
 ﻿#include "TriggerTree.h"
 
+#include <deque>
 #include <map>
+#include <optional>
 #include <queue>
 #include <ranges>
+#include <memory>
 
 #include "Letter.h"
 #include "util/Hangeul.h"
+#include "util/String.h"
 
 
-namespace typoon::core
+namespace
 {
     struct TempEnding
     {
         std::wstring_view replace;
-        EReplaceType type = EReplaceType::TEXT;
+        typoon::core::EReplaceType type = typoon::core::EReplaceType::TEXT;
 
         unsigned int backspaceCount = 0;
         unsigned int cursorMoveCount = 0;
 
         bool doPropagateCase = false;
-        EUppercaseStyle uppercaseStyle = EUppercaseStyle::FIRST_LETTER;
+        typoon::core::EUppercaseStyle uppercaseStyle = typoon::core::EUppercaseStyle::FIRST_LETTER;
         bool doKeepComposite = false;
     };
 
     struct TempNode
     {
-        std::map<Letter, TempNode> children{};
+        std::map<typoon::core::Letter, std::unique_ptr<TempNode>> children{};
         TempEnding ending{};
 
         /// 첫 iteration에서 사용
-        const core::Match* match = nullptr;
+        const typoon::core::Match* match = nullptr;
         std::wstring_view trigger{};
 
         /// 두 번째 iteration에서 사용
         int parentIndex = -1;
-        const Letter* letter = nullptr;
+        const typoon::core::Letter* letter = nullptr;
         unsigned int height = 0;
 
         [[nodiscard]] bool IsEndNode() const { return children.empty(); }
     };
 
 
-    TriggerTree::TriggerTree(const std::span<const core::Match> matches, const std::wstring_view cursorPlaceholder,
+    std::vector<std::wstring> TryModifyTriggers(
+        const typoon::core::Match& match, 
+        const typoon::core::Options& options)
+    {
+        std::vector<std::wstring> modifiedTriggers;
+
+        if (!options.isKorEngInsensitive && !options.needWord)
+        {
+            return modifiedTriggers;
+        }
+
+        modifiedTriggers.reserve(match.triggers.size() * (options.isKorEngInsensitive ? 2 : 1));
+
+        for (const std::wstring& trigger : match.triggers)
+        {
+            if (options.isKorEngInsensitive)
+            {
+                // 한글/라틴 알파벳이 섞여 있을 수 있으므로 양방향 변환
+                modifiedTriggers.emplace_back(
+                    typoon::util::combine_hangeul(typoon::util::latin_alphabet_to_hangeul_alphabet(trigger)) +
+                    (options.needWord ? typoon::core::Letter::NON_WORD_LETTER : wchar_t{})
+                );
+                modifiedTriggers.emplace_back(
+                    typoon::util::hangeul_alphabet_to_latin_alphabet(typoon::util::decompose_hangeul(trigger)) +
+                    (options.needWord ? typoon::core::Letter::NON_WORD_LETTER : wchar_t{})
+                );
+            }
+            else if (options.needWord)
+            {
+                modifiedTriggers.emplace_back(trigger + typoon::core::Letter::NON_WORD_LETTER);
+            }
+        }
+
+        return modifiedTriggers;
+    }
+
+    std::pair<std::wstring, unsigned int> TryModifyReplaceAndGetCursorMoveCount(
+        const typoon::core::Match& match, 
+        const typoon::core::Options& options, 
+        const std::wstring_view cursorPlaceholder)
+    {
+        std::wstring modifiedReplace;
+        unsigned int cursorMoveCount = 0;
+
+        if (options.needWord)
+        {
+            modifiedReplace = match.replace + typoon::core::Letter::LAST_INPUT_LETTER;
+        }
+
+        // 이 위에서 replace에 영향을 주는 건 word가 맨 끝에 LAST_INPUT_LETTER를 추가하는 것밖에 없으므로 match.replace에서 찾아도 됨
+        if (const size_t cursorIndex = match.replace.find(cursorPlaceholder);
+            cursorIndex != std::wstring::npos)
+        {
+            if (modifiedReplace.empty())
+            {
+                modifiedReplace = match.replace;
+            }
+            modifiedReplace.erase(cursorIndex, cursorPlaceholder.size());
+
+            cursorMoveCount = static_cast<unsigned int>(modifiedReplace.size() - cursorIndex);
+        }
+
+        return { std::move(modifiedReplace), cursorMoveCount };
+    }
+
+    std::optional<std::pair<const typoon::core::Match*, std::wstring_view>> GetOverridingTrigger(
+        const std::wstring_view trigger, 
+        const bool isCaseSensitive, 
+        const TempNode& root)
+    {
+        // 기본적으로 확인해야 할 사항은 이 트리거의 substring이 또 다른 트리거로 존재하는지이다.
+        // 조금 복잡하게 만드는 요소는 이 트리거의 각 글자마다 해당 Letter가 트리거될 때 똑같이 트리거될 다른 모든 Letter들에 대해 확인해야 한단 것이다.
+        // 예) 기존 트리거: ple (case-insensitive) / 새 트리거: APPLE (case-sensitive)
+        // 기존 트리거는 ple, PLE에 대해 모두 트리거되므로 새 트리거의 PLE를 가린다. 즉, P(c-s)를 추가할 때 p(c-i)까지 확인해야 한다.
+
+        std::vector<const TempNode*> agents;
+        std::vector<const TempNode*> nextAgents;
+
+        for (const wchar_t c : trigger)
+        {
+            for (const typoon::core::Letter& letterToCheck : typoon::core::Letter{ c, isCaseSensitive }.GetSupersetLetters())
+            {
+                if (const auto it = root.children.find(letterToCheck);
+                    it != root.children.end())
+                {
+                    nextAgents.emplace_back(it->second.get());
+                }
+
+                for (const TempNode* agent : agents)
+                {
+                    if (const auto it = agent->children.find(letterToCheck);
+                        it != agent->children.end())
+                    {
+                        nextAgents.emplace_back(it->second.get());
+                    }
+                }
+            }
+
+            agents.clear();
+            std::swap(agents, nextAgents);
+
+            for (const TempNode* agent : agents)
+            {
+                if (!agent->IsEndNode())
+                {
+                    continue;
+                }
+
+                return std::make_pair(agent->match, agent->trigger);
+            }
+        }
+
+        return std::nullopt;
+    }
+
+    std::vector<std::pair<const typoon::core::Match*, std::wstring_view>> GetOverridenTriggers(
+        const std::wstring_view trigger, 
+        const bool isCaseSensitive, 
+        const std::map<typoon::core::Letter, std::deque<const TempNode*>>& nodesPerLetter)
+    {
+        // 복잡한 이유가 위와 조금 다른데, 이 트리거의 Letter가 완벽히 가리는 경우들을 포함해야 한다. 즉 역방향이다.
+        // 당연한 것이, 확인해야 할 상황도 정반대이다. 이 트리거가 또 다른 트리거의 substring인지 확인해야 한다.
+
+        std::vector<const TempNode*> agents;
+        std::vector<const TempNode*> nextAgents;
+
+        for (const typoon::core::Letter& letterToCheck : typoon::core::Letter{ trigger.front(), isCaseSensitive }.GetSubsetLetters())
+        {
+            if (const auto it = nodesPerLetter.find(letterToCheck);
+                it != nodesPerLetter.end())
+            {
+                agents.append_range(it->second);
+            }
+        }
+
+        if (agents.empty())
+        {
+            return {};
+        }
+
+        for (const wchar_t c : trigger.substr(1))
+        {
+            for (const typoon::core::Letter& letterToCheck : typoon::core::Letter{ c, isCaseSensitive }.GetSubsetLetters())
+            {
+                for (const TempNode* agent : agents)
+                {
+                    if (const auto it = agent->children.find(letterToCheck);
+                        it != agent->children.end())
+                    {
+                        nextAgents.emplace_back(it->second.get());
+                    }
+                }
+            }
+
+            agents.clear();
+            std::swap(agents, nextAgents);
+
+            if (agents.empty())
+            {
+                return {};
+            }
+        }
+
+        std::vector<std::pair<const typoon::core::Match*, std::wstring_view>> result;
+        result.reserve(agents.size());
+        for (const TempNode* agent : agents)
+        {
+            result.emplace_back(std::make_pair(agent->match, agent->trigger));
+        }
+        return result;
+    }
+}
+
+
+namespace typoon::core
+{
+    TriggerTree::TriggerTree(
+        const std::span<const core::Match> matches, 
+        const std::wstring_view cursorPlaceholder,
         const util::NullableCallback<std::span<const TriggerTreeBuildError>>& errorCallback)
     {
         // 첫 iteration에서 생성 후 두 번째 iteration까지 string_view로 참조하므로 두 번째 loop를 outlive하고 메모리상 고정돼야 함
@@ -56,6 +238,7 @@ namespace typoon::core
         std::vector<TriggerTreeBuildError> buildErrors;
 
         TempNode root{};
+        std::map<Letter, std::deque<const TempNode*>> nodesPerLetter;
 
         // 첫 iteration. 실제로 사용될 트리거와 대치 텍스트를 생성하고, tree를 건설하며 도달 불가능한 트리거를 솎아냄
         const int matchCount = static_cast<int>(matches.size());
@@ -66,95 +249,37 @@ namespace typoon::core
 
             const core::Options& options = match.options;
 
-            modifiedStringStorage.modifiedTriggers = tryModifyTriggers(match, options);
+            modifiedStringStorage.modifiedTriggers = TryModifyTriggers(match, options);
             unsigned int cursorMoveCount;
-            std::tie(modifiedStringStorage.modifiedReplace, cursorMoveCount) = tryModifyReplaceAndGetCursorMoveCount(match, options, cursorPlaceholder);
+            std::tie(modifiedStringStorage.modifiedReplace, cursorMoveCount) = TryModifyReplaceAndGetCursorMoveCount(match, options, cursorPlaceholder);
 
             std::span<const std::wstring> triggersToUse = modifiedStringStorage.modifiedTriggers.empty() ? match.triggers : modifiedStringStorage.modifiedTriggers;
             std::wstring_view replaceToUse = modifiedStringStorage.modifiedReplace.empty() ? match.replace : modifiedStringStorage.modifiedReplace;
 
             for (const std::wstring_view trigger : triggersToUse)
             {
-                TempNode* currentNode = &root;
-
-                bool isUnreachable = false;
-                for (const wchar_t c : trigger | std::views::take(trigger.size() - 1))
+                // 1. 이 트리거가 도달 가능한지 확인
+                if (const auto overridingTrigger = GetOverridingTrigger(trigger, options.isCaseSensitive, root))
                 {
-                    Letter letter{ c, options.isCaseSensitive, false };
-                    TempNode newNode{
-                        .match = &match,
-                        .trigger = trigger
-                    };
-                    auto [it, isNew] = currentNode->children.try_emplace(letter, std::move(newNode));
-                    auto& [_, node] = *it;
-
-                    // 동일한 글자가 존재하는데 그 글자가 한 트리거의 마지막 문자라면 이 트리거는 도달 불가능
-                    if (!isNew && node.IsEndNode())
-                    {
-                        buildErrors.emplace_back(TriggerTreeBuildError{
-                            .type = ETriggerTreeBuildErrorType::UNREACHABLE_TRIGGER,
-                            .match = &match,
-                            .trigger = trigger,
-                            .otherMatch = currentNode->match,
-                            .otherTrigger = currentNode->trigger,
-                        });
-                        isUnreachable = true;
-                        break;
-                    }
-
-                    currentNode = &node;
-                }
-                if (isUnreachable)
-                {
+                    const auto [otherMatch, otherTrigger] = overridingTrigger.value();
+                    buildErrors.emplace_back(ETriggerTreeBuildErrorType::UNREACHABLE_TRIGGER, &match, trigger, otherMatch, otherTrigger);
                     continue;
                 }
 
-                Letter lastLetter{ trigger.back(), options.isCaseSensitive, options.needFullComposite };
-                if (const auto it = currentNode->children.find(lastLetter);
-                    it != currentNode->children.end())
+                // 2. 이 트리거로 인해 도달 불가능하게 될 트리거들을 확인
+                if (const auto overridenTriggers = GetOverridenTriggers(trigger, options.isCaseSensitive, nodesPerLetter);
+                    !overridenTriggers.empty())
                 {
-                    auto& [_, node] = *it;
-
-                    // 이미 다른 end node가 존재하는 경우 기존 것을 유지 (두 트리거가 완전 동일한 경우임)
-                    if (node.IsEndNode())
+                    for (const auto [otherMatch, otherTrigger] : overridenTriggers)
                     {
-                        buildErrors.emplace_back(TriggerTreeBuildError{
-                            .type = ETriggerTreeBuildErrorType::IDENTICAL_TRIGGER,
-                            .match = &match,
-                            .trigger = trigger,
-                            .otherMatch = currentNode->match,
-                            .otherTrigger = currentNode->trigger,
-                        });
-                        continue;
+                        buildErrors.emplace_back(ETriggerTreeBuildErrorType::UNREACHABLE_TRIGGER, otherMatch, otherTrigger, &match, trigger);
                     }
 
-                    // end node가 아닐 경우 다른 트리거들이 이 트리거에 의해 도달하지 못하게 된다는 뜻이므로 traverse하며 build error에 추가
-                    std::queue<const TempNode*> staleNodes;
-                    staleNodes.push(&node);
-                    while (!staleNodes.empty())
-                    {
-                        const TempNode* childNode = staleNodes.front();
-                        staleNodes.pop();
-
-                        if (childNode->IsEndNode())
-                        {
-                            buildErrors.emplace_back(TriggerTreeBuildError{
-                                .type = ETriggerTreeBuildErrorType::UNREACHABLE_TRIGGER,
-                                .match = childNode->match,
-                                .trigger = childNode->trigger,
-                                .otherMatch = &match,
-                                .otherTrigger = trigger,
-                            });
-                        }
-                        else
-                        {
-                            for (const TempNode& child : childNode->children | std::views::values)
-                            {
-                                staleNodes.push(&child);
-                            }
-                        }
-                    }
+                    // 굳이 도달 불가능해진 트리거들의 노드를 지우려고 하진 않는다.
+                    // 다른 도달 가능한 트리거에 쓰이는지 확인도 귀찮을뿐더러 웬만하면 매치 파일을 수정하고 다시 빌드할 것이기 때문.
                 }
+
+                // 3. 트리거를 트리에 삽입
 
                 // 마지막 문자가 한글일 경우 지우는 데 백스페이스를 여러 번 눌러야 할 수 있음
                 const wchar_t triggerLastLetter = trigger.back();
@@ -182,7 +307,38 @@ namespace typoon::core
                     .match = &match,
                     .trigger = trigger,
                 };
-                currentNode->children[lastLetter] = std::move(endNode);
+
+                TempNode* currentNode = &root;
+                for (const wchar_t c : trigger.substr(0, trigger.size() - 1))
+                {
+                    const Letter letter{ c, options.isCaseSensitive };
+                    if (!currentNode->children.contains(letter))
+                    {
+                        TempNode node{
+                            .match = &match,
+                            .trigger = trigger
+                        };
+
+                        auto newNode = std::make_unique<TempNode>(std::move(node));
+                        nodesPerLetter[letter].emplace_back(newNode.get());
+
+                        currentNode->children[letter] = std::move(newNode);
+                    }
+
+                    currentNode = currentNode->children.at(letter).get();
+                }
+
+                const Letter lastLetter{ trigger.back(), options.isCaseSensitive, options.needFullComposite };
+
+                auto newNode = std::make_unique<TempNode>(std::move(endNode));
+                nodesPerLetter[lastLetter].emplace_back(newNode.get());
+
+                if (const auto it = currentNode->children.find(lastLetter);
+                    it != currentNode->children.end())
+                {
+                    std::erase(nodesPerLetter[lastLetter], it->second.get());
+                }
+                currentNode->children[lastLetter] = std::move(newNode);
             }
         }
 
@@ -264,71 +420,11 @@ namespace typoon::core
             // 자식들에게 정보를 미리 저장
             for (auto& [letter, child] : tempNode->children)
             {
-                child.parentIndex = index;
-                child.letter = &letter;
-                child.height = tempNode->height + 1;
-                nodes.push(&child);
+                child->parentIndex = index;
+                child->letter = &letter;
+                child->height = tempNode->height + 1;
+                nodes.push(child.get());
             }
         }
-    }
-
-    std::vector<std::wstring> TriggerTree::tryModifyTriggers(const core::Match& match, const core::Options& options)
-    {
-        std::vector<std::wstring> modifiedTriggers;
-
-        if (!options.isKorEngInsensitive && !options.needWord)
-        {
-            return modifiedTriggers;
-        }
-
-        modifiedTriggers.reserve(match.triggers.size() * (options.isKorEngInsensitive ? 2 : 1));
-
-        for (const std::wstring& trigger : match.triggers)
-        {
-            if (options.isKorEngInsensitive)
-            {
-                // 한글/라틴 알파벳이 섞여 있을 수 있으므로 양방향 변환
-                modifiedTriggers.emplace_back(
-                    util::combine_hangeul(util::latin_alphabet_to_hangeul_alphabet(trigger)) +
-                    (options.needWord ? Letter::NON_WORD_LETTER : wchar_t{})
-                );
-                modifiedTriggers.emplace_back(
-                    util::hangeul_alphabet_to_latin_alphabet(util::decompose_hangeul(trigger)) +
-                    (options.needWord ? Letter::NON_WORD_LETTER : wchar_t{})
-                );
-            }
-            else if (options.needWord)
-            {
-                modifiedTriggers.emplace_back(trigger + Letter::NON_WORD_LETTER);
-            }
-        }
-
-        return modifiedTriggers;
-    }
-
-    std::pair<std::wstring, unsigned int> TriggerTree::tryModifyReplaceAndGetCursorMoveCount(const core::Match& match, const core::Options& options, const std::wstring_view cursorPlaceholder)
-    {
-        std::wstring modifiedReplace;
-        unsigned int cursorMoveCount = 0;
-
-        if (options.needWord)
-        {
-            modifiedReplace = match.replace + Letter::LAST_INPUT_LETTER;
-        }
-
-        // 이 위에서 replace에 영향을 주는 건 word가 맨 끝에 LAST_INPUT_LETTER를 추가하는 것밖에 없으므로 match.replace에서 찾아도 됨
-        if (const size_t cursorIndex = match.replace.find(cursorPlaceholder);
-            cursorIndex != std::wstring::npos)
-        {
-            if (modifiedReplace.empty())
-            {
-                modifiedReplace = match.replace;
-            }
-            modifiedReplace.erase(cursorIndex, cursorPlaceholder.size());
-
-            cursorMoveCount = static_cast<unsigned int>(modifiedReplace.size() - cursorIndex);
-        }
-
-        return { std::move(modifiedReplace), cursorMoveCount };
     }
 }

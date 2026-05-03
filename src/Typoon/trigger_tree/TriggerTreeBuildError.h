@@ -11,7 +11,6 @@ namespace typoon::core
     enum class ETriggerTreeBuildErrorType : std::uint8_t
     {
         UNREACHABLE_TRIGGER,
-        IDENTICAL_TRIGGER,
     };
 
 
