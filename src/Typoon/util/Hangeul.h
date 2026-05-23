@@ -29,24 +29,24 @@ namespace typoon::util
     /**
      * @brief 주어진 문자가 한글 자음인지 확인
      */
-    [[nodiscard]] bool is_hangeul_consonant(wchar_t ch);
+    [[nodiscard]] constexpr bool is_hangeul_consonant(wchar_t ch);
     /**
      * @brief 주어진 문자가 한글 모음인지 확인
      */
-    [[nodiscard]] bool is_hangeul_vowel(wchar_t ch);
+    [[nodiscard]] constexpr bool is_hangeul_vowel(wchar_t ch);
     /**
      * @brief 주어진 문자가 한글 낱자인지 확인
      */
-    [[nodiscard]] bool is_hangeul_alphabet(wchar_t ch);
+    [[nodiscard]] constexpr bool is_hangeul_alphabet(wchar_t ch);
 
     /**
      * @brief 주어진 문자가 조합된 한글 글자인지 확인 (가~힣)
      */
-    [[nodiscard]] bool is_hangeul_composite(wchar_t ch);
+    [[nodiscard]] constexpr bool is_hangeul_composite(wchar_t ch);
     /**
      * @brief 주어진 문자가 한글 글자인지 확인
      */
-    [[nodiscard]] bool is_hangeul(wchar_t ch);
+    [[nodiscard]] constexpr bool is_hangeul(wchar_t ch);
 
 
     /**
@@ -73,3 +73,6 @@ namespace typoon::util
      */
     std::wstring hangeul_alphabet_to_latin_alphabet(std::wstring_view str);
 }
+
+
+#include "Hangeul.inl"

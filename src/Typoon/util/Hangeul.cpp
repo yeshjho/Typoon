@@ -5,31 +5,6 @@
 
 namespace typoon::util
 {
-    bool is_hangeul_consonant(const wchar_t ch)
-    {
-        return L'ㄱ' <= ch && ch <= L'ㅎ';
-    }
-
-    bool is_hangeul_vowel(const wchar_t ch)
-    {
-        return L'ㅏ' <= ch && ch <= L'ㅣ';
-    }
-
-    bool is_hangeul_alphabet(const wchar_t ch)
-    {
-        return is_hangeul_consonant(ch) || is_hangeul_vowel(ch);
-    }
-
-    bool is_hangeul_composite(const wchar_t ch)
-    {
-        return L'가' <= ch && ch <= L'힣';
-    }
-
-    bool is_hangeul(const wchar_t ch)
-    {
-        return is_hangeul_composite(ch) || is_hangeul_alphabet(ch);
-    }
-
     std::wstring decompose_hangeul(const std::wstring_view str)
     {
         constexpr int lettersOfAnInitial = std::size(DECOMPOSED_MEDIAL_MAP) * std::size(DECOMPOSED_FINAL_MAP);
