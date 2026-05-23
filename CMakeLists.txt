@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 4.0)
+﻿cmake_minimum_required(VERSION 3.16)
 project(Typoon
     VERSION 1.0.0
     DESCRIPTION "A text expander that properly supports Korean typing system."
@@ -42,7 +42,11 @@ if (TYPOON_CXX_STANDARD STREQUAL "26")
     if (TYPOON_COMPILER_MSVC)
         add_compile_options(/std:c++latest)
     elseif (TYPOON_COMPILER_GNU OR TYPOON_COMPILER_CLANG)
-        add_compile_options(-std=c++2c)
+        add_compile_options(-std=c++26)
+    endif()
+
+    if (TYPOON_COMPILER_GNU)
+        add_compile_options(-freflection)
     endif()
 else()
     set(CMAKE_CXX_STANDARD ${TYPOON_CXX_STANDARD})
@@ -190,7 +194,7 @@ function (typoon_target_common_setup target IS_EXTERNAL)
             target_compile_options(${target} PRIVATE $<$<CONFIG:Debug>:-fsanitize=address,undefined,leak>)
             target_link_options(${target} PRIVATE $<$<CONFIG:Debug>:-fsanitize=address,undefined,leak>)
         elseif (TYPOON_COMPILER_MSVC)
-            target_compile_options(${target} PRIVATE $<$<CONFIG:Debug>:/fsanitize=address>)
+            target_compile_options(${target} PRIVATE $<$<CONFIG:Debug>:/fsanitize=address /Zi>)
         endif()
     endif()
 
